@@ -1,0 +1,137 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "jetstream-scout/llama-4-scout",
+
+  "provider": {
+    "jetstream-scout": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Jetstream Llama 4 Scout",
+      "options": {
+        "baseURL": "https://llm.jetstream-cloud.org/llama-4-scout/v1",
+        "apiKey": "x"
+      },
+      "models": {
+        "llama-4-scout": {
+          "name": "Llama 4 Scout"
+        }
+      }
+    },
+
+    "jetstream-gpt": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Jetstream GPT-OSS 120B",
+      "options": {
+        "baseURL": "https://llm.jetstream-cloud.org/gpt-oss-120b/v1",
+        "apiKey": "x"
+      },
+      "models": {
+        "gpt-oss-120b": {
+          "name": "GPT-OSS 120B"
+        }
+      }
+    }
+  },
+
+  "agent": {
+    "extractor": {
+      "description": "Extraction AI stage. Reads content.md via read_section/read_table/read_document_start and reports raw evidence (RawExtraction JSON) for one entity/record. Never touches the filesystem or shell directly, never sees the IR schema, never calls propose_record/commit_record/flag_unresolved -- pipeline/orchestrator.py owns everything downstream of its output.",
+      "prompt": "{file:./opencode-config/agents/extractor.md}",
+      "mode": "primary",
+      "tools": {
+        "edit": false,
+        "bash": false,
+        "write": false,
+        "read": false,
+        "glob": false,
+        "grep": false,
+        "task": false,
+        "webfetch": false,
+        "todowrite": false,
+        "skill": false,
+        "get_schema": false,
+        "lookup_vocab": false,
+        "apply_reconstruction": false,
+        "propose_record": false,
+        "commit_record": false,
+        "flag_unresolved": false
+      },
+      "model": "jetstream-scout/llama-4-scout"
+    },
+
+    "converter": {
+      "description": "Conversion/Reasoning AI stage. Sealed: no content.md read tools at all -- it is shown only the Extraction stage's RawExtraction JSON (passed as prompt content by pipeline/orchestrator.py) and maps it into the exact Sage IR payload shape via get_schema/lookup_vocab/apply_reconstruction. Never calls propose_record/commit_record/flag_unresolved -- the orchestrator validates its output directly against ir_service and owns all retry/commit decisions.",
+      "prompt": "{file:./opencode-config/agents/converter.md}",
+      "mode": "primary",
+      "tools": {
+        "edit": false,
+        "bash": false,
+        "write": false,
+        "read": false,
+        "glob": false,
+        "grep": false,
+        "task": false,
+        "webfetch": false,
+        "todowrite": false,
+        "skill": false,
+        "read_section": false,
+        "read_table": false,
+        "read_document_start": false,
+        "list_sections": false,
+        "read_section_by_path": false,
+        "read_table_row": false,
+        "read_table_cell": false,
+        "read_nearby": false,
+        "propose_record": false,
+        "commit_record": false,
+        "flag_unresolved": false
+      },
+      "model": "jetstream-scout/llama-4-scout"
+    },
+
+    "ir-validator": {
+      "description": "AI Validator stage, OBSERVE-ONLY. Reviews an already deterministically-valid candidate record plus its evidence and cited anchor text (all passed as prompt content by pipeline/orchestrator.py) and returns a plausibility critique. Has no tools at all -- cannot read content.md, cannot call get_schema, and cannot commit, reject, or modify anything.",
+      "prompt": "{file:./opencode-config/agents/ir_validator.md}",
+      "mode": "primary",
+      "tools": {
+        "edit": false,
+        "bash": false,
+        "write": false,
+        "read": false,
+        "glob": false,
+        "grep": false,
+        "task": false,
+        "webfetch": false,
+        "todowrite": false,
+        "skill": false,
+        "get_schema": false,
+        "read_section": false,
+        "read_table": false,
+        "read_document_start": false,
+        "list_sections": false,
+        "read_section_by_path": false,
+        "read_table_row": false,
+        "read_table_cell": false,
+        "read_nearby": false,
+        "lookup_vocab": false,
+        "apply_reconstruction": false,
+        "propose_record": false,
+        "commit_record": false,
+        "flag_unresolved": false
+      },
+      "model": "jetstream-scout/llama-4-scout"
+    },
+
+    "treatment-reasoner": {
+      "description": "Subagent delegated Treatment/Study scoping questions. Same tool restrictions as extractor.",
+      "mode": "subagent",
+      "tools": {
+        "edit": false,
+        "bash": false
+      }
+    }
+  },
+
+  "plugin": [
+    "./opencode-config/plugin/ir-tools.ts"
+  ]
+}
