@@ -1,0 +1,40 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+
+data/marker_output/
+data/raw_papers/
+data/all_papers/
+
+.vscode/
+.idea/
+
+.DS_Store
+*.egg-info/
+.ruff_cache/
+
+# Vendor deps / tool-local runtime state -- never committed, only the
+# manifests (package.json/package-lock.json/tsconfig.json) that define them.
+node_modules/
+src/.opencode/
+
+# Config backups / superseded snapshots -- never the live config itself.
+*.backup/
+*.backup
+*.before-*
+
+# Pipeline runtime output and real paper data -- regenerable / user data,
+# never source code (see src/pipeline/*_store.py's own "authoritative on
+# disk, re-read on demand" docstrings for why these are never committed).
+src/docproc/
+src/paper/
+src/results/
+src/runs/
+src/ir-store/
+src/marker_output/
+src/debug_captures/
+
+# Stray one-off debug droppings at the src/ root.
+/src/*.log
+/src/*.jsonl
