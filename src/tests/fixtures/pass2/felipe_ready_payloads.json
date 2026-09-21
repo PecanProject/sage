@@ -1,0 +1,411 @@
+{
+ "Observation::fruit_hue_mustard": {
+  "id": "Felipe-2010-Cultivar_observation_fruit_hue_mustard",
+  "dataset_id": "Felipe-2010-Cultivar_dataset",
+  "citation_id": "Felipe-2010-Cultivar",
+  "site_id": "Felipe-2010-Cultivar_site_rominger_brothers_farm",
+  "treatment_id": "Felipe-2010-Cultivar_treatment_mustard",
+  "method_id": "Felipe-2010-Cultivar_method_fruit_color",
+  "variable_name": {
+   "value": "fruit hue angle",
+   "provenance_label": "INFERRED",
+   "unresolved_reason": "Variable ID 'Felipe-2010-Cultivar_variable_fruit_hue_angle' indicates the measured variable is fruit hue angle.",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 1,
+    "section_path": [
+     "Results"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0058"
+     }
+    ]
+   }
+  },
+  "value": {
+   "value": {
+    "reported_text": "39.8 degrees hue angle",
+    "reported_numeric_value": 39.8,
+    "reported_units": "degrees"
+   },
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 1,
+    "section_path": [
+     "Results"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0058"
+     }
+    ]
+   }
+  },
+  "reported_effect_scope": {
+   "value": "treatment_mean",
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 1,
+    "section_path": [
+     "Results"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0058"
+     }
+    ]
+   }
+  },
+  "aggregated_over_factors": {
+   "value": [],
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 1,
+    "section_path": [
+     "Results"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0058"
+     }
+    ]
+   }
+  },
+  "temporal_info": {
+   "value": null,
+   "provenance_label": "UNRESOLVED",
+   "unresolved_reason": "No sampling date is reported near the hue angle measurement.",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 1,
+    "section_path": [
+     "Results"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0058"
+     }
+    ]
+   }
+  },
+  "is_raw_replicate_level": {
+   "value": false,
+   "provenance_label": "INFERRED",
+   "unresolved_reason": "The hue angle values are reported per treatment (MCC vs fallow), indicating they are treatment means, not individual replicate measurements.",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 1,
+    "section_path": [
+     "Results"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0058"
+     }
+    ]
+   }
+  }
+ },
+ "Observation::plant_total_nitrogen_fallow": {
+  "id": "Felipe-2010-Cultivar_observation_plant_total_nitrogen_fallow",
+  "dataset_id": "Felipe-2010-Cultivar_dataset",
+  "citation_id": "Felipe-2010-Cultivar",
+  "site_id": "Felipe-2010-Cultivar_site_rominger_brothers_farm",
+  "treatment_id": "Felipe-2010-Cultivar_treatment_fallow",
+  "method_id": "Felipe-2010-Cultivar_method_tomato_total_nitrogen",
+  "variable_id": "Felipe-2010-Cultivar_variable_plant_total_nitrogen_content",
+  "variable_name": {
+   "value": "total aboveground plant nitrogen",
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 0,
+    "section_path": [
+     "Results"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0056"
+     }
+    ]
+   }
+  },
+  "value": {
+   "value": {
+    "reported_text": "18.0\\pm2.0~\\mathrm{kg}~\\mathrm{N~ha^{-1}}",
+    "reported_numeric_value": 18.0,
+    "reported_units": "kg N ha^{-1}"
+   },
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 0,
+    "section_path": [
+     "Results"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0056"
+     }
+    ]
+   }
+  },
+  "reported_effect_scope": {
+   "value": "treatment_mean",
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 0,
+    "section_path": [
+     "Results"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0056"
+     }
+    ]
+   }
+  },
+  "aggregated_over_factors": {
+   "value": [],
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 0,
+    "section_path": [
+     "Results"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0056"
+     }
+    ]
+   }
+  },
+  "temporal_info": {
+   "value": null,
+   "provenance_label": "UNRESOLVED",
+   "unresolved_reason": "No sampling date is provided near the reported value.",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 0,
+    "section_path": [
+     "Results"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0056"
+     }
+    ]
+   }
+  },
+  "is_raw_replicate_level": {
+   "value": false,
+   "provenance_label": "INFERRED",
+   "unresolved_reason": "The value is reported as a treatment mean for the fallow treatment, not an individual replicate measurement.",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 0,
+    "section_path": [
+     "Results"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0056"
+     }
+    ]
+   }
+  }
+ },
+ "Management::seedling_transplanting": {
+  "id": "Felipe-2010-Cultivar_management_seedling_transplanting",
+  "citation_id": "Felipe-2010-Cultivar",
+  "event_type": {
+   "value": "transplanting",
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 0,
+    "section_path": [],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0030"
+     }
+    ],
+    "raw_excerpt": null,
+    "notes": null
+   }
+  },
+  "date": {
+   "value": {
+    "reported_text": "May 18-19 2006",
+    "earliest": "2006-05-18",
+    "latest": "2006-05-19"
+   },
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 0,
+    "section_path": [],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0030"
+     }
+    ],
+    "raw_excerpt": null,
+    "notes": null
+   }
+  },
+  "amount": {
+   "value": {
+    "reported_text": "5760 seedlings",
+    "reported_numeric_value": 5760,
+    "reported_units": "seedlings"
+   },
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 0,
+    "section_path": [],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0030"
+     }
+    ],
+    "raw_excerpt": null,
+    "notes": null
+   }
+  }
+ },
+ "Management::sulfur_application": {
+  "id": "Felipe-2010-Cultivar_management_sulfur_application",
+  "citation_id": "Felipe-2010-Cultivar",
+  "event_type": {
+   "value": "sulfur application",
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 1,
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0030"
+     }
+    ]
+   }
+  },
+  "date": {
+   "value": {
+    "reported_text": "September 7 and 8",
+    "earliest": null,
+    "latest": null,
+    "relative_timing": null,
+    "relative_timing_days": null
+   },
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 1,
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0030"
+     }
+    ]
+   }
+  }
+ },
+ "Management::compost_application": {
+  "id": "Felipe-2010-Cultivar_management_compost_application",
+  "citation_id": "Felipe-2010-Cultivar",
+  "event_type": {
+   "value": "compost application",
+   "provenance_label": "INFERRED",
+   "unresolved_reason": "The text describes compost being applied, indicating a compost application event.",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 1,
+    "section_path": [],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0028"
+     }
+    ],
+    "raw_excerpt": null,
+    "notes": null,
+    "source_priority_tier": null
+   }
+  },
+  "date": {
+   "value": {
+    "reported_text": "Summer/Fall 2005",
+    "earliest": null,
+    "latest": null,
+    "relative_timing": null,
+    "relative_timing_days": null
+   },
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 1,
+    "section_path": [],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0028"
+     }
+    ],
+    "raw_excerpt": null,
+    "notes": null,
+    "source_priority_tier": null
+   }
+  },
+  "amount": {
+   "value": {
+    "reported_text": "17 Mg ha⁻¹",
+    "reported_numeric_value": 17,
+    "reported_units": "Mg ha⁻¹",
+    "unit_basis_notes": null,
+    "converted_value": null,
+    "converted_units": null,
+    "conversion_formula": null,
+    "conversion_rationale": null
+   },
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 1,
+    "section_path": [],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0028"
+     }
+    ],
+    "raw_excerpt": null,
+    "notes": null,
+    "source_priority_tier": null
+   }
+  }
+ }
+}

@@ -51,6 +51,15 @@ def _corrections_path(paper_id: str, root: Optional[Path] = None) -> Path:
     return root / f"{paper_id}.jsonl"
 
 
+def _applies_to_run(entry: dict[str, Any], run_id: Optional[str]) -> bool:
+    """Run isolation: record ids repeat across runs (a candidate slug is the
+    same every time), so a correction made while reviewing run A must not
+    silently apply to run B's record of the same id. An entry with no
+    `run_id` (written before this existed) applies to every run, and a
+    reader that passes no `run_id` sees every entry -- both unchanged."""
+    return run_id is None or entry.get("run_id") in (None, run_id)
+
+
 def append_correction(
     paper_id: str,
     entity_type: str,
@@ -60,6 +69,7 @@ def append_correction(
     payload: Optional[dict[str, Any]] = None,
     reviewer: str = "scientist",
     root: Optional[Path] = None,
+    run_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Record one review action. `field_name` is None for a record-level
     action (e.g. Approve on the whole record); set for a field-level one
@@ -80,6 +90,8 @@ def append_correction(
         "payload": payload or {},
         "reviewer": reviewer,
     }
+    if run_id is not None:
+        entry["run_id"] = run_id
     path = _corrections_path(paper_id, root)
     with path.open("a") as f:
         f.write(json.dumps(entry) + "\n")
@@ -100,7 +112,8 @@ def read_all(paper_id: str, root: Optional[Path] = None) -> list[dict[str, Any]]
 
 
 def read_for_record(
-    paper_id: str, entity_type: str, record_id: str, field_name: Optional[str] = None, root: Optional[Path] = None
+    paper_id: str, entity_type: str, record_id: str, field_name: Optional[str] = None, root: Optional[Path] = None,
+    run_id: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     """All corrections for one record, in chronological order (oldest
     first) -- the caller applies them in order to compute the effective
@@ -111,11 +124,13 @@ def read_for_record(
         e for e in read_all(paper_id, root)
         if e["entity_type"] == entity_type and e["record_id"] == record_id
         and (field_name is None or e["field_name"] in (None, field_name))
+        and _applies_to_run(e, run_id)
     ]
 
 
 def latest_action_for_field(
-    paper_id: str, entity_type: str, record_id: str, field_name: Optional[str], root: Optional[Path] = None
+    paper_id: str, entity_type: str, record_id: str, field_name: Optional[str], root: Optional[Path] = None,
+    run_id: Optional[str] = None,
 ) -> Optional[dict[str, Any]]:
     """The most recent correction entry that applies to this exact field
     (or the whole record, when field_name is None) -- "latest wins", same
@@ -123,5 +138,6 @@ def latest_action_for_field(
     matches = [
         e for e in read_all(paper_id, root)
         if e["entity_type"] == entity_type and e["record_id"] == record_id and e["field_name"] == field_name
+        and _applies_to_run(e, run_id)
     ]
     return matches[-1] if matches else None

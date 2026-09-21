@@ -1,0 +1,104 @@
+{
+ "treatments": [
+  {
+   "record_id": "Felipe-2010-Cultivar_treatment_fallow",
+   "name": "Fallow"
+  },
+  {
+   "record_id": "Felipe-2010-Cultivar_treatment_five_cultivar_mixture",
+   "name": "five cultivars (5-cv)"
+  },
+  {
+   "record_id": "Felipe-2010-Cultivar_treatment_mustard",
+   "name": "Mustard"
+  },
+  {
+   "record_id": "Felipe-2010-Cultivar_treatment_mustard_cover_crop",
+   "name": "mustard cover crop (MCC)"
+  },
+  {
+   "record_id": "Felipe-2010-Cultivar_treatment_one_cultivar_monoculture",
+   "name": "\"choice cultivar\" (AB-2)"
+  },
+  {
+   "record_id": "Felipe-2010-Cultivar_treatment_three_cultivar_mixture",
+   "name": "a mixture of the \"choice cultivar\" plus two more cultivars (CXD-179 and H-8892) used by the same farmer on his other fields (3-cv)"
+  },
+  {
+   "record_id": "Felipe-2010-Cultivar_treatment_winter_fallow",
+   "name": null
+  }
+ ],
+ "events": [
+  {
+   "record_id": "Felipe-2010-Cultivar_management_compost_application",
+   "event_type": "compost application",
+   "anchors": [
+    "b:0028"
+   ]
+  },
+  {
+   "record_id": "Felipe-2010-Cultivar_management_cover_crop_mowing",
+   "event_type": "mowing",
+   "anchors": [
+    "b:0029"
+   ]
+  },
+  {
+   "record_id": "Felipe-2010-Cultivar_management_furrow_irrigation",
+   "event_type": "furrow irrigation",
+   "anchors": [
+    "b:0030"
+   ]
+  },
+  {
+   "record_id": "Felipe-2010-Cultivar_management_laser_leveling",
+   "event_type": "laser leveled",
+   "anchors": [
+    "b:0028"
+   ]
+  },
+  {
+   "record_id": "Felipe-2010-Cultivar_management_manual_weeding",
+   "event_type": "manual weeding",
+   "anchors": [
+    "b:0030"
+   ]
+  },
+  {
+   "record_id": "Felipe-2010-Cultivar_management_mechanical_weeding",
+   "event_type": "mechanical weeding/cultivation",
+   "anchors": [
+    "b:0030"
+   ]
+  },
+  {
+   "record_id": "Felipe-2010-Cultivar_management_mustard_cover_crop_planting",
+   "event_type": "mustard cover crop planting",
+   "anchors": [
+    "b:0028"
+   ]
+  },
+  {
+   "record_id": "Felipe-2010-Cultivar_management_mustard_residue_incorporation",
+   "event_type": "mustard residue incorporation",
+   "anchors": [
+    "b:0029"
+   ]
+  },
+  {
+   "record_id": "Felipe-2010-Cultivar_management_seedling_transplanting",
+   "event_type": "Transplanting of seedlings",
+   "anchors": [
+    "b:0030"
+   ]
+  },
+  {
+   "record_id": "Felipe-2010-Cultivar_management_sulfur_application",
+   "event_type": "sulfur application",
+   "anchors": [
+    "b:0030"
+   ]
+  }
+ ]
+}

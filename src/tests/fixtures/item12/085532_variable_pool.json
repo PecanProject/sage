@@ -1,0 +1,62 @@
+[
+ {
+  "slug": "leaf_area_index",
+  "name": "Leaf area index (LAI)",
+  "units": null
+ },
+ {
+  "slug": "leaf_blade_dry_weight_per_tiller",
+  "name": "Leaf blade, leaf sheath, and stem dry weight per tiller",
+  "units": null
+ },
+ {
+  "slug": "leaf_blade_length",
+  "name": "Leaf blade length",
+  "units": "m"
+ },
+ {
+  "slug": "leaf_sheath_dry_weight_per_tiller",
+  "name": "leaf sheath dry weight (DW) per tiller",
+  "units": null
+ },
+ {
+  "slug": "mean_stage_by_count",
+  "name": "Mean stage by count (MSC)",
+  "units": null
+ },
+ {
+  "slug": "mean_stage_by_weight",
+  "name": "Mean Stage by Weight",
+  "units": null
+ },
+ {
+  "slug": "mean_tilt_angle",
+  "name": "leaf MTA",
+  "units": null
+ },
+ {
+  "slug": "plant_density",
+  "name": "plant density",
+  "units": "plants m-2"
+ },
+ {
+  "slug": "stem_dry_weight_per_tiller",
+  "name": "stem dry weight per tiller",
+  "units": null
+ },
+ {
+  "slug": "stem_internode_length",
+  "name": "Stem internode length",
+  "units": null
+ },
+ {
+  "slug": "tiller_weight",
+  "name": "Tüler weight",
+  "units": "g"
+ },
+ {
+  "slug": "total_dry_matter_yield",
+  "name": "Total Dry Matter Yield",
+  "units": "kg m -2"
+ }
+]

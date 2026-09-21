@@ -1,0 +1,74 @@
+[
+ {
+  "hint": "forced-draft oven at 55°C",
+  "columns": [
+   "Leaf blade dry weight",
+   "Leaf sheath dry weight",
+   "Stem dry weight",
+   "Total yield"
+  ]
+ },
+ {
+  "hint": "tillers dried in a forced‑draft oven at 55 °C and weighed",
+  "columns": [
+   "Tiller weight – Elongating stage",
+   "Tiller weight – Reproductive stage",
+   "Tiller weight – Seed ripening stage",
+   "Tiller weight – Vegetative stage"
+  ]
+ },
+ {
+  "hint": "Growth staging system (mean stage by count)",
+  "columns": [
+   "Mean stage by count (MSC)"
+  ]
+ },
+ {
+  "hint": "Forced-draft oven weighing (mean stage by weight)",
+  "columns": [
+   "Mean stage by weight (MSW)"
+  ]
+ },
+ {
+  "hint": "hand‑measured leaf blade width on freshly harvested leaves (see Materials and Methods, block b:0045)",
+  "columns": [
+   "leaf blade width"
+  ]
+ },
+ {
+  "hint": "hand‑measured leaf blade length from leaf collar to tip (see Materials and Methods, block b:0045)",
+  "columns": [
+   "leaf blade length"
+  ]
+ },
+ {
+  "hint": "hand‑measured stem internode length from midpoint of first palpable node to midpoint of second node (see Materials and Methods, block b:0045)",
+  "columns": [
+   "stem internode length"
+  ]
+ },
+ {
+  "hint": "leaf blade width measured on freshly harvested leaf blade with ruler",
+  "columns": [
+   "Leaf blade width"
+  ]
+ },
+ {
+  "hint": "leaf blade length measured from leaf collar to leaf tip with ruler",
+  "columns": [
+   "Leaf blade length"
+  ]
+ },
+ {
+  "hint": "stem internode length measured from midpoint of first palpable node to midpoint of second palpable node with ruler",
+  "columns": [
+   "Stem internode length"
+  ]
+ },
+ {
+  "hint": "LI-COR LAI-2000 leaf area analyzer",
+  "columns": [
+   "Leaf area index (LAI)"
+  ]
+ }
+]

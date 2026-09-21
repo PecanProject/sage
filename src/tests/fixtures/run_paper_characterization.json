@@ -1,0 +1,3982 @@
+{
+ "outcome_records": {
+  "Citation": {
+   "detail": {
+    "ai_validation": null,
+    "commit_result": {
+     "committed": true,
+     "entry": {
+      "ai_validation": null,
+      "entity_type": "Citation",
+      "paper_id": "orch_test_paper",
+      "payload": {
+       "author": {
+        "provenance_label": "EXTRACTED",
+        "source": {
+         "locators": [
+          {
+           "block_anchor": "b:0001",
+           "kind": "text"
+          }
+         ],
+         "page_number": null,
+         "section_path": [],
+         "source_document_id": "orch_test_paper"
+        },
+        "value": "A. Author"
+       },
+       "id": "orch_test_paper",
+       "persistent_identifier": {
+        "provenance_label": "UNRESOLVED",
+        "source": {
+         "locators": [
+          {
+           "block_anchor": "b:0003",
+           "kind": "text"
+          }
+         ],
+         "page_number": null,
+         "section_path": [],
+         "source_document_id": "orch_test_paper"
+        },
+        "unresolved_reason": "no DOI",
+        "value": null
+       },
+       "title": {
+        "provenance_label": "EXTRACTED",
+        "source": {
+         "locators": [
+          {
+           "block_anchor": "b:0003",
+           "kind": "text"
+          }
+         ],
+         "page_number": null,
+         "section_path": [],
+         "source_document_id": "orch_test_paper"
+        },
+        "value": "A Title"
+       },
+       "year": {
+        "provenance_label": "EXTRACTED",
+        "source": {
+         "locators": [
+          {
+           "block_anchor": "b:0002",
+           "kind": "text"
+          }
+         ],
+         "page_number": null,
+         "section_path": [],
+         "source_document_id": "orch_test_paper"
+        },
+        "value": 2012
+       }
+      },
+      "record_id": "orch_test_paper",
+      "run_id": "<RUN>",
+      "schema_version": "<SCHEMA>",
+      "status": "ready"
+     }
+    },
+    "entity_type": "Citation",
+    "paper_id": "orch_test_paper",
+    "payload": {
+     "author": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0001",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": "A. Author"
+     },
+     "id": "orch_test_paper",
+     "persistent_identifier": {
+      "provenance_label": "UNRESOLVED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0003",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "unresolved_reason": "no DOI",
+      "value": null
+     },
+     "title": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0003",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": "A Title"
+     },
+     "year": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0002",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": 2012
+     }
+    },
+    "record_id": "orch_test_paper",
+    "status": "ready"
+   },
+   "entity_type": "Citation",
+   "record_id": "orch_test_paper",
+   "status": "ready"
+  },
+  "Coverage": [
+   {
+    "detail": {
+     "ai_validation": null,
+     "commit_result": {
+      "committed": true,
+      "entry": {
+       "ai_validation": null,
+       "entity_type": "Coverage",
+       "paper_id": "orch_test_paper",
+       "payload": {
+        "citation_id": "orch_test_paper",
+        "id": "orch_test_paper_coverage_x",
+        "site_id": "orch_test_paper_site_x",
+        "variable_id": "orch_test_paper_variable_x"
+       },
+       "record_id": "orch_test_paper_coverage_x",
+       "run_id": "<RUN>",
+       "schema_version": "<SCHEMA>",
+       "status": "ready"
+      }
+     },
+     "entity_type": "Coverage",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "citation_id": "orch_test_paper",
+      "id": "orch_test_paper_coverage_x",
+      "site_id": "orch_test_paper_site_x",
+      "variable_id": "orch_test_paper_variable_x"
+     },
+     "record_id": "orch_test_paper_coverage_x",
+     "status": "ready"
+    },
+    "entity_type": "Coverage",
+    "record_id": "orch_test_paper_coverage_x",
+    "status": "ready"
+   }
+  ],
+  "Crop": [
+   {
+    "detail": {
+     "ai_validation": null,
+     "commit_result": {
+      "committed": true,
+      "entry": {
+       "ai_validation": null,
+       "entity_type": "Crop",
+       "paper_id": "orch_test_paper",
+       "payload": {
+        "citation_id": "orch_test_paper",
+        "cultivar": {
+         "provenance_label": "EXTRACTED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0003",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "value": "A Title"
+        },
+        "id": "orch_test_paper_crop_x",
+        "species_id": "orch_test_paper_species_x"
+       },
+       "record_id": "orch_test_paper_crop_x",
+       "run_id": "<RUN>",
+       "schema_version": "<SCHEMA>",
+       "status": "ready"
+      }
+     },
+     "entity_type": "Crop",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "citation_id": "orch_test_paper",
+      "cultivar": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      },
+      "id": "orch_test_paper_crop_x",
+      "species_id": "orch_test_paper_species_x"
+     },
+     "record_id": "orch_test_paper_crop_x",
+     "status": "ready"
+    },
+    "entity_type": "Crop",
+    "record_id": "orch_test_paper_crop_x",
+    "status": "ready"
+   }
+  ],
+  "Management": [
+   {
+    "detail": {
+     "ai_validation": null,
+     "commit_result": {
+      "committed": true,
+      "entry": {
+       "ai_validation": null,
+       "entity_type": "Management",
+       "paper_id": "orch_test_paper",
+       "payload": {
+        "citation_id": "orch_test_paper",
+        "date": {
+         "provenance_label": "EXTRACTED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0002",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "value": {
+          "earliest": null,
+          "latest": null,
+          "relative_timing": null,
+          "relative_timing_days": null,
+          "reported_text": "2012"
+         }
+        },
+        "event_type": {
+         "provenance_label": "EXTRACTED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0003",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "value": "A Title"
+        },
+        "id": "orch_test_paper_management_x"
+       },
+       "record_id": "orch_test_paper_management_x",
+       "run_id": "<RUN>",
+       "schema_version": "<SCHEMA>",
+       "status": "ready"
+      }
+     },
+     "entity_type": "Management",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "citation_id": "orch_test_paper",
+      "date": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0002",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": {
+        "earliest": null,
+        "latest": null,
+        "relative_timing": null,
+        "relative_timing_days": null,
+        "reported_text": "2012"
+       }
+      },
+      "event_type": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      },
+      "id": "orch_test_paper_management_x"
+     },
+     "record_id": "orch_test_paper_management_x",
+     "status": "ready"
+    },
+    "entity_type": "Management",
+    "record_id": "orch_test_paper_management_x",
+    "status": "ready"
+   }
+  ],
+  "Method": [
+   {
+    "detail": {
+     "ai_validation": null,
+     "commit_result": {
+      "committed": true,
+      "entry": {
+       "ai_validation": null,
+       "entity_type": "Method",
+       "paper_id": "orch_test_paper",
+       "payload": {
+        "citation_id": "orch_test_paper",
+        "description": {
+         "provenance_label": "EXTRACTED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0003",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "value": "A Title"
+        },
+        "id": "orch_test_paper_method_x",
+        "name": {
+         "provenance_label": "EXTRACTED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0003",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "value": "A Title"
+        }
+       },
+       "record_id": "orch_test_paper_method_x",
+       "run_id": "<RUN>",
+       "schema_version": "<SCHEMA>",
+       "status": "ready"
+      }
+     },
+     "entity_type": "Method",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "citation_id": "orch_test_paper",
+      "description": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      },
+      "id": "orch_test_paper_method_x",
+      "name": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      }
+     },
+     "record_id": "orch_test_paper_method_x",
+     "status": "ready"
+    },
+    "entity_type": "Method",
+    "record_id": "orch_test_paper_method_x",
+    "status": "ready"
+   }
+  ],
+  "Observation": [
+   {
+    "detail": {
+     "ai_validation": null,
+     "commit_result": {
+      "committed": true,
+      "entry": {
+       "ai_validation": null,
+       "entity_type": "Observation",
+       "paper_id": "orch_test_paper",
+       "payload": {
+        "aggregated_over_factors": {
+         "provenance_label": "EXTRACTED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0001",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "value": []
+        },
+        "citation_id": "orch_test_paper",
+        "dataset_id": "orch_test_paper",
+        "id": "orch_test_paper_observation_x",
+        "is_raw_replicate_level": {
+         "provenance_label": "UNRESOLVED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0001",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "unresolved_reason": "replication level not stated",
+         "value": null
+        },
+        "method_id": "orch_test_paper_method_x",
+        "reported_effect_scope": {
+         "provenance_label": "EXTRACTED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0004",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "value": "treatment_mean"
+        },
+        "site_id": "orch_test_paper_site_x",
+        "temporal_info": {
+         "provenance_label": "EXTRACTED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0002",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "value": {
+          "earliest": null,
+          "latest": null,
+          "relative_timing": null,
+          "relative_timing_days": null,
+          "reported_text": "2012"
+         }
+        },
+        "treatment_id": "orch_test_paper_treatment_x",
+        "value": {
+         "provenance_label": "EXTRACTED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0002",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "value": {
+          "reported_numeric_value": 2012.0,
+          "reported_text": "2012",
+          "reported_units": "unitless"
+         }
+        },
+        "variable_name": {
+         "provenance_label": "EXTRACTED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0003",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "value": "A Title"
+        }
+       },
+       "record_id": "orch_test_paper_observation_x",
+       "run_id": "<RUN>",
+       "schema_version": "<SCHEMA>",
+       "status": "ready"
+      }
+     },
+     "entity_type": "Observation",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "aggregated_over_factors": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0001",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": []
+      },
+      "citation_id": "orch_test_paper",
+      "dataset_id": "orch_test_paper",
+      "id": "orch_test_paper_observation_x",
+      "is_raw_replicate_level": {
+       "provenance_label": "UNRESOLVED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0001",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "unresolved_reason": "replication level not stated",
+       "value": null
+      },
+      "method_id": "orch_test_paper_method_x",
+      "reported_effect_scope": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0004",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "treatment_mean"
+      },
+      "site_id": "orch_test_paper_site_x",
+      "temporal_info": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0002",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": {
+        "earliest": null,
+        "latest": null,
+        "relative_timing": null,
+        "relative_timing_days": null,
+        "reported_text": "2012"
+       }
+      },
+      "treatment_id": "orch_test_paper_treatment_x",
+      "value": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0002",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": {
+        "reported_numeric_value": 2012.0,
+        "reported_text": "2012",
+        "reported_units": "unitless"
+       }
+      },
+      "variable_name": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      }
+     },
+     "record_id": "orch_test_paper_observation_x",
+     "status": "ready"
+    },
+    "entity_type": "Observation",
+    "record_id": "orch_test_paper_observation_x",
+    "status": "ready"
+   }
+  ],
+  "Site": [
+   {
+    "detail": {
+     "ai_validation": null,
+     "commit_result": {
+      "committed": true,
+      "entry": {
+       "ai_validation": null,
+       "entity_type": "Site",
+       "paper_id": "orch_test_paper",
+       "payload": {
+        "id": "orch_test_paper_site_x",
+        "name": {
+         "provenance_label": "EXTRACTED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0003",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "value": "A Title"
+        }
+       },
+       "record_id": "orch_test_paper_site_x",
+       "run_id": "<RUN>",
+       "schema_version": "<SCHEMA>",
+       "status": "ready"
+      }
+     },
+     "entity_type": "Site",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "id": "orch_test_paper_site_x",
+      "name": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      }
+     },
+     "record_id": "orch_test_paper_site_x",
+     "status": "ready"
+    },
+    "entity_type": "Site",
+    "record_id": "orch_test_paper_site_x",
+    "status": "ready"
+   }
+  ],
+  "Species": [
+   {
+    "detail": {
+     "ai_validation": null,
+     "commit_result": {
+      "committed": true,
+      "entry": {
+       "ai_validation": null,
+       "entity_type": "Species",
+       "paper_id": "orch_test_paper",
+       "payload": {
+        "genus": {
+         "provenance_label": "EXTRACTED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0001",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "value": "A."
+        },
+        "id": "orch_test_paper_species_x",
+        "scientific_name": {
+         "provenance_label": "EXTRACTED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0001",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "value": "A. Author"
+        },
+        "species_epithet": {
+         "provenance_label": "EXTRACTED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0001",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "value": "Author"
+        }
+       },
+       "record_id": "orch_test_paper_species_x",
+       "run_id": "<RUN>",
+       "schema_version": "<SCHEMA>",
+       "status": "ready"
+      }
+     },
+     "entity_type": "Species",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "genus": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0001",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A."
+      },
+      "id": "orch_test_paper_species_x",
+      "scientific_name": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0001",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A. Author"
+      },
+      "species_epithet": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0001",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "Author"
+      }
+     },
+     "record_id": "orch_test_paper_species_x",
+     "status": "ready"
+    },
+    "entity_type": "Species",
+    "record_id": "orch_test_paper_species_x",
+    "status": "ready"
+   }
+  ],
+  "Study": [
+   {
+    "detail": {
+     "ai_validation": null,
+     "commit_result": {
+      "committed": true,
+      "entry": {
+       "ai_validation": null,
+       "entity_type": "Study",
+       "paper_id": "orch_test_paper",
+       "payload": {
+        "citation_ids": [
+         "orch_test_paper"
+        ],
+        "id": "orch_test_paper_study_x"
+       },
+       "record_id": "orch_test_paper_study_x",
+       "run_id": "<RUN>",
+       "schema_version": "<SCHEMA>",
+       "status": "ready"
+      }
+     },
+     "entity_type": "Study",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "citation_ids": [
+       "orch_test_paper"
+      ],
+      "id": "orch_test_paper_study_x"
+     },
+     "record_id": "orch_test_paper_study_x",
+     "status": "ready"
+    },
+    "entity_type": "Study",
+    "record_id": "orch_test_paper_study_x",
+    "status": "ready"
+   }
+  ],
+  "Treatment": [
+   {
+    "detail": {
+     "ai_validation": null,
+     "commit_result": {
+      "committed": true,
+      "entry": {
+       "ai_validation": null,
+       "entity_type": "Treatment",
+       "paper_id": "orch_test_paper",
+       "payload": {
+        "citation_id": "orch_test_paper",
+        "definition": {
+         "provenance_label": "EXTRACTED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0003",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "value": "A Title"
+        },
+        "id": "orch_test_paper_treatment_x",
+        "name": {
+         "provenance_label": "EXTRACTED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0003",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "value": "A Title"
+        },
+        "site_id": "orch_test_paper_site_x",
+        "study_id": {
+         "provenance_label": "UNRESOLVED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0001",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "unresolved_reason": "isolated paper",
+         "value": null
+        }
+       },
+       "record_id": "orch_test_paper_treatment_x",
+       "run_id": "<RUN>",
+       "schema_version": "<SCHEMA>",
+       "status": "ready"
+      }
+     },
+     "entity_type": "Treatment",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "citation_id": "orch_test_paper",
+      "definition": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      },
+      "id": "orch_test_paper_treatment_x",
+      "name": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      },
+      "site_id": "orch_test_paper_site_x",
+      "study_id": {
+       "provenance_label": "UNRESOLVED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0001",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "unresolved_reason": "isolated paper",
+       "value": null
+      }
+     },
+     "record_id": "orch_test_paper_treatment_x",
+     "status": "ready"
+    },
+    "entity_type": "Treatment",
+    "record_id": "orch_test_paper_treatment_x",
+    "status": "ready"
+   }
+  ],
+  "TreatmentPair": [
+   {
+    "entity_type": "TreatmentPair",
+    "reason": "requires 2 distinct Treatment records; only 1 'ready' Treatment record(s) exist in this run",
+    "record_id": "orch_test_paper_treatmentpair",
+    "status": "blocked"
+   }
+  ],
+  "Variable": [
+   {
+    "detail": {
+     "ai_validation": null,
+     "commit_result": {
+      "committed": true,
+      "entry": {
+       "ai_validation": null,
+       "entity_type": "Variable",
+       "paper_id": "orch_test_paper",
+       "payload": {
+        "id": "orch_test_paper_variable_x",
+        "name": {
+         "provenance_label": "EXTRACTED",
+         "source": {
+          "locators": [
+           {
+            "block_anchor": "b:0003",
+            "kind": "text"
+           }
+          ],
+          "page_number": null,
+          "section_path": [],
+          "source_document_id": "orch_test_paper"
+         },
+         "value": "A Title"
+        }
+       },
+       "record_id": "orch_test_paper_variable_x",
+       "run_id": "<RUN>",
+       "schema_version": "<SCHEMA>",
+       "status": "ready"
+      }
+     },
+     "entity_type": "Variable",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "id": "orch_test_paper_variable_x",
+      "name": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      }
+     },
+     "record_id": "orch_test_paper_variable_x",
+     "status": "ready"
+    },
+    "entity_type": "Variable",
+    "record_id": "orch_test_paper_variable_x",
+    "status": "ready"
+   }
+  ]
+ },
+ "records_tree": {
+  "Citation__orch_test_paper/conversion/attempt1.json": {
+   "agent": "converter",
+   "final_text": "{\"id\": \"orch_test_paper\", \"author\": {\"value\": \"A. Author\", \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0001\"}]}}, \"year\": {\"value\": 2012, \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0002\"}]}}, \"title\": {\"value\": \"A Title\", \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0003\"}]}}, \"persistent_identifier\": {\"value\": null, \"provenance_label\": \"UNRESOLVED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0003\"}]}, \"unresolved_reason\": \"no DOI\"}}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "author": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0001",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A. Author"
+    },
+    "id": "orch_test_paper",
+    "persistent_identifier": {
+     "provenance_label": "UNRESOLVED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "unresolved_reason": "no DOI",
+     "value": null
+    },
+    "title": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    },
+    "year": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0002",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": 2012
+    }
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}"
+  },
+  "Citation__orch_test_paper/conversion_validation/attempt1.json": {
+   "attempts_remaining": 4,
+   "attempts_used": 0,
+   "errors": [],
+   "readiness_issues": [],
+   "ready": true,
+   "valid": true,
+   "warnings": []
+  },
+  "Citation__orch_test_paper/extraction/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"paper_id\": \"orch_test_paper\", \"entity_type\": \"Citation\", \"record_id\": \"orch_test_paper\", \"facts\": [{\"field_name\": \"x\", \"raw_value\": \"A Title\", \"raw_text_excerpt\": \"A Title\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "entity_type": "Citation",
+    "facts": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "field_name": "x",
+      "raw_text_excerpt": "A Title",
+      "raw_value": "A Title"
+     }
+    ],
+    "paper_id": "orch_test_paper",
+    "record_id": "orch_test_paper"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Citation__orch_test_paper/final.json": {
+   "ai_validation": null,
+   "commit_result": {
+    "committed": true,
+    "entry": {
+     "ai_validation": null,
+     "entity_type": "Citation",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "author": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0001",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A. Author"
+      },
+      "id": "orch_test_paper",
+      "persistent_identifier": {
+       "provenance_label": "UNRESOLVED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "unresolved_reason": "no DOI",
+       "value": null
+      },
+      "title": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      },
+      "year": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0002",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": 2012
+      }
+     },
+     "record_id": "orch_test_paper",
+     "run_id": "<RUN>",
+     "schema_version": "<SCHEMA>",
+     "status": "ready"
+    }
+   },
+   "entity_type": "Citation",
+   "paper_id": "orch_test_paper",
+   "payload": {
+    "author": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0001",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A. Author"
+    },
+    "id": "orch_test_paper",
+    "persistent_identifier": {
+     "provenance_label": "UNRESOLVED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "unresolved_reason": "no DOI",
+     "value": null
+    },
+    "title": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    },
+    "year": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0002",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": 2012
+    }
+   },
+   "record_id": "orch_test_paper",
+   "status": "ready"
+  },
+  "Citation__orch_test_paper/record_manifest.json": {
+   "attempts": {
+    "ai_validation": 0,
+    "conversion": 1,
+    "extraction": 1
+   },
+   "entity_type": "Citation",
+   "record_id": "orch_test_paper",
+   "status": "ready"
+  },
+  "Coverage__enumeration/enumeration/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"entity_type\": \"Coverage\", \"candidates\": [{\"candidate_id\": \"x\", \"description\": \"The single reported variable.\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "candidates": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "candidate_id": "x",
+      "description": "The single reported variable."
+     }
+    ],
+    "entity_type": "Coverage"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Coverage__orch_test_paper_coverage_x/conversion/attempt1.json": {
+   "agent": "converter",
+   "final_text": "{\"id\": \"orch_test_paper_coverage_x\", \"citation_id\": \"orch_test_paper\", \"site_id\": \"orch_test_paper_site_x\", \"variable_id\": \"orch_test_paper_variable_x\"}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "citation_id": "orch_test_paper",
+    "id": "orch_test_paper_coverage_x",
+    "site_id": "orch_test_paper_site_x",
+    "variable_id": "orch_test_paper_variable_x"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}"
+  },
+  "Coverage__orch_test_paper_coverage_x/conversion_validation/attempt1.json": {
+   "attempts_remaining": 4,
+   "attempts_used": 0,
+   "errors": [],
+   "readiness_issues": [],
+   "ready": true,
+   "valid": true,
+   "warnings": []
+  },
+  "Coverage__orch_test_paper_coverage_x/extraction/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"paper_id\": \"orch_test_paper\", \"entity_type\": \"Coverage\", \"record_id\": \"orch_test_paper_coverage_x\", \"facts\": [{\"field_name\": \"x\", \"raw_value\": \"A Title\", \"raw_text_excerpt\": \"A Title\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "entity_type": "Coverage",
+    "facts": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "field_name": "x",
+      "raw_text_excerpt": "A Title",
+      "raw_value": "A Title"
+     }
+    ],
+    "paper_id": "orch_test_paper",
+    "record_id": "orch_test_paper_coverage_x"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Coverage__orch_test_paper_coverage_x/final.json": {
+   "ai_validation": null,
+   "commit_result": {
+    "committed": true,
+    "entry": {
+     "ai_validation": null,
+     "entity_type": "Coverage",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "citation_id": "orch_test_paper",
+      "id": "orch_test_paper_coverage_x",
+      "site_id": "orch_test_paper_site_x",
+      "variable_id": "orch_test_paper_variable_x"
+     },
+     "record_id": "orch_test_paper_coverage_x",
+     "run_id": "<RUN>",
+     "schema_version": "<SCHEMA>",
+     "status": "ready"
+    }
+   },
+   "entity_type": "Coverage",
+   "paper_id": "orch_test_paper",
+   "payload": {
+    "citation_id": "orch_test_paper",
+    "id": "orch_test_paper_coverage_x",
+    "site_id": "orch_test_paper_site_x",
+    "variable_id": "orch_test_paper_variable_x"
+   },
+   "record_id": "orch_test_paper_coverage_x",
+   "status": "ready"
+  },
+  "Coverage__orch_test_paper_coverage_x/record_manifest.json": {
+   "attempts": {
+    "ai_validation": 0,
+    "conversion": 1,
+    "extraction": 1
+   },
+   "entity_type": "Coverage",
+   "record_id": "orch_test_paper_coverage_x",
+   "status": "ready"
+  },
+  "Crop__enumeration/enumeration/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"entity_type\": \"Crop\", \"candidates\": [{\"candidate_id\": \"x\", \"description\": \"The single reported variable.\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "candidates": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "candidate_id": "x",
+      "description": "The single reported variable."
+     }
+    ],
+    "entity_type": "Crop"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Crop__orch_test_paper_crop_x/conversion/attempt1.json": {
+   "agent": "converter",
+   "final_text": "{\"id\": \"orch_test_paper_crop_x\", \"citation_id\": \"orch_test_paper\", \"species_id\": \"orch_test_paper_species_x\", \"cultivar\": {\"value\": \"A Title\", \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0003\"}]}}}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "citation_id": "orch_test_paper",
+    "cultivar": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    },
+    "id": "orch_test_paper_crop_x",
+    "species_id": "orch_test_paper_species_x"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}"
+  },
+  "Crop__orch_test_paper_crop_x/conversion_validation/attempt1.json": {
+   "attempts_remaining": 4,
+   "attempts_used": 0,
+   "errors": [],
+   "readiness_issues": [],
+   "ready": true,
+   "valid": true,
+   "warnings": []
+  },
+  "Crop__orch_test_paper_crop_x/extraction/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"paper_id\": \"orch_test_paper\", \"entity_type\": \"Crop\", \"record_id\": \"orch_test_paper_crop_x\", \"facts\": [{\"field_name\": \"x\", \"raw_value\": \"A Title\", \"raw_text_excerpt\": \"A Title\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "entity_type": "Crop",
+    "facts": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "field_name": "x",
+      "raw_text_excerpt": "A Title",
+      "raw_value": "A Title"
+     }
+    ],
+    "paper_id": "orch_test_paper",
+    "record_id": "orch_test_paper_crop_x"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Crop__orch_test_paper_crop_x/final.json": {
+   "ai_validation": null,
+   "commit_result": {
+    "committed": true,
+    "entry": {
+     "ai_validation": null,
+     "entity_type": "Crop",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "citation_id": "orch_test_paper",
+      "cultivar": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      },
+      "id": "orch_test_paper_crop_x",
+      "species_id": "orch_test_paper_species_x"
+     },
+     "record_id": "orch_test_paper_crop_x",
+     "run_id": "<RUN>",
+     "schema_version": "<SCHEMA>",
+     "status": "ready"
+    }
+   },
+   "entity_type": "Crop",
+   "paper_id": "orch_test_paper",
+   "payload": {
+    "citation_id": "orch_test_paper",
+    "cultivar": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    },
+    "id": "orch_test_paper_crop_x",
+    "species_id": "orch_test_paper_species_x"
+   },
+   "record_id": "orch_test_paper_crop_x",
+   "status": "ready"
+  },
+  "Crop__orch_test_paper_crop_x/record_manifest.json": {
+   "attempts": {
+    "ai_validation": 0,
+    "conversion": 1,
+    "extraction": 1
+   },
+   "entity_type": "Crop",
+   "record_id": "orch_test_paper_crop_x",
+   "status": "ready"
+  },
+  "Management__enumeration/enumeration/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"entity_type\": \"Management\", \"candidates\": [{\"candidate_id\": \"x\", \"description\": \"The single reported variable.\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "candidates": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "candidate_id": "x",
+      "description": "The single reported variable."
+     }
+    ],
+    "entity_type": "Management"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Management__orch_test_paper_management_x/conversion/attempt1.json": {
+   "agent": "converter",
+   "final_text": "{\"id\": \"orch_test_paper_management_x\", \"citation_id\": \"orch_test_paper\", \"event_type\": {\"value\": \"A Title\", \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0003\"}]}}, \"date\": {\"value\": {\"reported_text\": \"2012\", \"earliest\": null, \"latest\": null, \"relative_timing\": null, \"relative_timing_days\": null}, \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0002\"}]}}}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "citation_id": "orch_test_paper",
+    "date": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0002",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": {
+      "earliest": null,
+      "latest": null,
+      "relative_timing": null,
+      "relative_timing_days": null,
+      "reported_text": "2012"
+     }
+    },
+    "event_type": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    },
+    "id": "orch_test_paper_management_x"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}"
+  },
+  "Management__orch_test_paper_management_x/conversion_validation/attempt1.json": {
+   "attempts_remaining": 4,
+   "attempts_used": 0,
+   "errors": [],
+   "readiness_issues": [],
+   "ready": true,
+   "valid": true,
+   "warnings": []
+  },
+  "Management__orch_test_paper_management_x/extraction/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"paper_id\": \"orch_test_paper\", \"entity_type\": \"Management\", \"record_id\": \"orch_test_paper_management_x\", \"facts\": [{\"field_name\": \"x\", \"raw_value\": \"A Title\", \"raw_text_excerpt\": \"A Title\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "entity_type": "Management",
+    "facts": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "field_name": "x",
+      "raw_text_excerpt": "A Title",
+      "raw_value": "A Title"
+     }
+    ],
+    "paper_id": "orch_test_paper",
+    "record_id": "orch_test_paper_management_x"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Management__orch_test_paper_management_x/final.json": {
+   "ai_validation": null,
+   "commit_result": {
+    "committed": true,
+    "entry": {
+     "ai_validation": null,
+     "entity_type": "Management",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "citation_id": "orch_test_paper",
+      "date": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0002",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": {
+        "earliest": null,
+        "latest": null,
+        "relative_timing": null,
+        "relative_timing_days": null,
+        "reported_text": "2012"
+       }
+      },
+      "event_type": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      },
+      "id": "orch_test_paper_management_x"
+     },
+     "record_id": "orch_test_paper_management_x",
+     "run_id": "<RUN>",
+     "schema_version": "<SCHEMA>",
+     "status": "ready"
+    }
+   },
+   "entity_type": "Management",
+   "paper_id": "orch_test_paper",
+   "payload": {
+    "citation_id": "orch_test_paper",
+    "date": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0002",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": {
+      "earliest": null,
+      "latest": null,
+      "relative_timing": null,
+      "relative_timing_days": null,
+      "reported_text": "2012"
+     }
+    },
+    "event_type": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    },
+    "id": "orch_test_paper_management_x"
+   },
+   "record_id": "orch_test_paper_management_x",
+   "status": "ready"
+  },
+  "Management__orch_test_paper_management_x/record_manifest.json": {
+   "attempts": {
+    "ai_validation": 0,
+    "conversion": 1,
+    "extraction": 1
+   },
+   "entity_type": "Management",
+   "record_id": "orch_test_paper_management_x",
+   "status": "ready"
+  },
+  "Method__enumeration/enumeration/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"entity_type\": \"Method\", \"candidates\": [{\"candidate_id\": \"x\", \"description\": \"The single reported variable.\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "candidates": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "candidate_id": "x",
+      "description": "The single reported variable."
+     }
+    ],
+    "entity_type": "Method"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Method__orch_test_paper_method_x/conversion/attempt1.json": {
+   "agent": "converter",
+   "final_text": "{\"id\": \"orch_test_paper_method_x\", \"citation_id\": \"orch_test_paper\", \"name\": {\"value\": \"A Title\", \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0003\"}]}}, \"description\": {\"value\": \"A Title\", \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0003\"}]}}}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "citation_id": "orch_test_paper",
+    "description": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    },
+    "id": "orch_test_paper_method_x",
+    "name": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    }
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}"
+  },
+  "Method__orch_test_paper_method_x/conversion_validation/attempt1.json": {
+   "attempts_remaining": 4,
+   "attempts_used": 0,
+   "errors": [],
+   "readiness_issues": [],
+   "ready": true,
+   "valid": true,
+   "warnings": []
+  },
+  "Method__orch_test_paper_method_x/extraction/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"paper_id\": \"orch_test_paper\", \"entity_type\": \"Method\", \"record_id\": \"orch_test_paper_method_x\", \"facts\": [{\"field_name\": \"x\", \"raw_value\": \"A Title\", \"raw_text_excerpt\": \"A Title\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "entity_type": "Method",
+    "facts": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "field_name": "x",
+      "raw_text_excerpt": "A Title",
+      "raw_value": "A Title"
+     }
+    ],
+    "paper_id": "orch_test_paper",
+    "record_id": "orch_test_paper_method_x"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Method__orch_test_paper_method_x/final.json": {
+   "ai_validation": null,
+   "commit_result": {
+    "committed": true,
+    "entry": {
+     "ai_validation": null,
+     "entity_type": "Method",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "citation_id": "orch_test_paper",
+      "description": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      },
+      "id": "orch_test_paper_method_x",
+      "name": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      }
+     },
+     "record_id": "orch_test_paper_method_x",
+     "run_id": "<RUN>",
+     "schema_version": "<SCHEMA>",
+     "status": "ready"
+    }
+   },
+   "entity_type": "Method",
+   "paper_id": "orch_test_paper",
+   "payload": {
+    "citation_id": "orch_test_paper",
+    "description": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    },
+    "id": "orch_test_paper_method_x",
+    "name": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    }
+   },
+   "record_id": "orch_test_paper_method_x",
+   "status": "ready"
+  },
+  "Method__orch_test_paper_method_x/record_manifest.json": {
+   "attempts": {
+    "ai_validation": 0,
+    "conversion": 1,
+    "extraction": 1
+   },
+   "entity_type": "Method",
+   "record_id": "orch_test_paper_method_x",
+   "status": "ready"
+  },
+  "Observation__enumeration/enumeration/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"entity_type\": \"Observation\", \"candidates\": [{\"candidate_id\": \"x\", \"description\": \"The single reported variable.\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "candidates": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "candidate_id": "x",
+      "description": "The single reported variable."
+     }
+    ],
+    "entity_type": "Observation"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Observation__orch_test_paper_observation_x/conversion/attempt1.json": {
+   "agent": "converter",
+   "final_text": "{\"id\": \"orch_test_paper_observation_x\", \"dataset_id\": \"orch_test_paper\", \"citation_id\": \"orch_test_paper\", \"site_id\": \"orch_test_paper_site_x\", \"treatment_id\": \"orch_test_paper_treatment_x\", \"method_id\": \"orch_test_paper_method_x\", \"variable_name\": {\"value\": \"A Title\", \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0003\"}]}}, \"value\": {\"value\": {\"reported_text\": \"2012\", \"reported_numeric_value\": 2012.0, \"reported_units\": \"unitless\"}, \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0002\"}]}}, \"reported_effect_scope\": {\"value\": \"treatment_mean\", \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0004\"}]}}, \"aggregated_over_factors\": {\"value\": [], \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0001\"}]}}, \"temporal_info\": {\"value\": {\"reported_text\": \"2012\", \"earliest\": null, \"latest\": null, \"relative_timing\": null, \"relative_timing_days\": null}, \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0002\"}]}}, \"is_raw_replicate_level\": {\"value\": null, \"provenance_label\": \"UNRESOLVED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0001\"}]}, \"unresolved_reason\": \"replication level not stated\"}}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "aggregated_over_factors": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0001",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": []
+    },
+    "citation_id": "orch_test_paper",
+    "dataset_id": "orch_test_paper",
+    "id": "orch_test_paper_observation_x",
+    "is_raw_replicate_level": {
+     "provenance_label": "UNRESOLVED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0001",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "unresolved_reason": "replication level not stated",
+     "value": null
+    },
+    "method_id": "orch_test_paper_method_x",
+    "reported_effect_scope": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0004",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "treatment_mean"
+    },
+    "site_id": "orch_test_paper_site_x",
+    "temporal_info": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0002",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": {
+      "earliest": null,
+      "latest": null,
+      "relative_timing": null,
+      "relative_timing_days": null,
+      "reported_text": "2012"
+     }
+    },
+    "treatment_id": "orch_test_paper_treatment_x",
+    "value": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0002",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": {
+      "reported_numeric_value": 2012.0,
+      "reported_text": "2012",
+      "reported_units": "unitless"
+     }
+    },
+    "variable_name": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    }
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}"
+  },
+  "Observation__orch_test_paper_observation_x/conversion_validation/attempt1.json": {
+   "attempts_remaining": 4,
+   "attempts_used": 0,
+   "errors": [],
+   "readiness_issues": [],
+   "ready": true,
+   "valid": true,
+   "warnings": []
+  },
+  "Observation__orch_test_paper_observation_x/extraction/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"paper_id\": \"orch_test_paper\", \"entity_type\": \"Observation\", \"record_id\": \"orch_test_paper_observation_x\", \"facts\": [{\"field_name\": \"x\", \"raw_value\": \"A Title\", \"raw_text_excerpt\": \"A Title\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "entity_type": "Observation",
+    "facts": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "field_name": "x",
+      "raw_text_excerpt": "A Title",
+      "raw_value": "A Title"
+     }
+    ],
+    "paper_id": "orch_test_paper",
+    "record_id": "orch_test_paper_observation_x"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Observation__orch_test_paper_observation_x/final.json": {
+   "ai_validation": null,
+   "commit_result": {
+    "committed": true,
+    "entry": {
+     "ai_validation": null,
+     "entity_type": "Observation",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "aggregated_over_factors": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0001",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": []
+      },
+      "citation_id": "orch_test_paper",
+      "dataset_id": "orch_test_paper",
+      "id": "orch_test_paper_observation_x",
+      "is_raw_replicate_level": {
+       "provenance_label": "UNRESOLVED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0001",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "unresolved_reason": "replication level not stated",
+       "value": null
+      },
+      "method_id": "orch_test_paper_method_x",
+      "reported_effect_scope": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0004",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "treatment_mean"
+      },
+      "site_id": "orch_test_paper_site_x",
+      "temporal_info": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0002",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": {
+        "earliest": null,
+        "latest": null,
+        "relative_timing": null,
+        "relative_timing_days": null,
+        "reported_text": "2012"
+       }
+      },
+      "treatment_id": "orch_test_paper_treatment_x",
+      "value": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0002",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": {
+        "reported_numeric_value": 2012.0,
+        "reported_text": "2012",
+        "reported_units": "unitless"
+       }
+      },
+      "variable_name": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      }
+     },
+     "record_id": "orch_test_paper_observation_x",
+     "run_id": "<RUN>",
+     "schema_version": "<SCHEMA>",
+     "status": "ready"
+    }
+   },
+   "entity_type": "Observation",
+   "paper_id": "orch_test_paper",
+   "payload": {
+    "aggregated_over_factors": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0001",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": []
+    },
+    "citation_id": "orch_test_paper",
+    "dataset_id": "orch_test_paper",
+    "id": "orch_test_paper_observation_x",
+    "is_raw_replicate_level": {
+     "provenance_label": "UNRESOLVED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0001",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "unresolved_reason": "replication level not stated",
+     "value": null
+    },
+    "method_id": "orch_test_paper_method_x",
+    "reported_effect_scope": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0004",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "treatment_mean"
+    },
+    "site_id": "orch_test_paper_site_x",
+    "temporal_info": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0002",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": {
+      "earliest": null,
+      "latest": null,
+      "relative_timing": null,
+      "relative_timing_days": null,
+      "reported_text": "2012"
+     }
+    },
+    "treatment_id": "orch_test_paper_treatment_x",
+    "value": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0002",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": {
+      "reported_numeric_value": 2012.0,
+      "reported_text": "2012",
+      "reported_units": "unitless"
+     }
+    },
+    "variable_name": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    }
+   },
+   "record_id": "orch_test_paper_observation_x",
+   "status": "ready"
+  },
+  "Observation__orch_test_paper_observation_x/record_manifest.json": {
+   "attempts": {
+    "ai_validation": 0,
+    "conversion": 1,
+    "extraction": 1
+   },
+   "entity_type": "Observation",
+   "record_id": "orch_test_paper_observation_x",
+   "status": "ready"
+  },
+  "Site__enumeration/enumeration/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"entity_type\": \"Site\", \"candidates\": [{\"candidate_id\": \"x\", \"description\": \"The single reported variable.\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "candidates": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "candidate_id": "x",
+      "description": "The single reported variable."
+     }
+    ],
+    "entity_type": "Site"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Site__orch_test_paper_site_x/conversion/attempt1.json": {
+   "agent": "converter",
+   "final_text": "{\"id\": \"orch_test_paper_site_x\", \"name\": {\"value\": \"A Title\", \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0003\"}]}}}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "id": "orch_test_paper_site_x",
+    "name": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    }
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}"
+  },
+  "Site__orch_test_paper_site_x/conversion_validation/attempt1.json": {
+   "attempts_remaining": 4,
+   "attempts_used": 0,
+   "errors": [],
+   "readiness_issues": [],
+   "ready": true,
+   "valid": true,
+   "warnings": []
+  },
+  "Site__orch_test_paper_site_x/extraction/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"paper_id\": \"orch_test_paper\", \"entity_type\": \"Site\", \"record_id\": \"orch_test_paper_site_x\", \"facts\": [{\"field_name\": \"x\", \"raw_value\": \"A Title\", \"raw_text_excerpt\": \"A Title\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "entity_type": "Site",
+    "facts": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "field_name": "x",
+      "raw_text_excerpt": "A Title",
+      "raw_value": "A Title"
+     }
+    ],
+    "paper_id": "orch_test_paper",
+    "record_id": "orch_test_paper_site_x"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Site__orch_test_paper_site_x/final.json": {
+   "ai_validation": null,
+   "commit_result": {
+    "committed": true,
+    "entry": {
+     "ai_validation": null,
+     "entity_type": "Site",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "id": "orch_test_paper_site_x",
+      "name": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      }
+     },
+     "record_id": "orch_test_paper_site_x",
+     "run_id": "<RUN>",
+     "schema_version": "<SCHEMA>",
+     "status": "ready"
+    }
+   },
+   "entity_type": "Site",
+   "paper_id": "orch_test_paper",
+   "payload": {
+    "id": "orch_test_paper_site_x",
+    "name": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    }
+   },
+   "record_id": "orch_test_paper_site_x",
+   "status": "ready"
+  },
+  "Site__orch_test_paper_site_x/record_manifest.json": {
+   "attempts": {
+    "ai_validation": 0,
+    "conversion": 1,
+    "extraction": 1
+   },
+   "entity_type": "Site",
+   "record_id": "orch_test_paper_site_x",
+   "status": "ready"
+  },
+  "Species__enumeration/enumeration/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"entity_type\": \"Species\", \"candidates\": [{\"candidate_id\": \"x\", \"description\": \"The single reported variable.\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "candidates": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "candidate_id": "x",
+      "description": "The single reported variable."
+     }
+    ],
+    "entity_type": "Species"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Species__orch_test_paper_species_x/conversion/attempt1.json": {
+   "agent": "converter",
+   "final_text": "{\"id\": \"orch_test_paper_species_x\", \"genus\": {\"value\": \"A.\", \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0001\"}]}}, \"species_epithet\": {\"value\": \"Author\", \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0001\"}]}}, \"scientific_name\": {\"value\": \"A. Author\", \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0001\"}]}}}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "genus": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0001",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A."
+    },
+    "id": "orch_test_paper_species_x",
+    "scientific_name": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0001",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A. Author"
+    },
+    "species_epithet": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0001",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "Author"
+    }
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}"
+  },
+  "Species__orch_test_paper_species_x/conversion_validation/attempt1.json": {
+   "attempts_remaining": 4,
+   "attempts_used": 0,
+   "errors": [],
+   "readiness_issues": [],
+   "ready": true,
+   "valid": true,
+   "warnings": []
+  },
+  "Species__orch_test_paper_species_x/extraction/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"paper_id\": \"orch_test_paper\", \"entity_type\": \"Species\", \"record_id\": \"orch_test_paper_species_x\", \"facts\": [{\"field_name\": \"x\", \"raw_value\": \"A Title\", \"raw_text_excerpt\": \"A Title\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "entity_type": "Species",
+    "facts": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "field_name": "x",
+      "raw_text_excerpt": "A Title",
+      "raw_value": "A Title"
+     }
+    ],
+    "paper_id": "orch_test_paper",
+    "record_id": "orch_test_paper_species_x"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Species__orch_test_paper_species_x/final.json": {
+   "ai_validation": null,
+   "commit_result": {
+    "committed": true,
+    "entry": {
+     "ai_validation": null,
+     "entity_type": "Species",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "genus": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0001",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A."
+      },
+      "id": "orch_test_paper_species_x",
+      "scientific_name": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0001",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A. Author"
+      },
+      "species_epithet": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0001",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "Author"
+      }
+     },
+     "record_id": "orch_test_paper_species_x",
+     "run_id": "<RUN>",
+     "schema_version": "<SCHEMA>",
+     "status": "ready"
+    }
+   },
+   "entity_type": "Species",
+   "paper_id": "orch_test_paper",
+   "payload": {
+    "genus": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0001",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A."
+    },
+    "id": "orch_test_paper_species_x",
+    "scientific_name": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0001",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A. Author"
+    },
+    "species_epithet": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0001",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "Author"
+    }
+   },
+   "record_id": "orch_test_paper_species_x",
+   "status": "ready"
+  },
+  "Species__orch_test_paper_species_x/record_manifest.json": {
+   "attempts": {
+    "ai_validation": 0,
+    "conversion": 1,
+    "extraction": 1
+   },
+   "entity_type": "Species",
+   "record_id": "orch_test_paper_species_x",
+   "status": "ready"
+  },
+  "Study__enumeration/enumeration/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"entity_type\": \"Study\", \"candidates\": [{\"candidate_id\": \"x\", \"description\": \"The single reported variable.\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "candidates": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "candidate_id": "x",
+      "description": "The single reported variable."
+     }
+    ],
+    "entity_type": "Study"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Study__orch_test_paper_study_x/conversion/attempt1.json": {
+   "agent": "converter",
+   "final_text": "{\"id\": \"orch_test_paper_study_x\", \"citation_ids\": [\"orch_test_paper\"]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "citation_ids": [
+     "orch_test_paper"
+    ],
+    "id": "orch_test_paper_study_x"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}"
+  },
+  "Study__orch_test_paper_study_x/conversion_validation/attempt1.json": {
+   "attempts_remaining": 4,
+   "attempts_used": 0,
+   "errors": [],
+   "readiness_issues": [],
+   "ready": true,
+   "valid": true,
+   "warnings": []
+  },
+  "Study__orch_test_paper_study_x/extraction/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"paper_id\": \"orch_test_paper\", \"entity_type\": \"Study\", \"record_id\": \"orch_test_paper_study_x\", \"facts\": [{\"field_name\": \"x\", \"raw_value\": \"A Title\", \"raw_text_excerpt\": \"A Title\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "entity_type": "Study",
+    "facts": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "field_name": "x",
+      "raw_text_excerpt": "A Title",
+      "raw_value": "A Title"
+     }
+    ],
+    "paper_id": "orch_test_paper",
+    "record_id": "orch_test_paper_study_x"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Study__orch_test_paper_study_x/final.json": {
+   "ai_validation": null,
+   "commit_result": {
+    "committed": true,
+    "entry": {
+     "ai_validation": null,
+     "entity_type": "Study",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "citation_ids": [
+       "orch_test_paper"
+      ],
+      "id": "orch_test_paper_study_x"
+     },
+     "record_id": "orch_test_paper_study_x",
+     "run_id": "<RUN>",
+     "schema_version": "<SCHEMA>",
+     "status": "ready"
+    }
+   },
+   "entity_type": "Study",
+   "paper_id": "orch_test_paper",
+   "payload": {
+    "citation_ids": [
+     "orch_test_paper"
+    ],
+    "id": "orch_test_paper_study_x"
+   },
+   "record_id": "orch_test_paper_study_x",
+   "status": "ready"
+  },
+  "Study__orch_test_paper_study_x/record_manifest.json": {
+   "attempts": {
+    "ai_validation": 0,
+    "conversion": 1,
+    "extraction": 1
+   },
+   "entity_type": "Study",
+   "record_id": "orch_test_paper_study_x",
+   "status": "ready"
+  },
+  "Treatment__enumeration/enumeration/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"entity_type\": \"Treatment\", \"candidates\": [{\"candidate_id\": \"x\", \"description\": \"The single reported variable.\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "candidates": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "candidate_id": "x",
+      "description": "The single reported variable."
+     }
+    ],
+    "entity_type": "Treatment"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Treatment__orch_test_paper_treatment_x/conversion/attempt1.json": {
+   "agent": "converter",
+   "final_text": "{\"id\": \"orch_test_paper_treatment_x\", \"citation_id\": \"orch_test_paper\", \"site_id\": \"orch_test_paper_site_x\", \"study_id\": {\"value\": null, \"provenance_label\": \"UNRESOLVED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0001\"}]}, \"unresolved_reason\": \"isolated paper\"}, \"name\": {\"value\": \"A Title\", \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0003\"}]}}, \"definition\": {\"value\": \"A Title\", \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0003\"}]}}}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "citation_id": "orch_test_paper",
+    "definition": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    },
+    "id": "orch_test_paper_treatment_x",
+    "name": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    },
+    "site_id": "orch_test_paper_site_x",
+    "study_id": {
+     "provenance_label": "UNRESOLVED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0001",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "unresolved_reason": "isolated paper",
+     "value": null
+    }
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}"
+  },
+  "Treatment__orch_test_paper_treatment_x/conversion_validation/attempt1.json": {
+   "attempts_remaining": 4,
+   "attempts_used": 0,
+   "errors": [],
+   "readiness_issues": [],
+   "ready": true,
+   "valid": true,
+   "warnings": []
+  },
+  "Treatment__orch_test_paper_treatment_x/extraction/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"paper_id\": \"orch_test_paper\", \"entity_type\": \"Treatment\", \"record_id\": \"orch_test_paper_treatment_x\", \"facts\": [{\"field_name\": \"x\", \"raw_value\": \"A Title\", \"raw_text_excerpt\": \"A Title\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "entity_type": "Treatment",
+    "facts": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "field_name": "x",
+      "raw_text_excerpt": "A Title",
+      "raw_value": "A Title"
+     }
+    ],
+    "paper_id": "orch_test_paper",
+    "record_id": "orch_test_paper_treatment_x"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Treatment__orch_test_paper_treatment_x/final.json": {
+   "ai_validation": null,
+   "commit_result": {
+    "committed": true,
+    "entry": {
+     "ai_validation": null,
+     "entity_type": "Treatment",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "citation_id": "orch_test_paper",
+      "definition": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      },
+      "id": "orch_test_paper_treatment_x",
+      "name": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      },
+      "site_id": "orch_test_paper_site_x",
+      "study_id": {
+       "provenance_label": "UNRESOLVED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0001",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "unresolved_reason": "isolated paper",
+       "value": null
+      }
+     },
+     "record_id": "orch_test_paper_treatment_x",
+     "run_id": "<RUN>",
+     "schema_version": "<SCHEMA>",
+     "status": "ready"
+    }
+   },
+   "entity_type": "Treatment",
+   "paper_id": "orch_test_paper",
+   "payload": {
+    "citation_id": "orch_test_paper",
+    "definition": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    },
+    "id": "orch_test_paper_treatment_x",
+    "name": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    },
+    "site_id": "orch_test_paper_site_x",
+    "study_id": {
+     "provenance_label": "UNRESOLVED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0001",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "unresolved_reason": "isolated paper",
+     "value": null
+    }
+   },
+   "record_id": "orch_test_paper_treatment_x",
+   "status": "ready"
+  },
+  "Treatment__orch_test_paper_treatment_x/record_manifest.json": {
+   "attempts": {
+    "ai_validation": 0,
+    "conversion": 1,
+    "extraction": 1
+   },
+   "entity_type": "Treatment",
+   "record_id": "orch_test_paper_treatment_x",
+   "status": "ready"
+  },
+  "Variable__enumeration/enumeration/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"entity_type\": \"Variable\", \"candidates\": [{\"candidate_id\": \"x\", \"description\": \"The single reported variable.\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "candidates": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "candidate_id": "x",
+      "description": "The single reported variable."
+     }
+    ],
+    "entity_type": "Variable"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Variable__orch_test_paper_variable_x/conversion/attempt1.json": {
+   "agent": "converter",
+   "final_text": "{\"id\": \"orch_test_paper_variable_x\", \"name\": {\"value\": \"A Title\", \"provenance_label\": \"EXTRACTED\", \"source\": {\"source_document_id\": \"orch_test_paper\", \"page_number\": 1, \"section_path\": [], \"locators\": [{\"kind\": \"text\", \"block_anchor\": \"b:0003\"}]}}}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "id": "orch_test_paper_variable_x",
+    "name": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": 1,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    }
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}"
+  },
+  "Variable__orch_test_paper_variable_x/conversion_validation/attempt1.json": {
+   "attempts_remaining": 4,
+   "attempts_used": 0,
+   "errors": [],
+   "readiness_issues": [],
+   "ready": true,
+   "valid": true,
+   "warnings": []
+  },
+  "Variable__orch_test_paper_variable_x/extraction/attempt1.json": {
+   "agent": "extractor",
+   "final_text": "{\"paper_id\": \"orch_test_paper\", \"entity_type\": \"Variable\", \"record_id\": \"orch_test_paper_variable_x\", \"facts\": [{\"field_name\": \"x\", \"raw_value\": \"A Title\", \"raw_text_excerpt\": \"A Title\", \"anchors\": [\"b:0003\"]}]}",
+   "had_malformed_tool_call": false,
+   "model": "test-model",
+   "parse_error": null,
+   "parsed_json": {
+    "entity_type": "Variable",
+    "facts": [
+     {
+      "anchors": [
+       "b:0003"
+      ],
+      "field_name": "x",
+      "raw_text_excerpt": "A Title",
+      "raw_value": "A Title"
+     }
+    ],
+    "paper_id": "orch_test_paper",
+    "record_id": "orch_test_paper_variable_x"
+   },
+   "prompt": "prompt",
+   "returncode": 0,
+   "stderr": "",
+   "stdout": "{}",
+   "validation_errors": []
+  },
+  "Variable__orch_test_paper_variable_x/final.json": {
+   "ai_validation": null,
+   "commit_result": {
+    "committed": true,
+    "entry": {
+     "ai_validation": null,
+     "entity_type": "Variable",
+     "paper_id": "orch_test_paper",
+     "payload": {
+      "id": "orch_test_paper_variable_x",
+      "name": {
+       "provenance_label": "EXTRACTED",
+       "source": {
+        "locators": [
+         {
+          "block_anchor": "b:0003",
+          "kind": "text"
+         }
+        ],
+        "page_number": null,
+        "section_path": [],
+        "source_document_id": "orch_test_paper"
+       },
+       "value": "A Title"
+      }
+     },
+     "record_id": "orch_test_paper_variable_x",
+     "run_id": "<RUN>",
+     "schema_version": "<SCHEMA>",
+     "status": "ready"
+    }
+   },
+   "entity_type": "Variable",
+   "paper_id": "orch_test_paper",
+   "payload": {
+    "id": "orch_test_paper_variable_x",
+    "name": {
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "locators": [
+       {
+        "block_anchor": "b:0003",
+        "kind": "text"
+       }
+      ],
+      "page_number": null,
+      "section_path": [],
+      "source_document_id": "orch_test_paper"
+     },
+     "value": "A Title"
+    }
+   },
+   "record_id": "orch_test_paper_variable_x",
+   "status": "ready"
+  },
+  "Variable__orch_test_paper_variable_x/record_manifest.json": {
+   "attempts": {
+    "ai_validation": 0,
+    "conversion": 1,
+    "extraction": 1
+   },
+   "entity_type": "Variable",
+   "record_id": "orch_test_paper_variable_x",
+   "status": "ready"
+  }
+ },
+ "results": {
+  "Citation": [
+   {
+    "ai_validation": null,
+    "entity_type": "Citation",
+    "paper_id": "orch_test_paper",
+    "payload": {
+     "author": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0001",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": "A. Author"
+     },
+     "id": "orch_test_paper",
+     "persistent_identifier": {
+      "provenance_label": "UNRESOLVED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0003",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "unresolved_reason": "no DOI",
+      "value": null
+     },
+     "title": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0003",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": "A Title"
+     },
+     "year": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0002",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": 2012
+     }
+    },
+    "record_id": "orch_test_paper",
+    "run_id": "<RUN>",
+    "status": "ready"
+   }
+  ],
+  "Coverage": [
+   {
+    "ai_validation": null,
+    "entity_type": "Coverage",
+    "paper_id": "orch_test_paper",
+    "payload": {
+     "citation_id": "orch_test_paper",
+     "id": "orch_test_paper_coverage_x",
+     "site_id": "orch_test_paper_site_x",
+     "variable_id": "orch_test_paper_variable_x"
+    },
+    "record_id": "orch_test_paper_coverage_x",
+    "run_id": "<RUN>",
+    "status": "ready"
+   }
+  ],
+  "Crop": [
+   {
+    "ai_validation": null,
+    "entity_type": "Crop",
+    "paper_id": "orch_test_paper",
+    "payload": {
+     "citation_id": "orch_test_paper",
+     "cultivar": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0003",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": "A Title"
+     },
+     "id": "orch_test_paper_crop_x",
+     "species_id": "orch_test_paper_species_x"
+    },
+    "record_id": "orch_test_paper_crop_x",
+    "run_id": "<RUN>",
+    "status": "ready"
+   }
+  ],
+  "Management": [
+   {
+    "ai_validation": null,
+    "entity_type": "Management",
+    "paper_id": "orch_test_paper",
+    "payload": {
+     "citation_id": "orch_test_paper",
+     "date": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0002",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": {
+       "earliest": null,
+       "latest": null,
+       "relative_timing": null,
+       "relative_timing_days": null,
+       "reported_text": "2012"
+      }
+     },
+     "event_type": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0003",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": "A Title"
+     },
+     "id": "orch_test_paper_management_x"
+    },
+    "record_id": "orch_test_paper_management_x",
+    "run_id": "<RUN>",
+    "status": "ready"
+   }
+  ],
+  "Method": [
+   {
+    "ai_validation": null,
+    "entity_type": "Method",
+    "paper_id": "orch_test_paper",
+    "payload": {
+     "citation_id": "orch_test_paper",
+     "description": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0003",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": "A Title"
+     },
+     "id": "orch_test_paper_method_x",
+     "name": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0003",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": "A Title"
+     }
+    },
+    "record_id": "orch_test_paper_method_x",
+    "run_id": "<RUN>",
+    "status": "ready"
+   }
+  ],
+  "Observation": [
+   {
+    "ai_validation": null,
+    "entity_type": "Observation",
+    "paper_id": "orch_test_paper",
+    "payload": {
+     "aggregated_over_factors": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0001",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": []
+     },
+     "citation_id": "orch_test_paper",
+     "dataset_id": "orch_test_paper",
+     "id": "orch_test_paper_observation_x",
+     "is_raw_replicate_level": {
+      "provenance_label": "UNRESOLVED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0001",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "unresolved_reason": "replication level not stated",
+      "value": null
+     },
+     "method_id": "orch_test_paper_method_x",
+     "reported_effect_scope": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0004",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": "treatment_mean"
+     },
+     "site_id": "orch_test_paper_site_x",
+     "temporal_info": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0002",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": {
+       "earliest": null,
+       "latest": null,
+       "relative_timing": null,
+       "relative_timing_days": null,
+       "reported_text": "2012"
+      }
+     },
+     "treatment_id": "orch_test_paper_treatment_x",
+     "value": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0002",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": {
+       "reported_numeric_value": 2012.0,
+       "reported_text": "2012",
+       "reported_units": "unitless"
+      }
+     },
+     "variable_name": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0003",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": "A Title"
+     }
+    },
+    "record_id": "orch_test_paper_observation_x",
+    "run_id": "<RUN>",
+    "status": "ready"
+   }
+  ],
+  "Site": [
+   {
+    "ai_validation": null,
+    "entity_type": "Site",
+    "paper_id": "orch_test_paper",
+    "payload": {
+     "id": "orch_test_paper_site_x",
+     "name": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0003",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": "A Title"
+     }
+    },
+    "record_id": "orch_test_paper_site_x",
+    "run_id": "<RUN>",
+    "status": "ready"
+   }
+  ],
+  "Species": [
+   {
+    "ai_validation": null,
+    "entity_type": "Species",
+    "paper_id": "orch_test_paper",
+    "payload": {
+     "genus": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0001",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": "A."
+     },
+     "id": "orch_test_paper_species_x",
+     "scientific_name": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0001",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": "A. Author"
+     },
+     "species_epithet": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0001",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": "Author"
+     }
+    },
+    "record_id": "orch_test_paper_species_x",
+    "run_id": "<RUN>",
+    "status": "ready"
+   }
+  ],
+  "Study": [
+   {
+    "ai_validation": null,
+    "entity_type": "Study",
+    "paper_id": "orch_test_paper",
+    "payload": {
+     "citation_ids": [
+      "orch_test_paper"
+     ],
+     "id": "orch_test_paper_study_x"
+    },
+    "record_id": "orch_test_paper_study_x",
+    "run_id": "<RUN>",
+    "status": "ready"
+   }
+  ],
+  "Treatment": [
+   {
+    "ai_validation": null,
+    "entity_type": "Treatment",
+    "paper_id": "orch_test_paper",
+    "payload": {
+     "citation_id": "orch_test_paper",
+     "definition": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0003",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": "A Title"
+     },
+     "id": "orch_test_paper_treatment_x",
+     "name": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0003",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": "A Title"
+     },
+     "site_id": "orch_test_paper_site_x",
+     "study_id": {
+      "provenance_label": "UNRESOLVED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0001",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "unresolved_reason": "isolated paper",
+      "value": null
+     }
+    },
+    "record_id": "orch_test_paper_treatment_x",
+    "run_id": "<RUN>",
+    "status": "ready"
+   }
+  ],
+  "TreatmentPair": [
+   {
+    "ai_validation": null,
+    "entity_type": "TreatmentPair",
+    "paper_id": "orch_test_paper",
+    "payload": null,
+    "reason": "requires 2 distinct Treatment records; only 1 'ready' Treatment record(s) exist in this run",
+    "record_id": "orch_test_paper_treatmentpair",
+    "run_id": "<RUN>",
+    "status": "blocked"
+   }
+  ],
+  "Variable": [
+   {
+    "ai_validation": null,
+    "entity_type": "Variable",
+    "paper_id": "orch_test_paper",
+    "payload": {
+     "id": "orch_test_paper_variable_x",
+     "name": {
+      "provenance_label": "EXTRACTED",
+      "source": {
+       "locators": [
+        {
+         "block_anchor": "b:0003",
+         "kind": "text"
+        }
+       ],
+       "page_number": null,
+       "section_path": [],
+       "source_document_id": "orch_test_paper"
+      },
+      "value": "A Title"
+     }
+    },
+    "record_id": "orch_test_paper_variable_x",
+    "run_id": "<RUN>",
+    "status": "ready"
+   }
+  ]
+ }
+}

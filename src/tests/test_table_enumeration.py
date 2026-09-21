@@ -27,7 +27,7 @@ PIPELINE_DIR = Path(__file__).resolve().parent.parent / "pipeline"
 sys.path.insert(0, str(PIPELINE_DIR))
 
 from pipeline import orchestrator, run_store  # noqa: E402
-from pipeline.raw_schema import EnumerationCandidate, TableClassification, TableRowGroup, TableValueColumn  # noqa: E402
+from pipeline.raw_schema import CandidateDimension, EnumerationCandidate, TableClassification, TableRowGroup, TableValueColumn  # noqa: E402
 
 PAPER_ID = "table_enum_test_paper"
 
@@ -177,6 +177,47 @@ def test_table_classification_accepts_a_well_formed_reconstruction():
 
 
 # --------------------------------------------------------------------- #
+# 1b. TableClassification.aggregation_scope (Fix 2, table-enumeration
+# fix-pass design review, real Daren-1997-Canopy Table 7 evidence): a
+# table can be successfully RECONSTRUCTED (applicable=True) while still
+# reporting pooled/averaged main effects rather than real per-treatment
+# cells -- Protocol Section 7.4 explicitly names this case. `applicable`
+# stays about reconstruction success; `aggregation_scope` is the
+# orthogonal gate for whether candidate generation may use it at all.
+# --------------------------------------------------------------------- #
+
+def test_table_classification_defaults_to_cell_level():
+    tc = TableClassification(
+        applicable=True, table_anchors=["b:0001"],
+        value_columns=[TableValueColumn(value_column_id="x", variable_name_hint="x")],
+        row_groups=[TableRowGroup(row_group_id="r", source_table_anchor="b:0001", cells={"x": "1"})],
+    )
+    assert tc.aggregation_scope == "cell_level"
+
+
+def test_table_classification_requires_reason_when_aggregated_summary():
+    with pytest.raises(ValidationError):
+        TableClassification(
+            applicable=True, aggregation_scope="aggregated_summary", table_anchors=["b:0001"],
+            value_columns=[TableValueColumn(value_column_id="x", variable_name_hint="x")],
+            row_groups=[TableRowGroup(row_group_id="r", source_table_anchor="b:0001", cells={"x": "1"})],
+        )
+
+
+def test_table_classification_accepts_aggregated_summary_with_reason():
+    tc = TableClassification(
+        applicable=True, aggregation_scope="aggregated_summary",
+        reason="Rows report LAI/MTA averaged across populations, and separately averaged across locations and "
+               "maturities -- pooled main effects, not per-treatment cells (Protocol Section 7.4).",
+        table_anchors=["b:0761"],
+        value_columns=[TableValueColumn(value_column_id="lai", variable_name_hint="LAI")],
+        row_groups=[TableRowGroup(row_group_id="r", source_table_anchor="b:0761",
+                                   factor_values={"Location": "Ames, IA"}, cells={"lai": "2.8"})],
+    )
+    assert tc.aggregation_scope == "aggregated_summary"
+
+
+# --------------------------------------------------------------------- #
 # 2. _numeric_tokens / _table_classification_sanity_check
 # --------------------------------------------------------------------- #
 
@@ -301,6 +342,96 @@ def test_match_row_group_prefers_exact_match_over_substring():
 
 
 # --------------------------------------------------------------------- #
+# 3b. _match_row_group_to_pool -- Fix 1 (Method-linking directional bug,
+# real Daren-1997-Canopy evidence): method_hint is a long descriptive
+# clause the table-classification prompt explicitly asks for, while a real
+# Method entity's own `name` is a short label -- the OLD substring rule
+# only ever checked "value is substring of pool text" (short-in-long),
+# never the reverse, so ANY hint longer than the pool name it should match
+# was structurally guaranteed to fail regardless of semantic correctness.
+# These are the exact real hints/pool pairs from run 20260918T140758_eb657e70.
+# --------------------------------------------------------------------- #
+
+def test_match_row_group_method_hint_bidirectional_substring_glm():
+    # b:0178 real hint vs the real GLM Method -- pool name is a literal
+    # (contiguous) substring of the longer hint; the OLD code never tested
+    # this direction.
+    pool = [{"slug": "glm_statistical_analysis", "record_id": "...", "name": "General Linear Model (GLM)"}]
+    hint = "General Linear Model (GLM) analysis (SAS) – LSD (0.05) values"
+    assert orchestrator._match_row_group_to_pool({"Method": hint}, pool) == "glm_statistical_analysis"
+
+
+def test_match_row_group_method_hint_bidirectional_substring_oven():
+    # b:0350 real hint vs the real forced-draft-oven Method.
+    pool = [{"slug": "dry_matter_weighing", "record_id": "...", "name": "forced-draft oven"}]
+    hint = "Tillers were dried in a forced‑draft oven at 55 °C and weighed (see Materials and Methods)."
+    assert orchestrator._match_row_group_to_pool({"Method": hint}, pool) == "dry_matter_weighing"
+
+
+def test_match_row_group_method_hint_token_containment_stem_internode():
+    # b:0607 real hint vs the real stem-internode-length Method -- pool
+    # name is a contiguous substring of the hint (covered by the
+    # bidirectional-substring extension alone, no token logic needed, but
+    # kept as its own real-evidence regression case).
+    pool = [{"slug": "stem_internode_length", "record_id": "...", "name": "stem internode length"}]
+    hint = "hand measurement of stem internode length as described in the Methods section"
+    assert orchestrator._match_row_group_to_pool({"Method": hint}, pool) == "stem_internode_length"
+
+
+def test_match_row_group_method_hint_conservative_no_match_hand_clipping():
+    # b:0119 real hint vs the (wrong) forced-draft-oven Method: genuinely a
+    # different step (collection vs. the oven-drying/weighing that produces
+    # the reported value) -- must NOT match, and must NOT match anything
+    # else in a fuller pool either (real pool from the same run).
+    pool = [
+        {"slug": "dry_matter_weighing", "record_id": "...", "name": "forced-draft oven"},
+        {"slug": "glm_statistical_analysis", "record_id": "...", "name": "General Linear Model (GLM)"},
+        {"slug": "lai_measurement", "record_id": "...", "name": "LI-COR LAI-2000 leaf area analyzer"},
+        {"slug": "leaf_dimensional_measurements", "record_id": "...", "name": "leaf blade length and width"},
+        {"slug": "leaf_mean_tilt_angle", "record_id": "...", "name": "leaf MTA"},
+        {"slug": "stem_internode_length", "record_id": "...", "name": "stem internode length"},
+        {"slug": "stepwise_regression", "record_id": "...", "name": "Stepwise regression"},
+    ]
+    hint = "hand‑clipping harvest"
+    assert orchestrator._match_row_group_to_pool({"Method": hint}, pool) is None
+
+
+def test_match_row_group_method_hint_conservative_no_match_split_dimension():
+    # b:0607 real hint vs the real leaf-dimensions Method: the hint is
+    # about leaf blade WIDTH only, but the pool name covers "length and
+    # width" together -- "length" is a significant token missing from the
+    # hint, so the strict all-significant-tokens-present rule must refuse
+    # rather than guess this is close enough.
+    pool = [{"slug": "leaf_dimensional_measurements", "record_id": "...", "name": "leaf blade length and width"}]
+    hint = "hand measurement of leaf blade width as described in the Methods section"
+    assert orchestrator._match_row_group_to_pool({"Method": hint}, pool) is None
+
+
+def test_match_row_group_never_matches_on_single_generic_token():
+    # A hint sharing only ONE common/generic word with a pool name must
+    # never match on that alone, even if the word is an exact token overlap.
+    pool = [{"slug": "some_method", "record_id": "...", "name": "Standard Method Analysis"}]
+    hint = "a completely unrelated description of a different measurement using the standard approach"
+    assert orchestrator._match_row_group_to_pool({"Method": hint}, pool) is None
+
+
+def test_match_row_group_never_matches_on_single_significant_token():
+    # Even a single SIGNIFICANT (non-generic) shared token must not be
+    # enough on its own -- token-containment requires >=2 significant
+    # tokens, all present.
+    pool = [{"slug": "leaf_area_index", "record_id": "...", "name": "Leaf Area Index"}]
+    hint = "a totally different quantity that happens to mention area in passing"
+    assert orchestrator._match_row_group_to_pool({"Method": hint}, pool) is None
+
+
+def test_match_row_group_existing_site_behavior_unchanged():
+    # Regression guard: the bidirectional extension must not change any
+    # existing Site-style (short value inside long name) result.
+    pool = [{"slug": "ames_ia", "record_id": "...", "name": "Iowa State University Agronomy and Agricultural Engineering Research Center"}]
+    assert orchestrator._match_row_group_to_pool({"Site": "Ames"}, pool) == "ames_ia"
+
+
+# --------------------------------------------------------------------- #
 # 4. _table_classification_to_candidates (Step C, pure cross-product)
 # --------------------------------------------------------------------- #
 
@@ -331,6 +462,22 @@ def test_step_c_produces_one_candidate_per_nonblank_row_x_column():
 
 def test_step_c_not_applicable_produces_no_candidates():
     tc = TableClassification(applicable=False, reason="not a data table", table_anchors=["b:0001"])
+    assert orchestrator._table_classification_to_candidates(tc, {}) == []
+
+
+def test_step_c_aggregated_summary_produces_no_candidates():
+    # Fix 2, real Daren-1997-Canopy Table 7 shape: applicable=True (it DID
+    # reconstruct), but aggregation_scope=aggregated_summary -- pooled
+    # main-effects rows must never cross-product into Observation
+    # candidates like "LAI for Location=Ames, IA" (no real Treatment).
+    tc = TableClassification(
+        applicable=True, aggregation_scope="aggregated_summary",
+        reason="Rows report LAI averaged across populations -- a pooled main effect, not a per-treatment cell.",
+        table_anchors=["b:0761"],
+        value_columns=[TableValueColumn(value_column_id="lai", variable_name_hint="LAI")],
+        row_groups=[TableRowGroup(row_group_id="r", source_table_anchor="b:0761",
+                                   factor_values={"Location": "Ames, IA"}, cells={"lai": "2.8"})],
+    )
     assert orchestrator._table_classification_to_candidates(tc, {}) == []
 
 
@@ -425,6 +572,21 @@ def test_step_c_links_method_id_from_value_column_method_hint():
     )
     candidates = orchestrator._table_classification_to_candidates(tc, pool)
     assert candidates[0].linked_candidates == {"method_id": "hand_clipping_harvest"}
+
+
+def test_step_c_links_treatment_id_from_value_column_treatment_level_hint():
+    # Fix 5 (column-as-treatment), Observation side: a column-encoded
+    # treatment must feed Observation.treatment_id linking the same
+    # deterministic way site_hint/method_hint already feed site_id/method_id.
+    pool = {"treatment_id": [{"slug": "fallow", "record_id": "...", "name": "Fallow"}]}
+    tc = TableClassification(
+        applicable=True, table_anchors=["b:0069"],
+        value_columns=[TableValueColumn(value_column_id="fallow_col", variable_name_hint="total fruit", treatment_level_hint="Fallow")],
+        row_groups=[TableRowGroup(row_group_id="r", source_table_anchor="b:0069",
+                                   factor_values={"DAP": "54"}, cells={"fallow_col": "120"})],
+    )
+    candidates = orchestrator._table_classification_to_candidates(tc, pool)
+    assert candidates[0].linked_candidates == {"treatment_id": "fallow"}
 
 
 def test_match_row_group_resolves_population_and_site_via_scoring_not_flat_match():
@@ -823,6 +985,96 @@ def test_treatment_candidates_not_applicable_classification_contributes_nothing(
     assert covered == set()
 
 
+def test_treatment_candidates_aggregated_summary_contributes_nothing():
+    # Fix 2, real Daren-1997-Canopy Table 7 shape: this is exactly what
+    # previously produced the nonsense Treatment(name="Ames, IA") and
+    # Treatment(name="Trailblazer") (no site/maturity) records -- both the
+    # "Location, across populations" and "Population, across locations and
+    # maturities" sections of Table 7.
+    tc = TableClassification(
+        applicable=True, aggregation_scope="aggregated_summary",
+        reason="Rows report LAI/MTA averaged across populations, and separately averaged across locations and "
+               "maturities -- pooled main effects, not per-treatment cells.",
+        table_anchors=["b:0761"],
+        value_columns=[TableValueColumn(value_column_id="lai", variable_name_hint="LAI")],
+        row_groups=[
+            TableRowGroup(row_group_id="r1", source_table_anchor="b:0761",
+                          factor_values={"Location": "Ames, IA", "Maturity": "Vegetative"}, cells={"lai": "2.8"}),
+            TableRowGroup(row_group_id="r2", source_table_anchor="b:0761",
+                          factor_values={"Population": "Trailblazer"}, cells={"lai": "4.0"}),
+        ],
+    )
+    candidates, covered = orchestrator._table_classifications_to_treatment_candidates([tc], {})
+    assert candidates == []
+    assert covered == set()
+
+
+def test_treatment_candidates_column_encoded_produces_one_per_distinct_column_not_per_cell():
+    # Fix 5 (column-as-treatment), real Felipe-2010-Cultivar shape:
+    # columns are the treatment (Fallow vs Mustard), rows are DAP x
+    # Variable (context, not treatment identity). Must yield exactly 2
+    # Treatment candidates (Fallow, Mustard), NOT one per (DAP, Variable,
+    # column) cell.
+    tc = TableClassification(
+        applicable=True, table_anchors=["b:0069"],
+        value_columns=[
+            TableValueColumn(value_column_id="fallow_col", variable_name_hint="Total fruit (g m-2)", treatment_level_hint="Fallow"),
+            TableValueColumn(value_column_id="mustard_col", variable_name_hint="Total fruit (g m-2)", treatment_level_hint="Mustard"),
+        ],
+        row_groups=[
+            TableRowGroup(row_group_id="dap_54", source_table_anchor="b:0069",
+                          factor_values={"DAP": "54", "Variable": "Total fruit"},
+                          cells={"fallow_col": "120", "mustard_col": "95"}),
+            TableRowGroup(row_group_id="dap_111", source_table_anchor="b:0069",
+                          factor_values={"DAP": "111", "Variable": "Total fruit"},
+                          cells={"fallow_col": "310", "mustard_col": "275"}),
+        ],
+    )
+    candidates, covered = orchestrator._table_classifications_to_treatment_candidates([tc], {})
+    assert len(candidates) == 2
+    descriptions = {c.description for c in candidates}
+    assert any("Fallow" in d for d in descriptions)
+    assert any("Mustard" in d for d in descriptions)
+    # Neither candidate's identity is diluted by the row-level DAP/Variable
+    # context values -- those belong to Observation, not to Treatment.
+    assert not any("DAP" in d for d in descriptions)
+    assert covered == {"b:0069"}
+
+
+def test_treatment_candidates_column_encoded_with_site_hint_also_splits_by_site():
+    tc = TableClassification(
+        applicable=True, table_anchors=["b:0069"],
+        value_columns=[
+            TableValueColumn(value_column_id="fallow_ames", variable_name_hint="yield", treatment_level_hint="Fallow", site_hint="Ames"),
+            TableValueColumn(value_column_id="fallow_mead", variable_name_hint="yield", treatment_level_hint="Fallow", site_hint="Mead"),
+        ],
+        row_groups=[
+            TableRowGroup(row_group_id="dap_54", source_table_anchor="b:0069",
+                          factor_values={"DAP": "54"}, cells={"fallow_ames": "120", "fallow_mead": "95"}),
+        ],
+    )
+    candidates, _covered = orchestrator._table_classifications_to_treatment_candidates([tc], {})
+    assert len(candidates) == 2
+
+
+def test_treatment_candidates_row_encoded_unaffected_by_treatment_level_hint_field_existing():
+    # Regression guard: a table with NO value_column ever setting
+    # treatment_level_hint must behave EXACTLY as before Fix 5 -- the new
+    # field defaults to None and the row-encoded branch is unchanged.
+    tc = TableClassification(
+        applicable=True, table_anchors=["b:0119"],
+        value_columns=[TableValueColumn(value_column_id="yield_ames", variable_name_hint="yield", site_hint="Ames")],
+        row_groups=[TableRowGroup(row_group_id="trailblazer", source_table_anchor="b:0119",
+                                   factor_values={"Population": "Trailblazer", "Maturity": "Vegetative"},
+                                   cells={"yield_ames": "0.19"})],
+    )
+    candidates, covered = orchestrator._table_classifications_to_treatment_candidates([tc], {})
+    assert len(candidates) == 1
+    assert "Trailblazer" in candidates[0].description
+    assert "Vegetative" in candidates[0].description
+    assert covered == {"b:0119"}
+
+
 def test_treatment_candidates_blank_cell_produces_no_candidate():
     tc = TableClassification(
         applicable=True, table_anchors=["b:0001"],
@@ -942,6 +1194,68 @@ def test_drop_candidates_covered_by_tables_noop_when_nothing_covered():
 
 
 # --------------------------------------------------------------------- #
+# 8a2. _drop_freeform_candidates_subsumed_by_tables (Fix 3, table-
+# enumeration fix-pass design review, real Daren-1997-Canopy evidence):
+# the anchor-based check above only catches a free-form candidate that
+# cites a table anchor -- it does nothing when free-form grounds its
+# candidate in PROSE instead (Daren's Materials and Methods names all 6
+# populations, so free-form minted 12 population-x-site candidates from
+# anchors b:0026/b:0027, none of them table anchors). This is a SEPARATE,
+# additive check using only each candidate's own already-resolved,
+# deterministic links (e.g. site_id) -- never a text/name comparison, and
+# never applied to a free-form candidate with no resolved links at all
+# (nothing to compare -- stays conservative, kept).
+# --------------------------------------------------------------------- #
+
+def test_drop_freeform_subsumed_by_tables_drops_when_every_link_is_covered():
+    table_candidates = [
+        EnumerationCandidate(candidate_id="t1", description="t1", anchors=["b:0119"], linked_candidates={"site_id": "ames_ia"}),
+        EnumerationCandidate(candidate_id="t2", description="t2", anchors=["b:0119"], linked_candidates={"site_id": "mead_ne"}),
+    ]
+    freeform = [
+        EnumerationCandidate(candidate_id="trailblazer_ames", description="Trailblazer at Ames, IA.",
+                              anchors=["b:0026"], linked_candidates={"site_id": "ames_ia"}),
+    ]
+    kept = orchestrator._drop_freeform_candidates_subsumed_by_tables(freeform, table_candidates)
+    assert kept == []
+
+
+def test_drop_freeform_subsumed_by_tables_keeps_uncovered_link():
+    table_candidates = [
+        EnumerationCandidate(candidate_id="t1", description="t1", anchors=["b:0119"], linked_candidates={"site_id": "ames_ia"}),
+    ]
+    # This free-form candidate's site was never seen by table enumeration
+    # at all -- genuinely new evidence, must survive.
+    freeform = [
+        EnumerationCandidate(candidate_id="somewhere_else", description="A third site mentioned only in prose.",
+                              anchors=["b:0030"], linked_candidates={"site_id": "greenhouse_x"}),
+    ]
+    kept = orchestrator._drop_freeform_candidates_subsumed_by_tables(freeform, table_candidates)
+    assert kept == freeform
+
+
+def test_drop_freeform_subsumed_by_tables_keeps_when_no_links_resolved():
+    table_candidates = [
+        EnumerationCandidate(candidate_id="t1", description="t1", anchors=["b:0119"], linked_candidates={"site_id": "ames_ia"}),
+    ]
+    # Nothing to compare -- conservative default is to keep, not to guess
+    # this is redundant.
+    freeform = [
+        EnumerationCandidate(candidate_id="unlinked", description="Some candidate with no resolved link.",
+                              anchors=["b:0030"], linked_candidates={}),
+    ]
+    kept = orchestrator._drop_freeform_candidates_subsumed_by_tables(freeform, table_candidates)
+    assert kept == freeform
+
+
+def test_drop_freeform_subsumed_by_tables_noop_when_no_table_candidates():
+    freeform = [
+        EnumerationCandidate(candidate_id="a", description="a", anchors=["b:0030"], linked_candidates={"site_id": "ames_ia"}),
+    ]
+    assert orchestrator._drop_freeform_candidates_subsumed_by_tables(freeform, []) == freeform
+
+
+# --------------------------------------------------------------------- #
 # 8b. _dedupe_candidate_record_ids (Phase 1.2: candidate collision
 #     detection) -- table-derived and free-form candidates are generated
 #     by two independent passes and can legitimately choose the same
@@ -1006,6 +1320,54 @@ def test_dedupe_candidate_record_ids_preserves_known_value():
     deduped, _ = orchestrator._dedupe_candidate_record_ids([a, b])
     assert deduped[0].known_value == "3.2"
     assert deduped[1].known_value == "4.1"
+
+
+# --------------------------------------------------------------------- #
+# 8c. _flag_near_duplicate_candidates (Fix 4, table-enumeration fix-pass
+# design review, real Daren-1997-Canopy evidence: Marker OCR-misread "Ey"
+# as "Ev" specifically in Table 4's rendering, producing candidate_id
+# 'ev_ff_ldmdc1_ames_vegetative' one edit away from the real
+# 'ey_ff_ldmdc1_ames_vegetative'). DETECTS only -- never merges, drops, or
+# relabels either candidate, per the explicit requirement to keep
+# population-name reconciliation conservative and never silently convert
+# a textual near-match into a merged entity.
+# --------------------------------------------------------------------- #
+
+def test_flag_near_duplicate_candidates_detects_one_char_difference():
+    candidates = [
+        EnumerationCandidate(candidate_id="ey_ff_ldmdc1_ames_vegetative", description="a", anchors=["b:0119"], linked_candidates={}),
+        EnumerationCandidate(candidate_id="ev_ff_ldmdc1_ames_vegetative", description="b", anchors=["b:0350"], linked_candidates={}),
+    ]
+    notes = orchestrator._flag_near_duplicate_candidates(candidates)
+    assert len(notes) == 1
+    assert "ey_ff_ldmdc1_ames_vegetative" in notes[0]
+    assert "ev_ff_ldmdc1_ames_vegetative" in notes[0]
+    # Neither candidate was touched -- still exactly 2, unchanged ids.
+    assert [c.candidate_id for c in candidates] == ["ey_ff_ldmdc1_ames_vegetative", "ev_ff_ldmdc1_ames_vegetative"]
+
+
+def test_flag_near_duplicate_candidates_ignores_genuinely_different_ids():
+    candidates = [
+        EnumerationCandidate(candidate_id="vegetative_trailblazer_ames", description="a", anchors=["b:0119"], linked_candidates={}),
+        EnumerationCandidate(candidate_id="reproductive_pathfinder_mead", description="b", anchors=["b:0119"], linked_candidates={}),
+    ]
+    assert orchestrator._flag_near_duplicate_candidates(candidates) == []
+
+
+def test_flag_near_duplicate_candidates_ignores_exact_collisions():
+    # Exact collisions are _dedupe_candidate_record_ids's job, not this
+    # one -- must not double-report the same pair.
+    candidates = [
+        EnumerationCandidate(candidate_id="x", description="a", anchors=["b:0001"], linked_candidates={}),
+        EnumerationCandidate(candidate_id="x", description="b", anchors=["b:0002"], linked_candidates={}),
+    ]
+    assert orchestrator._flag_near_duplicate_candidates(candidates) == []
+
+
+def test_flag_near_duplicate_candidates_noop_on_empty_or_single():
+    assert orchestrator._flag_near_duplicate_candidates([]) == []
+    single = [EnumerationCandidate(candidate_id="a", description="a", anchors=["b:0001"], linked_candidates={})]
+    assert orchestrator._flag_near_duplicate_candidates(single) == []
 
 
 # --------------------------------------------------------------------- #
@@ -1125,6 +1487,145 @@ def test_run_multi_record_entity_disambiguates_colliding_candidate_ids_instead_o
     )
     assert collision_artifact["collisions"]
     assert "ambient_co2" in collision_artifact["collisions"][0]
+
+
+def test_run_multi_record_entity_drops_freeform_subsumed_by_table_links(env, monkeypatch):
+    # Item 8 (replaces Fix 3's link-overlap rule for Treatment): real Daren-1997-Canopy
+    # Treatment shape -- table enumeration produces candidates; free-form, grounded in
+    # Methods-section prose (not any table anchor), produces one with the SAME canonical
+    # identity (declared dimensions; key names differ) -- dropped as covered -- and one
+    # whose identity no table candidate has -- kept as new.
+    monkeypatch.setattr(orchestrator, "_resolve_known_refs", lambda entity_type, records: ({}, None))
+    monkeypatch.setattr(orchestrator, "_multi_record_link_pools", lambda *a, **k: {})
+
+    table_candidate = EnumerationCandidate(
+        candidate_id="vegetative_trailblazer_ames", description="from table",
+        anchors=["b:0119"], linked_candidates={"site_id": "ames_ia"},
+        dimensions=[CandidateDimension(name="Population", dimension="treatment", level="Trailblazer"),
+                    CandidateDimension(name="Site", dimension="site", level="Ames")],
+    )
+    monkeypatch.setattr(orchestrator, "run_table_enumeration", lambda **kwargs: ([table_candidate], {"b:0119"}))
+
+    freeform_subsumed = EnumerationCandidate(
+        candidate_id="trailblazer_ames", description="Trailblazer switchgrass population grown at Ames, IA.",
+        anchors=["b:0026", "b:0027"], linked_candidates={"site_id": "ames_ia"},
+        dimensions=[CandidateDimension(name="Entry", dimension="treatment", level="trailblazer"),
+                    CandidateDimension(name="Location", dimension="site", level="Ames")],
+    )
+    freeform_new = EnumerationCandidate(
+        candidate_id="new_site_candidate", description="Something at a site no table ever covered.",
+        anchors=["b:0026"], linked_candidates={"site_id": "greenhouse_x"},
+        dimensions=[CandidateDimension(name="Cover", dimension="treatment", level="Mustard")],
+    )
+    monkeypatch.setattr(orchestrator, "run_enumeration", lambda **kwargs: ([freeform_subsumed, freeform_new], None))
+    monkeypatch.setattr(
+        orchestrator, "_apply_candidate_links",
+        lambda paper_id, entity_type, this_run_records, known_refs, candidate: known_refs,
+    )
+
+    def _fake_run_record(*, entity_type, record_id, **kwargs):
+        return orchestrator.RecordResult(
+            status="ready", entity_type=entity_type, record_id=record_id,
+            detail={"payload": {}, "ai_validation": None},
+        )
+
+    monkeypatch.setattr(orchestrator, "run_record", _fake_run_record)
+
+    record_infos = orchestrator._run_multi_record_entity(
+        run_id="run1", paper_id=PAPER_ID, entity_type="Treatment", model="test-model",
+        client=None, invoke=make_invoke_sequence([]), enable_ai_validation=False, this_run_records={},
+    )
+
+    processed_ids = {r["record_id"] for r in record_infos}
+    assert any("vegetative_trailblazer_ames" in rid for rid in processed_ids)
+    assert any("new_site_candidate" in rid for rid in processed_ids)
+    assert not any(rid.endswith("_trailblazer_ames") and "vegetative" not in rid for rid in processed_ids)
+    assert len(record_infos) == 2
+
+
+def test_run_multi_record_entity_daren_shaped_convergence(env, monkeypatch):
+    # Fix 6 (regression coverage only, no new code): the composite proof
+    # that Fixes 2+3+4 hold TOGETHER, not just individually -- a
+    # multi-table scenario shaped like the real Daren-1997-Canopy run:
+    # one normal cell-level table (2 populations x 2 sites = 4 real
+    # treatments), one aggregated Table-7-shaped table that must
+    # contribute NOTHING, and free-form enumeration grounded in prose
+    # producing candidates redundant with the cell-level table's sites.
+    # Final result must be exactly the 4 real treatments -- no
+    # Table-7-shaped candidates, no coarse free-form duplicates.
+    monkeypatch.setattr(orchestrator, "_resolve_known_refs", lambda entity_type, records: ({}, None))
+    # A real site pool -- table candidates resolve site_id from site_hint
+    # via the real _match_row_group_to_pool, exactly like the live
+    # pipeline does, so their linked_candidates aren't trivially empty.
+    site_pool = {"site_id": [{"slug": "ames_ia", "record_id": "...", "name": "Ames"},
+                              {"slug": "mead_ne", "record_id": "...", "name": "Mead"}]}
+    monkeypatch.setattr(orchestrator, "_multi_record_link_pools", lambda *a, **k: site_pool)
+    monkeypatch.setattr(
+        orchestrator, "_apply_candidate_links",
+        lambda paper_id, entity_type, this_run_records, known_refs, candidate: known_refs,
+    )
+    monkeypatch.setattr(
+        orchestrator, "run_record",
+        lambda *, entity_type, record_id, **kwargs: orchestrator.RecordResult(
+            status="ready", entity_type=entity_type, record_id=record_id, detail={"payload": {}, "ai_validation": None},
+        ),
+    )
+
+    cell_level_table = TableClassification(
+        applicable=True, table_anchors=["b:0119"],
+        value_columns=[
+            TableValueColumn(value_column_id="yield_ames", variable_name_hint="yield", site_hint="Ames"),
+            TableValueColumn(value_column_id="yield_mead", variable_name_hint="yield", site_hint="Mead"),
+        ],
+        row_groups=[
+            TableRowGroup(row_group_id="trailblazer", source_table_anchor="b:0119",
+                          factor_values={"Population": "Trailblazer"}, cells={"yield_ames": "0.19", "yield_mead": "0.30"}),
+            TableRowGroup(row_group_id="pathfinder", source_table_anchor="b:0119",
+                          factor_values={"Population": "Pathfinder"}, cells={"yield_ames": "0.23", "yield_mead": "0.29"}),
+        ],
+    )
+    aggregated_table = TableClassification(
+        applicable=True, aggregation_scope="aggregated_summary",
+        reason="Rows report yield averaged across populations -- a pooled main effect.",
+        table_anchors=["b:0761"],
+        value_columns=[TableValueColumn(value_column_id="lai", variable_name_hint="LAI")],
+        row_groups=[TableRowGroup(row_group_id="r", source_table_anchor="b:0761",
+                                   factor_values={"Location": "Ames, IA"}, cells={"lai": "2.8"})],
+    )
+    monkeypatch.setattr(
+        orchestrator, "run_table_classification_pass",
+        lambda **kwargs: {"b_0119": cell_level_table, "b_0761": aggregated_table},
+    )
+
+    # Item 8: free-form candidates now declare dimensions. The first names the same
+    # treatment identity as a table candidate (covered); the second declares only a
+    # population and a site (crop/site are never a Treatment, protocol Section 6.3).
+    freeform_candidates = [
+        EnumerationCandidate(candidate_id="trailblazer_ames", description="Trailblazer at Ames, IA.",
+                              anchors=["b:0026"], linked_candidates={"site_id": "ames_ia"},
+                              dimensions=[CandidateDimension(name="Entry", dimension="treatment", level="Trailblazer"),
+                                          CandidateDimension(name="Location", dimension="site", level="Ames")]),
+        EnumerationCandidate(candidate_id="pathfinder_mead", description="Pathfinder at Mead, NE.",
+                              anchors=["b:0026"], linked_candidates={"site_id": "mead_ne"},
+                              dimensions=[CandidateDimension(name="Population", dimension="crop", level="Pathfinder"),
+                                          CandidateDimension(name="Location", dimension="site", level="Mead")]),
+    ]
+    monkeypatch.setattr(orchestrator, "run_enumeration", lambda **kwargs: (freeform_candidates, None))
+
+    record_infos = orchestrator._run_multi_record_entity(
+        run_id="run_convergence", paper_id=PAPER_ID, entity_type="Treatment", model="test-model",
+        client=None, invoke=make_invoke_sequence([]), enable_ai_validation=False, this_run_records={},
+    )
+
+    # Exactly the 4 real (Population x Site) treatments from the
+    # cell-level table -- nothing from the aggregated table, nothing
+    # redundant surviving from free-form.
+    record_ids = {r["record_id"] for r in record_infos}
+    assert record_ids == {
+        f"{PAPER_ID}_treatment_trailblazer_ames", f"{PAPER_ID}_treatment_pathfinder_ames",
+        f"{PAPER_ID}_treatment_trailblazer_mead", f"{PAPER_ID}_treatment_pathfinder_mead",
+    }
+    assert len(record_infos) == 4
 
 
 def test_run_multi_record_entity_skips_table_enumeration_for_non_table_entity_types(env, monkeypatch):

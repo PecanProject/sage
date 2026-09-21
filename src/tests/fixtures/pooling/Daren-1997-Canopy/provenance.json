@@ -1,0 +1,645 @@
+{
+ "b:0045": {
+  "block_type": "Text",
+  "page_id": "page_4",
+  "section_path": [
+   "MATERIALS AND METHODS"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0046": {
+  "block_type": "Text",
+  "page_id": "page_4",
+  "section_path": [
+   "MATERIALS AND METHODS"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0047": {
+  "block_type": "Caption",
+  "page_id": "page_4",
+  "section_path": [
+   "MATERIALS AND METHODS"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0048": {
+  "block_type": "Table",
+  "page_id": "page_4",
+  "section_path": [
+   "MATERIALS AND METHODS"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0114": {
+  "block_type": "Text",
+  "page_id": "page_4",
+  "section_path": [
+   "MATERIALS AND METHODS"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0115": {
+  "block_type": "Text",
+  "page_id": "page_4",
+  "section_path": [
+   "MATERIALS AND METHODS"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0116": {
+  "block_type": "SectionHeader",
+  "page_id": "page_4",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0117": {
+  "block_type": "Text",
+  "page_id": "page_4",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0118": {
+  "block_type": "Caption",
+  "page_id": "page_4",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0119": {
+  "block_type": "Table",
+  "page_id": "page_4",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0178": {
+  "block_type": "Table",
+  "page_id": "page_5",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0289": {
+  "block_type": "Footnote",
+  "page_id": "page_5",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0296": {
+  "block_type": "Caption",
+  "page_id": "page_6",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0297": {
+  "block_type": "Table",
+  "page_id": "page_6",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0340": {
+  "block_type": "Footnote",
+  "page_id": "page_6",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0341": {
+  "block_type": "Text",
+  "page_id": "page_6",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0342": {
+  "block_type": "SectionHeader",
+  "page_id": "page_6",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions",
+   "Yield"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0343": {
+  "block_type": "SectionHeader",
+  "page_id": "page_6",
+  "section_path": [
+   "Total Dry Matter Yield"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0344": {
+  "block_type": "Text",
+  "page_id": "page_6",
+  "section_path": [
+   "Total Dry Matter Yield"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0345": {
+  "block_type": "SectionHeader",
+  "page_id": "page_6",
+  "section_path": [
+   "Total Dry Matter Yield",
+   "Yield Prediction"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0347": {
+  "block_type": "Text",
+  "page_id": "page_6",
+  "section_path": [
+   "Total Dry Matter Yield",
+   "Yield Prediction"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0348": {
+  "block_type": "Text",
+  "page_id": "page_6",
+  "section_path": [
+   "Total Dry Matter Yield",
+   "Yield Prediction"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0349": {
+  "block_type": "Caption",
+  "page_id": "page_6",
+  "section_path": [
+   "Total Dry Matter Yield",
+   "Yield Prediction"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0350": {
+  "block_type": "Table",
+  "page_id": "page_6",
+  "section_path": [
+   "Total Dry Matter Yield",
+   "Yield Prediction"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0367": {
+  "block_type": "Table",
+  "page_id": "page_7",
+  "section_path": [
+   "Total Dry Matter Yield",
+   "Yield Prediction"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0445": {
+  "block_type": "Footnote",
+  "page_id": "page_7",
+  "section_path": [
+   "Total Dry Matter Yield",
+   "Yield Prediction"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0452": {
+  "block_type": "Figure",
+  "page_id": "page_8",
+  "section_path": [
+   "Total Dry Matter Yield",
+   "Yield Prediction"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0454": {
+  "block_type": "Text",
+  "page_id": "page_8",
+  "section_path": [
+   "Total Dry Matter Yield",
+   "Yield Prediction"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0455": {
+  "block_type": "Text",
+  "page_id": "page_8",
+  "section_path": [
+   "Total Dry Matter Yield",
+   "Yield Prediction"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0456": {
+  "block_type": "SectionHeader",
+  "page_id": "page_8",
+  "section_path": [
+   "Mean Stage by Count and Mean Stage by Weight"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0457": {
+  "block_type": "Text",
+  "page_id": "page_8",
+  "section_path": [
+   "Mean Stage by Count and Mean Stage by Weight"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0458": {
+  "block_type": "Text",
+  "page_id": "page_8",
+  "section_path": [
+   "Mean Stage by Count and Mean Stage by Weight"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0459": {
+  "block_type": "Text",
+  "page_id": "page_8",
+  "section_path": [
+   "Mean Stage by Count and Mean Stage by Weight"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0460": {
+  "block_type": "Text",
+  "page_id": "page_8",
+  "section_path": [
+   "Mean Stage by Count and Mean Stage by Weight"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0461": {
+  "block_type": "SectionHeader",
+  "page_id": "page_8",
+  "section_path": [
+   "Plant and Tiller Density"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0462": {
+  "block_type": "Text",
+  "page_id": "page_8",
+  "section_path": [
+   "Plant and Tiller Density"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0465": {
+  "block_type": "Text",
+  "page_id": "page_9",
+  "section_path": [
+   "Plant and Tiller Density"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0466": {
+  "block_type": "Text",
+  "page_id": "page_9",
+  "section_path": [
+   "Plant and Tiller Density"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0467": {
+  "block_type": "Text",
+  "page_id": "page_9",
+  "section_path": [
+   "Plant and Tiller Density"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0474": {
+  "block_type": "Caption",
+  "page_id": "page_10",
+  "section_path": [
+   "Plant and Tiller Density"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0475": {
+  "block_type": "Table",
+  "page_id": "page_10",
+  "section_path": [
+   "Plant and Tiller Density"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0600": {
+  "block_type": "Footnote",
+  "page_id": "page_10",
+  "section_path": [
+   "Plant and Tiller Density"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0601": {
+  "block_type": "Text",
+  "page_id": "page_10",
+  "section_path": [
+   "Plant and Tiller Density"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0602": {
+  "block_type": "SectionHeader",
+  "page_id": "page_10",
+  "section_path": [
+   "Morphological Components"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0603": {
+  "block_type": "Text",
+  "page_id": "page_10",
+  "section_path": [
+   "Morphological Components"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0604": {
+  "block_type": "Text",
+  "page_id": "page_10",
+  "section_path": [
+   "Morphological Components"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0605": {
+  "block_type": "Text",
+  "page_id": "page_10",
+  "section_path": [
+   "Morphological Components"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0606": {
+  "block_type": "Caption",
+  "page_id": "page_10",
+  "section_path": [
+   "Morphological Components"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0607": {
+  "block_type": "Table",
+  "page_id": "page_10",
+  "section_path": [
+   "Morphological Components"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0655": {
+  "block_type": "Footnote",
+  "page_id": "page_10",
+  "section_path": [
+   "Morphological Components"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0656": {
+  "block_type": "Table",
+  "page_id": "page_11",
+  "section_path": [
+   "Morphological Components"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0753": {
+  "block_type": "Footnote",
+  "page_id": "page_11",
+  "section_path": [
+   "Morphological Components"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0760": {
+  "block_type": "Caption",
+  "page_id": "page_12",
+  "section_path": [
+   "Morphological Components"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0761": {
+  "block_type": "Table",
+  "page_id": "page_12",
+  "section_path": [
+   "Morphological Components"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0834": {
+  "block_type": "Footnote",
+  "page_id": "page_12",
+  "section_path": [
+   "Morphological Components"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0835": {
+  "block_type": "Text",
+  "page_id": "page_12",
+  "section_path": [
+   "Morphological Components"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0836": {
+  "block_type": "Text",
+  "page_id": "page_12",
+  "section_path": [
+   "Morphological Components"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0837": {
+  "block_type": "SectionHeader",
+  "page_id": "page_12",
+  "section_path": [
+   "Morphological Components",
+   "Leaf Area Index and Mean Tilt Angle"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0838": {
+  "block_type": "Text",
+  "page_id": "page_12",
+  "section_path": [
+   "Morphological Components",
+   "Leaf Area Index and Mean Tilt Angle"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0839": {
+  "block_type": "Text",
+  "page_id": "page_12",
+  "section_path": [
+   "Morphological Components",
+   "Leaf Area Index and Mean Tilt Angle"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0840": {
+  "block_type": "Text",
+  "page_id": "page_12",
+  "section_path": [
+   "Morphological Components",
+   "Leaf Area Index and Mean Tilt Angle"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0841": {
+  "block_type": "SectionHeader",
+  "page_id": "page_12",
+  "section_path": [
+   "Morphological Components",
+   "Leaf Area Index and Mean Tilt Angle",
+   "CONCLUSIONS"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0842": {
+  "block_type": "Text",
+  "page_id": "page_12",
+  "section_path": [
+   "Morphological Components",
+   "Leaf Area Index and Mean Tilt Angle",
+   "CONCLUSIONS"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0843": {
+  "block_type": "Text",
+  "page_id": "page_12",
+  "section_path": [
+   "Morphological Components",
+   "Leaf Area Index and Mean Tilt Angle",
+   "CONCLUSIONS"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0844": {
+  "block_type": "Text",
+  "page_id": "page_12",
+  "section_path": [
+   "Morphological Components",
+   "Leaf Area Index and Mean Tilt Angle",
+   "CONCLUSIONS"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0845": {
+  "block_type": "SectionHeader",
+  "page_id": "page_12",
+  "section_path": [
+   "Morphological Components",
+   "Leaf Area Index and Mean Tilt Angle",
+   "REFERENCES"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0848": {
+  "block_type": "Footnote",
+  "page_id": "page_12",
+  "section_path": [
+   "Morphological Components",
+   "Leaf Area Index and Mean Tilt Angle",
+   "REFERENCES"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0849": {
+  "block_type": "Text",
+  "page_id": "page_13",
+  "section_path": [
+   "Morphological Components",
+   "Leaf Area Index and Mean Tilt Angle",
+   "REFERENCES"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0850": {
+  "block_type": "Text",
+  "page_id": "page_13",
+  "section_path": [
+   "Morphological Components",
+   "Leaf Area Index and Mean Tilt Angle",
+   "REFERENCES"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0851": {
+  "block_type": "ListItem",
+  "page_id": "page_13",
+  "section_path": [
+   "Morphological Components",
+   "Leaf Area Index and Mean Tilt Angle",
+   "REFERENCES"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0852": {
+  "block_type": "ListItem",
+  "page_id": "page_13",
+  "section_path": [
+   "Morphological Components",
+   "Leaf Area Index and Mean Tilt Angle",
+   "REFERENCES"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0853": {
+  "block_type": "ListItem",
+  "page_id": "page_13",
+  "section_path": [
+   "Morphological Components",
+   "Leaf Area Index and Mean Tilt Angle",
+   "REFERENCES"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0854": {
+  "block_type": "ListItem",
+  "page_id": "page_13",
+  "section_path": [
+   "Morphological Components",
+   "Leaf Area Index and Mean Tilt Angle",
+   "REFERENCES"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0861": {
+  "block_type": "Text",
+  "page_id": "page_14",
+  "section_path": [
+   "Morphological Components",
+   "Leaf Area Index and Mean Tilt Angle",
+   "REFERENCES"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0862": {
+  "block_type": "Text",
+  "page_id": "page_14",
+  "section_path": [
+   "Morphological Components",
+   "Leaf Area Index and Mean Tilt Angle",
+   "REFERENCES"
+  ],
+  "rendered_in_content_md": true
+ }
+}

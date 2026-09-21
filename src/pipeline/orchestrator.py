@@ -39,6 +39,7 @@ Concretely:
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 import re
@@ -54,16 +55,25 @@ import httpx
 
 from pydantic import ValidationError
 
-from pipeline import content_reader, results_store, run_store, store
+from pipeline import content_reader, pooling_evidence, results_store, run_config, run_lock, run_store, store, vocab
 from pipeline.fingerprint import config_fingerprint, schema_fingerprint
 from pipeline.ir_schema import IRDataset
-from pipeline.raw_schema import EnumerationCandidate, EnumerationResult, RawExtraction, TableClassification, all_anchors
-from pipeline.validators import _load_rendered_blocks, _papers_root, validate_dataset, _value_supported_by_text  # reuse, don't re-implement anchor parsing/grounding
+from pipeline.raw_schema import (
+    MIXTURE_LEVEL_RULE, CandidateDimension, EnumerationCandidate, EnumerationResult, MethodHintFlag, RawExtraction,
+    RawFact, TableClassification, TableVariable, TimeLevel, UnitHintFlag, _variable_key, all_anchors,
+)
+from pipeline.validators import (  # reuse, don't re-implement anchor parsing/grounding
+    _load_rendered_blocks, _normalize_typography, _papers_root, validate_dataset, _value_supported_by_text,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OPENCODE_CONFIG_PATH = PROJECT_ROOT / "opencode.json"
 
-DEFAULT_MODEL = "jetstream-scout/llama-4-scout"
+# There is deliberately NO default model here (this used to be
+# "jetstream-scout/llama-4-scout", which silently disagreed with the Streamlit
+# launcher's own default). A run's model/provider comes from the explicit,
+# checked-in run config (`pipeline.run_config`, `src/eval_config.json`) and is
+# recorded in the run manifest.
 DEFAULT_IR_SERVICE_URL = os.environ.get("IR_SERVICE_URL", "http://127.0.0.1:8420")
 
 # 3, not 2: a real run (20260914T204018_d8c6ddb6, Citation/Oceologia-1998)
@@ -108,6 +118,26 @@ MAX_AI_VALIDATION_CORRECTIONS = 1
 # within this same budget before that one table is given up on (never
 # blocking the rest of the entity type's enumeration).
 MAX_TABLE_CLASSIFICATION_ATTEMPTS = 3
+# Item 9 (Step B provider failures): a provider failure (empty final text, timeout,
+# malformed tool-call stream) says nothing about the table -- the model produced no
+# answer to correct -- so it never consumes one of the numbered attempts above. It has
+# its own budget instead, per loop per run, with a growing cooldown between rounds.
+# `invoke_agent` has already retried the identical call internally by then
+# (MAX_EMPTY_RESPONSE_RETRIES).
+#
+# Sizing (provider-resilience pass). The old budget was 2 rounds with one 20 s cooldown -- about two minutes of
+# patience. The stored call timestamps of six live Felipe runs (2026-09-20/21) show the provider fails in short
+# bursts that recur through a run, each ending within 0.5-5.7 minutes; records that met a burst died in the middle of
+# it, and one dead Citation blocks every later entity. 5 rounds with cooldowns of 20, 60, 180 and 300 s (capped) wait
+# out a burst of about ten minutes.
+MAX_PROVIDER_FAILURE_ROUNDS = 5
+TABLE_PROVIDER_COOLDOWN_SECONDS = 20      # the first cooldown; each later one is PROVIDER_COOLDOWN_GROWTH times longer
+PROVIDER_COOLDOWN_GROWTH = 3
+PROVIDER_COOLDOWN_CAP_SECONDS = 300
+# A real outage must not multiply that patience across every record of the run: after this many loops in a row
+# ended on a spent provider budget with no successful model call in between, each further loop gets ONE round
+# (`invoke_agent`'s internal retries still apply) until any call succeeds again.
+MAX_CONSECUTIVE_PROVIDER_TERMINALS = 3
 # Real evidence (Daren-1997-Canopy, run 20260916T143651_0987d819 and the
 # earlier 20260916T073404_967ec136): the free-form enumeration pass
 # collapsed a table with 6 populations x 3 maturities x 2 sites x 4
@@ -171,6 +201,122 @@ class AgentInvocation:
         # Keep raw stdout/stderr in the artifact for debugging, but don't
         # duplicate huge text twice if it parsed cleanly.
         return d
+
+
+# Failure classes recorded on every failed Step B attempt. The first four are
+# provider/infrastructure classes (nothing usable came back), the rest are about a
+# model answer that DID come back.
+PROVIDER_FAILURE_CLASSES = frozenset({"provider_empty", "provider_timeout", "provider_malformed", "provider_unavailable"})
+FAILURE_CLASSES = PROVIDER_FAILURE_CLASSES | {"invalid_json", "schema_invalid", "validation_failure"}
+
+
+def classify_invocation_failure(result: AgentInvocation) -> Optional[str]:
+    """Why an invocation yielded no parsed JSON, or None when it did. Provider
+    classes are kept apart from extraction classes so an outage is never
+    reported as an extraction failure:
+      provider_unavailable -- the agent executable is missing (never retried);
+      provider_malformed   -- the harmony-format tool-call leak (see
+                              `_has_malformed_harmony_tool_call`);
+      provider_timeout     -- the call hit its time limit;
+      provider_empty       -- the call ended with no final assistant text;
+      invalid_json         -- text came back but is not a JSON object (the
+                              model's own output, so an extraction class)."""
+    if result.parsed_json is not None:
+        return None
+    if result.parse_error and "opencode executable not found" in result.parse_error:
+        return "provider_unavailable"
+    if result.had_malformed_tool_call:
+        return "provider_malformed"
+    if result.final_text is None:
+        if result.returncode == -1 and "timed out after" in (result.stderr or ""):
+            return "provider_timeout"
+        return "provider_empty"
+    return "invalid_json"
+
+
+def _provider_failure(result: AgentInvocation) -> Optional[str]:
+    """The provider failure class of an invocation (`PROVIDER_FAILURE_CLASSES`), or None when the model answered --
+    including a genuinely wrong answer (`invalid_json`), which is the model's own and stays a numbered attempt."""
+    failure = classify_invocation_failure(result)
+    return failure if failure in PROVIDER_FAILURE_CLASSES else None
+
+
+# Per-run log of provider-failed rounds, filled by `_ProviderBudget` and disclosed in the run manifest
+# (`provider_failures`): {run_id: [{stage, record_key, failure_class, terminal}, ...]}.
+_PROVIDER_FAILURE_LOG: dict[str, list[dict]] = {}
+_PROVIDER_OUTAGE: dict[str, int] = {}   # run_id -> consecutive provider-terminal loops with no successful call since
+
+
+def provider_cooldown_seconds(failed_rounds: int) -> float:
+    """The wait before the next round, given how many rounds this loop has already failed (1 -> the base cooldown):
+    it grows by PROVIDER_COOLDOWN_GROWTH each time, up to PROVIDER_COOLDOWN_CAP_SECONDS."""
+    return min(TABLE_PROVIDER_COOLDOWN_SECONDS * PROVIDER_COOLDOWN_GROWTH ** max(failed_rounds - 1, 0), PROVIDER_COOLDOWN_CAP_SECONDS)
+
+
+class _ProviderBudget:
+    """Item 9's separate provider-failure budget, ONE mechanism for every loop that calls a model and counts attempts
+    (Step B table classification, record-level Extraction, enumeration). A round with no usable answer (empty final
+    text, timeout, harmony leak, missing binary) says nothing about the source, so it never consumes one of the loop's
+    numbered attempts; it spends this small budget instead: `MAX_PROVIDER_FAILURE_ROUNDS` rounds per loop, with a
+    cooldown between them. The model gets no feedback about a failure that was not its answer, and the same prompt
+    is repeated. Real evidence (Felipe-2010-Cultivar, run felipe_smoke_20260920T132343): before this, only Step B had
+    the budget, and 5 of the 6 records that ended in error had lost a numbered attempt to a provider failure (Crop
+    enumeration lost 2 of its 3)."""
+
+    def __init__(self, run_id: str, record_key: str, stage: str):
+        self.run_id, self.record_key, self.stage = run_id, record_key, stage
+        self.rounds = 0
+        self.classes: list[str] = []
+
+    def round_limit(self) -> int:
+        """The rounds this loop may spend: the full budget, or a single round while the provider is evidently down
+        (`MAX_CONSECUTIVE_PROVIDER_TERMINALS` loops in a row ended on a spent budget with no success between)."""
+        down = _PROVIDER_OUTAGE.get(self.run_id, 0) >= MAX_CONSECUTIVE_PROVIDER_TERMINALS
+        return 1 if down else MAX_PROVIDER_FAILURE_ROUNDS
+
+    def failed(self, failure_class: str) -> bool:
+        """Record one provider-failed round. True when the loop must stop: the executable is missing (never
+        retried) or the budget is spent."""
+        self.rounds += 1
+        self.classes.append(failure_class)
+        outage_mode = self.round_limit() < MAX_PROVIDER_FAILURE_ROUNDS
+        terminal = failure_class == "provider_unavailable" or self.rounds >= self.round_limit()
+        if terminal and failure_class != "provider_unavailable":
+            _PROVIDER_OUTAGE[self.run_id] = _PROVIDER_OUTAGE.get(self.run_id, 0) + 1
+        _PROVIDER_FAILURE_LOG.setdefault(self.run_id, []).append({
+            "stage": self.stage, "record_key": self.record_key, "failure_class": failure_class, "terminal": terminal,
+            "outage_mode": outage_mode,
+        })
+        return terminal
+
+    def cooldown(self) -> None:
+        time.sleep(provider_cooldown_seconds(self.rounds))
+
+    def disclosure(self, numbered: int, terminal: bool) -> dict[str, Any]:
+        """The fields a terminal record/enumeration/table failure carries: whose failure it was."""
+        return {
+            "failure_kind": "provider" if terminal else "extraction", "failure_classes": list(self.classes),
+            "numbered_attempts": numbered, "provider_failure_rounds": self.rounds,
+        }
+
+
+def summarize_provider_failures(run_id: str, *, discard: bool = True) -> dict[str, Any]:
+    """Every provider-failed round of this run for the manifest: totals by stage and class, and the loops that ended
+    because the provider budget was spent (`terminal`). Provider failures are never counted as extraction failures."""
+    log = _PROVIDER_FAILURE_LOG.pop(run_id, []) if discard else list(_PROVIDER_FAILURE_LOG.get(run_id, []))
+    if discard:
+        _PROVIDER_OUTAGE.pop(run_id, None)
+    by_stage: dict[str, int] = {}
+    by_class: dict[str, int] = {}
+    for entry in log:
+        by_stage[entry["stage"]] = by_stage.get(entry["stage"], 0) + 1
+        by_class[entry["failure_class"]] = by_class.get(entry["failure_class"], 0) + 1
+    return {
+        "total_rounds": len(log), "by_stage": by_stage, "by_class": by_class,
+        "terminal": [{k: e[k] for k in ("stage", "record_key", "failure_class")} for e in log if e["terminal"]],
+        # Loops that got only one round because the provider was evidently down (see MAX_CONSECUTIVE_PROVIDER_TERMINALS).
+        "outage_mode": [e["record_key"] for e in log if e["terminal"] and e.get("outage_mode")],
+    }
 
 
 # Real runs (20260914T204018_d8c6ddb6 Citation/Oceologia-1998;
@@ -553,14 +699,28 @@ _ENTITY_IDENTITY_GUIDANCE: dict[str, str] = {
         "sentence, while a standalone test on the same paper correctly split them -- the level of "
         "the writing (prose vs. table) must not change how many distinct Treatments exist. "
         "`site_id` is REQUIRED and a single value -- if the paper's experiment is conducted at MORE "
-        "THAN ONE site/location and the same factor levels are applied at each one (a real confirmed "
-        "case, Daren-1997-Canopy: six switchgrass populations each grown at BOTH Ames, IA and Mead, "
-        "NE), the SAME factor level at each site is a SEPARATE Treatment candidate -- e.g. "
-        "'Trailblazer at Ames' and 'Trailblazer at Mead' are two candidates, not one, each linked via "
-        "linked_candidates['site_id'] to its own site. Reporting one candidate per factor level "
-        "regardless of site, leaving site_id unlinked because 'the paper doesn't distinguish', is "
-        "only correct when the paper genuinely never applies that level at more than one site -- "
-        "check this explicitly whenever more than one site exists, don't default to skipping it."
+        "THAN ONE site/location and the same experimental treatment level is applied at each one "
+        "(e.g. 'no-till' applied at both Site A and Site B), the SAME treatment level at each site is "
+        "a SEPARATE Treatment candidate -- 'no-till at Site A' and 'no-till at Site B' are two "
+        "candidates, not one, each linked via linked_candidates['site_id'] to its own site. "
+        "Reporting one candidate per treatment level regardless of site, leaving site_id unlinked "
+        "because 'the paper doesn't distinguish', is only correct when the paper genuinely never "
+        "applies that level at more than one site -- check this explicitly whenever more than one "
+        "site exists, don't default to skipping it. This applies ONLY to experimental treatment "
+        "levels. A cultivar, variety, population or genotype is a CROP, a growth stage, maturity, "
+        "date or year is TIME, and a location is a SITE: none of them is a Treatment, and naming "
+        "them together in one phrase never makes them one. 'Population P at Site A' and 'Population "
+        "P at Site B' are NOT two Treatments -- it is the same crop (one Crop record) grown in two "
+        "Site contexts, and 'Population P at maturity M' is that same crop at a point in time. If "
+        "the only things that distinguish the candidates you would report are populations or "
+        "cultivars, maturities or dates, and sites -- with no experimental treatment level applied "
+        "-- report no Treatment candidates for them. "
+        "A designed mixture or composition level of several cultivars grown together (e.g. a one-, "
+        "three- and five-cultivar mixture) is a level of an experimental factor when the paper "
+        "defines it as an experimental treatment, so each such level is a separate Treatment "
+        "candidate -- but only at the granularity the paper actually reports values or comparisons "
+        "for: never multiply it with another factor's levels into combinations the paper does not "
+        "report."
     ),
     "Observation": (
         "An Observation is ONE reported value for ONE combination of (variable, treatment/group, "
@@ -607,7 +767,19 @@ _ENTITY_IDENTITY_GUIDANCE: dict[str, str] = {
         "occurrences of the SAME event type (e.g. two separate fertilization applications, or "
         "planting followed later by harvest) are TWO distinct Management records even when they "
         "share an event_type, because they happened at different times and/or with different "
-        "reported amounts; do not collapse a sequence of events into one generic record."
+        "reported amounts; do not collapse a sequence of events into one generic record. "
+        "An event is something that HAPPENED to the field (Protocol Section 6.6: events are distinct "
+        "from treatments); an experimental condition -- a winter fallow, a cover-crop treatment -- is a "
+        "Treatment, not a Management record, and it is the planting, mowing or incorporation events that "
+        "define it. Capture events as far as the source states them (Protocol Section 9.1), keeping the "
+        "top-level event type PEcAn-aligned where practical: "
+        + ", ".join(vocab.SEED_EVENT_TYPES) + ". "
+        "Do infer that an event occurred when it is certain (crops were planted; there was a harvest event "
+        "if yields or harvested biomass are reported), even when the paper states nothing more about it; "
+        "do NOT infer or complete event dates -- never supply a year or any part of a date the source does "
+        "not give for that event -- nor unreported rates or management histories implied only by local "
+        "practice (Protocol Section 9.2). A relative statement such as 'before planting' or 'after harvest' "
+        "is kept as that statement, without inventing a date."
     ),
     "Study": (
         "A Study is a real-world experiment, distinct from Citation (the paper reporting it) -- "
@@ -640,6 +812,8 @@ def _enumeration_prompt(
     paper_id: str, entity_type: str, prior_errors: Optional[list[dict]] = None,
     link_pools: Optional[dict[str, list[dict]]] = None,
     excluded_table_anchors: Optional[set[str]] = None,
+    covered_conditions: Optional[list[str]] = None,
+    declare_dimensions: bool = False,
 ) -> str:
     """Phase A (multi-record Variable), Phase B (+ Treatment), Phase C (+
     Observation): asks the SAME extractor agent (same tools, same sealed
@@ -693,14 +867,30 @@ def _enumeration_prompt(
             for item in pool:
                 label = item.get("name") or "(name not yet resolved)"
                 pool_lines.append(f'  - slug "{item["slug"]}": {label!r}')
+        # The example uses a field this entity type is actually offered. Real bug (Felipe-2010-Cultivar, Management): the
+        # example was hard-coded as {"treatment_id": ...}, so for the offered list field `treatment_ids` the model copied
+        # the singular key and every link it proposed was silently ignored (Item 14's verification never ran).
+        example_field = "treatment_id" if "treatment_id" in link_pools else next(iter(link_pools))
+        example_value = '["ambient_co2"]' if example_field.endswith("_ids") else '"ambient_co2"'
         base += (
             f"- linked_candidates: a JSON object naming, for each field below, the SPECIFIC "
             f"already-extracted record this {entity_type} is actually about -- ONLY when the "
             f"evidence clearly ties it to exactly one. Use the EXACT slug string shown (e.g. "
-            f'{{"treatment_id": "ambient_co2"}}), never a slug you invent or one not listed below, '
+            f'{{"{example_field}": {example_value}}}), never a slug you invent or one not listed below, '
             f"and never guess when the paper does not make the link explicit -- omit that key "
             f"entirely rather than guessing.\n\n" + "\n".join(pool_lines) + "\n\n"
         )
+        list_fields = sorted(field for field in link_pools if field.endswith("_ids"))
+        if list_fields:
+            base += (
+                f"The key must be spelled exactly {', '.join(repr(f) for f in list_fields)} (plural, a list) -- never the "
+                f"singular form. "
+                f"For {', '.join(repr(f) for f in list_fields)}, give a JSON LIST of the slug(s) of the record(s) this "
+                f"{entity_type} is stated to apply to -- and ONLY when the source text you cite in `anchors` itself NAMES "
+                f"that condition. Most events (site-wide land preparation, an operation done on every plot) apply to every "
+                f"condition and name none: for those omit the key entirely. Never link an event to a condition merely "
+                f"because that is plausible; an unnamed condition is left unlinked.\n\n"
+            )
     else:
         base += "- linked_candidates: leave as an empty object {} -- not used for this entity type.\n\n"
     base += (
@@ -722,12 +912,49 @@ def _enumeration_prompt(
             f"{sorted(excluded_table_anchors)}. Only report candidates from narrative prose or "
             f"from tables NOT in this list."
         )
+    if declare_dimensions:
+        base += _declare_dimensions_block(entity_type, covered_conditions)
     if prior_errors:
         base += (
             "\n\nThe previous attempt failed validation with these errors -- fix exactly these, "
             "the rest of your approach was fine:\n" + json.dumps(prior_errors, indent=2)
         )
     return base
+
+
+_MAX_LISTED_COVERED_CONDITIONS = 40
+
+
+def _declare_dimensions_block(entity_type: str, covered_conditions: Optional[list[str]]) -> str:
+    """Item 8: added to the free-form prompt ONLY when deterministic table
+    enumeration already covers this entity type. The model is told what is
+    already covered and must declare, for every candidate it still reports, the
+    factor levels that distinguish it and what each one IS -- so the
+    orchestrator can compare it, by the same canonical identity table
+    candidates use, instead of guessing from names."""
+    text = ""
+    if covered_conditions:
+        listed = covered_conditions[:_MAX_LISTED_COVERED_CONDITIONS]
+        more = len(covered_conditions) - len(listed)
+        text += (
+            f"\n\nThe tables of this paper have ALREADY been deterministically enumerated for {entity_type}: "
+            f"these conditions are covered, do not report them again:\n"
+            + "\n".join(f"  - {c}" for c in listed)
+            + (f"\n  - ... and {more} more" if more > 0 else "")
+        )
+    text += (
+        f"\n\nFor EVERY candidate you still report, also give `dimensions`: a list of "
+        f"{{name, dimension, level}} entries, one per factor level that distinguishes it. `name` is the "
+        f"factor as the paper calls it; `level` is its literal level; `dimension` is exactly one of "
+        f"'treatment' (an experimental management or system condition the study APPLIES -- e.g. a "
+        f"cover-crop, tillage, fertilizer or irrigation level), 'crop' (an individual cultivar, variety, "
+        f"population or genotype), 'time' (a date, growth stage, year or season), 'site' (a location), or "
+        f"'other'. A single cultivar/population is 'crop', a date or growth stage is 'time', a location is "
+        f"'site' -- none of these is a 'treatment'. {MIXTURE_LEVEL_RULE} "
+        f"Every level must appear in your description or in a block you cite. "
+        f"Something with no treatment-dimension level is not a {entity_type}: do not report it."
+    )
+    return text
 
 
 def _unsplit_required_dimensions(
@@ -770,11 +997,33 @@ def _unsplit_required_dimensions(
     ]
 
 
+def _misnamed_link_keys(candidates: list, link_pools: Optional[dict[str, list[dict]]]) -> list[tuple[str, str, str]]:
+    """[(candidate_id, key given, canonical key offered)] for every `linked_candidates` key that is not an offered field
+    but is a singular/plural near-miss of one (`treatment_id` for `treatment_ids`). There is ONE canonical spelling per
+    link field; a near-miss is never silently accepted (it would bypass the verification that runs on the canonical
+    field) and never silently ignored either -- it is reported back to the model, and dropped, logged, at the last
+    attempt."""
+    if not link_pools:
+        return []
+
+    def stem(name: str) -> str:
+        return name.removesuffix("_ids").removesuffix("_id")
+
+    by_stem = {stem(field): field for field in link_pools}
+    return [
+        (c.candidate_id, key, by_stem[stem(key)])
+        for c in candidates for key in (c.linked_candidates or {})
+        if key not in link_pools and stem(key) in by_stem
+    ]
+
+
 def run_enumeration(
     *, run_id: str, paper_id: str, entity_type: str, model: str,
     invoke: Callable[..., AgentInvocation] = invoke_agent,
     link_pools: Optional[dict[str, list[dict]]] = None,
     excluded_table_anchors: Optional[set[str]] = None,
+    covered_conditions: Optional[list[str]] = None,
+    declare_dimensions: bool = False,
 ) -> tuple[list, Optional[str]]:
     """Bounded, deterministically-validated enumeration pass for a
     multi-record entity type. Returns (candidates, None) on success --
@@ -797,18 +1046,40 @@ def run_enumeration(
     record_key = f"{entity_type}__enumeration"
     errors: list[dict] = []
     last_message = "enumeration never produced a valid EnumerationResult"
+    # Provider failures spend the separate provider budget, not a numbered attempt (correction pass, Fix 2).
+    provider = _ProviderBudget(run_id, record_key, "enumeration")
+    attempt = 0   # numbered attempts: the model's own answers
+    rounds = 0    # every invocation round: the artifact index
+    provider_terminal = False
 
-    for attempt in range(1, MAX_ENUMERATION_ATTEMPTS + 1):
+    while attempt < MAX_ENUMERATION_ATTEMPTS:
+        rounds += 1
         result = invoke(
             "extractor", model,
-            _enumeration_prompt(paper_id, entity_type, errors, link_pools, excluded_table_anchors),
+            _enumeration_prompt(
+                paper_id, entity_type, errors, link_pools, excluded_table_anchors,
+                covered_conditions=covered_conditions, declare_dimensions=declare_dimensions,
+            ),
         )
         artifact = result.as_artifact()
+
+        failure = _provider_failure(result)
+        if failure:
+            artifact["validation_errors"] = [{"field": None, "message": result.parse_error}]
+            artifact.update(failure_class=failure, failure_kind="provider", numbered_attempt=None)
+            run_store.save_stage_attempt(run_id, record_key, "enumeration", rounds, artifact)
+            last_message = f"round {rounds}: provider failure ({failure}): {result.parse_error}"
+            if provider.failed(failure):
+                provider_terminal = True
+                break
+            provider.cooldown()
+            continue
+        attempt += 1
 
         if result.parsed_json is None:
             errors = [{"field": None, "message": result.parse_error}]
             artifact["validation_errors"] = errors
-            run_store.save_stage_attempt(run_id, record_key, "enumeration", attempt, artifact)
+            run_store.save_stage_attempt(run_id, record_key, "enumeration", rounds, artifact)
             last_message = f"attempt {attempt}: {result.parse_error}"
             continue
 
@@ -819,7 +1090,7 @@ def run_enumeration(
                 {"field": ".".join(str(p) for p in err["loc"]), "message": err["msg"]} for err in exc.errors()
             ]
             artifact["validation_errors"] = errors
-            run_store.save_stage_attempt(run_id, record_key, "enumeration", attempt, artifact)
+            run_store.save_stage_attempt(run_id, record_key, "enumeration", rounds, artifact)
             last_message = f"attempt {attempt}: EnumerationResult shape validation failed: {errors}"
             continue
 
@@ -828,7 +1099,7 @@ def run_enumeration(
         except FileNotFoundError as exc:
             errors = [{"field": None, "message": f"cannot validate candidate anchors: {exc}"}]
             artifact["validation_errors"] = errors
-            run_store.save_stage_attempt(run_id, record_key, "enumeration", attempt, artifact)
+            run_store.save_stage_attempt(run_id, record_key, "enumeration", rounds, artifact)
             last_message = f"attempt {attempt}: {errors[0]['message']}"
             continue
 
@@ -846,7 +1117,7 @@ def run_enumeration(
         if invalid_anchor_errors:
             errors = invalid_anchor_errors
             artifact["validation_errors"] = errors
-            run_store.save_stage_attempt(run_id, record_key, "enumeration", attempt, artifact)
+            run_store.save_stage_attempt(run_id, record_key, "enumeration", rounds, artifact)
             last_message = f"attempt {attempt}: invalid anchors: {errors}"
             continue
 
@@ -858,15 +1129,41 @@ def run_enumeration(
                            f"listed in the prompt -- never invent a slug or link to one not offered.",
             }
             for candidate in validated.candidates
-            for field, slug in (candidate.linked_candidates or {}).items()
+            for field, value in (candidate.linked_candidates or {}).items()
+            for slug in ([value] if isinstance(value, str) else value)
             if link_pools and field in link_pools and slug not in {item["slug"] for item in link_pools[field]}
         ]
         if invalid_link_errors:
             errors = invalid_link_errors
             artifact["validation_errors"] = errors
-            run_store.save_stage_attempt(run_id, record_key, "enumeration", attempt, artifact)
+            run_store.save_stage_attempt(run_id, record_key, "enumeration", rounds, artifact)
             last_message = f"attempt {attempt}: invalid linked_candidates: {errors}"
             continue
+
+        misnamed = _misnamed_link_keys(validated.candidates, link_pools)
+        if misnamed and attempt < MAX_ENUMERATION_ATTEMPTS:
+            errors = [
+                {
+                    "field": "linked_candidates",
+                    "message": f"candidate '{cid}' uses the link key {key!r}, but the field offered for this entity type is "
+                               f"{canonical!r}{' (plural: a JSON LIST of slugs)' if canonical.endswith('_ids') else ''} -- use exactly "
+                               f"that key; the other spelling is not accepted.",
+                }
+                for cid, key, canonical in misnamed
+            ]
+            artifact["validation_errors"] = errors
+            run_store.save_stage_attempt(run_id, record_key, "enumeration", rounds, artifact)
+            last_message = f"attempt {attempt}: misnamed linked_candidates key(s): {errors}"
+            continue
+        if misnamed:
+            # Last attempt: the link is optional evidence, so the mis-keyed link is DROPPED (logged), never accepted.
+            wrong = {(cid, key) for cid, key, _ in misnamed}
+            validated = validated.model_copy(update={"candidates": [
+                c.model_copy(update={"linked_candidates": {
+                    k: v for k, v in (c.linked_candidates or {}).items() if (c.candidate_id, k) not in wrong}})
+                for c in validated.candidates
+            ]})
+            artifact["dropped_link_keys"] = [{"candidate_id": cid, "key": key, "canonical": canonical} for cid, key, canonical in misnamed]
 
         # Real confirmed cascade (Daren-1997-Canopy, Treatment enumeration,
         # run 20260916T200235_5fae474d): give the model ONE chance to
@@ -899,15 +1196,32 @@ def run_enumeration(
                 for field, prereq_type in unsplit_dims
             ]
             artifact["validation_errors"] = errors
-            run_store.save_stage_attempt(run_id, record_key, "enumeration", attempt, artifact)
+            run_store.save_stage_attempt(run_id, record_key, "enumeration", rounds, artifact)
             last_message = f"attempt {attempt}: candidates not split by required dimension(s): {[f for f, _ in unsplit_dims]}"
             continue
 
-        artifact["validation_errors"] = []
-        run_store.save_stage_attempt(run_id, record_key, "enumeration", attempt, artifact)
-        return validated.candidates, None
+        candidates = validated.candidates
+        if declare_dimensions:
+            dimension_errors, bad_ids = _candidate_dimension_errors(candidates, blocks)
+            if dimension_errors and attempt < MAX_ENUMERATION_ATTEMPTS:
+                errors = dimension_errors
+                artifact["validation_errors"] = errors
+                run_store.save_stage_attempt(run_id, record_key, "enumeration", rounds, artifact)
+                last_message = f"attempt {attempt}: candidate dimensions invalid: {errors}"
+                continue
+            # Final attempt: never lose a candidate over its dimensions. One whose
+            # dimensions are missing or inconsistent keeps NO dimensions, so its
+            # identity is unresolved and it is kept and flagged, never compared.
+            candidates = [c.model_copy(update={"dimensions": []}) if c.candidate_id in bad_ids else c for c in candidates]
 
-    run_store.save_final(run_id, record_key, {"status": "error", "message": last_message})
+        artifact["validation_errors"] = []
+        run_store.save_stage_attempt(run_id, record_key, "enumeration", rounds, artifact)
+        return candidates, None
+
+    run_store.save_final(run_id, record_key, {
+        "status": "error", "message": last_message,
+        **(provider.disclosure(attempt, provider_terminal) if provider.rounds else {}),
+    })
     return [], last_message
 
 
@@ -1012,6 +1326,8 @@ def _table_classification_sanity_check(classification: TableClassification, pape
 def _table_classification_prompt(
     paper_id: str, seed_table_anchor: str, other_tables: list[dict],
     prior_errors: Optional[list[dict]] = None,
+    confirmed_chain: Optional[list[str]] = None,
+    methods_context: str = "",
 ) -> str:
     """Step B's prompt: a MUCH narrower ask than free-form enumeration --
     "reconstruct the real row-by-row structure of THIS one table", not
@@ -1029,10 +1345,40 @@ def _table_classification_prompt(
     needs (see run_table_enumeration's Treatment vs Observation
     projections) -- this keeps that projection provably consistent instead
     of two separate passes independently guessing at the same table."""
+    # Continuation chain (deterministic, see content_reader.table_continuation_map):
+    # blocks confirmed to be the page-split continuation of the seed. Present
+    # ONLY when the chain has more than one block, so the prompt for every
+    # ordinary single-block table is byte-identical to before this existed.
+    chain_note = ""
+    if confirmed_chain and len(confirmed_chain) > 1:
+        chain_note = (
+            f"CONFIRMED CONTINUATION: the block(s) {confirmed_chain[1:]} have been deterministically "
+            f"verified as the page-split continuation of '{seed_table_anchor}' (they directly follow it "
+            f"in reading order with no new caption, have the same number of columns, and are on the "
+            f"same or the next page). They are the SAME logical table, not a separate table: read "
+            f"them with read_table/read_table_row/read_table_cell too, include EVERY one of "
+            f"{confirmed_chain} in table_anchors, and reconstruct ONE row-by-row table across all of "
+            f"them (rows such as an 'LSD' row are statistics, not data rows, wherever they appear).\n\n"
+        )
+        other_tables = [t for t in other_tables if t["table_anchor"] not in confirmed_chain]
     other_lines = "\n".join(
         f"  - {t['table_anchor']} (page {t.get('page')}, section {t.get('section_path')})"
         for t in other_tables
     ) or "  (none)"
+    # Real evidence (Felipe-2010-Cultivar Table 1, run felipe_smoke_20260920T132343): the model made two tool calls
+    # (read_table, read_nearby), never read Methods, and gave no method_hint for any of the 6 variables -- so none of
+    # the 22 table Observations could resolve a Method. The paper's Methods blocks are therefore supplied here,
+    # verbatim, by the orchestrator; a hint is still only kept if the paper's prose supports it (see
+    # `_withhold_ungrounded_method_hints`). Absent (no Methods section found), the prompt is unchanged.
+    methods_note = (
+        f"METHODS TEXT -- the verbatim blocks of this paper's Methods section, each labelled with its anchor, supplied "
+        f"so you do not have to go and find them. Use it ONLY for `method_hint`: for each variable this table reports, "
+        f"when this text says how THAT variable was measured, give `method_hint` as a short phrase in the text's own "
+        f"words for the instrument, technique or procedure (e.g. 'portable-tube solarimeter', 'Nitrogen Gas "
+        f"Analyzer'). Omit `method_hint` when the text does not say how it was measured: a hint no block of this text "
+        f"supports is discarded, and a guess would link the wrong Method.\n{methods_context}\n\n"
+        if methods_context else ""
+    )
     base = (
         f"Reconstruct the FULL row-by-row structure of the table at content.md anchor "
         f"'{seed_table_anchor}' in paper_id=`{paper_id}` -- which experimental condition(s) each row "
@@ -1066,27 +1412,95 @@ def _table_classification_prompt(
         f"read_table/read_table_row ONLY if you determine, from its own content, that it is a "
         f"page-split CONTINUATION of the SAME table as '{seed_table_anchor}': same columns, "
         f"immediately following page, no new caption of its own):\n{other_lines}\n\n"
+        f"{chain_note}"
+        f"{methods_note}"
         f"Output ONLY a TableClassification JSON object with exactly these top-level keys: "
-        f"applicable, reason, table_anchors, value_columns, row_groups.\n\n"
-        f"- applicable: false if this table does not report per-instance measured values broken "
-        f"out by experimental condition at all (e.g. a regression-equation table, a table of "
-        f"statistical test results) -- true otherwise.\n"
-        f"- reason: REQUIRED (a real, specific sentence) when applicable=false, or when "
-        f"applicable=true but you cannot confidently reconstruct row_groups (a genuinely garbled or "
-        f"ambiguous table) -- otherwise may be omitted/null.\n"
+        f"table_role, reason, table_anchors, factors, context_levels, pooled_factors, time_levels, "
+        f"variables, value_columns, row_groups.\n\n"
+        f"- table_role: what KIND of table this is -- exactly one of:\n"
+        f"    'treatment_response': reports measured response values (yields, biomass, concentrations, "
+        f"fluxes, soil or plant measurements, ...) broken out by the conditions of the study "
+        f"(treatment levels, cultivars/populations, sites, dates, depths, ...), one value per "
+        f"combination -- the normal data table.\n"
+        f"    'aggregated_summary': reports POOLED or AVERAGED main-effect summaries rather than real "
+        f"per-combination cells -- telltale row/column labels include phrases like 'across populations', "
+        f"'across locations and maturities', 'averaged across', 'pooled', or a factor label that only "
+        f"ever appears ALONE (e.g. a 'Location' section with no other factor, immediately followed by "
+        f"a separate 'Population' section -- two different rollups sharing one table). Never invent a "
+        f"'Treatment' out of a rollup label like a bare site name or a bare population name averaged "
+        f"over everything else; if unsure between this and 'treatment_response', choose "
+        f"'aggregated_summary' and explain why in reason.\n"
+        f"    'weather_context': meteorological or climate data (temperature, precipitation, "
+        f"radiation, humidity, wind, ...) describing the conditions during the study, reported per "
+        f"location and/or period. Soil, plant, animal or gas measurements are NOT weather_context, "
+        f"even when reported per site or date.\n"
+        f"    'non_enumerable': anything else that does not report per-condition measured values -- "
+        f"statistical model or test tables (regression equations, ANOVA, LSD/HSD or other comparison "
+        f"statistics), lists of abbreviations, or a table too garbled to reconstruct. A table whose "
+        f"cells hold equations, regression coefficients, R-squared values or test statistics rather than "
+        f"measured quantities is 'non_enumerable', even when it is organized by population and site.\n"
+        f"- reason: REQUIRED (a real, specific sentence) for every table_role except "
+        f"'treatment_response' (for 'aggregated_summary', state which factor(s) are pooled or "
+        f"averaged), and also for a 'treatment_response' table whose row_groups you cannot "
+        f"confidently reconstruct (a genuinely garbled or ambiguous table) -- otherwise may be "
+        f"omitted/null.\n"
+        f"- factors: one entry per experimental dimension of THIS table, {{name, dimension, encoding}}. name is "
+        f"the dimension as the table calls it (e.g. 'Population', 'Maturity', 'Location', 'Variable'). "
+        f"dimension is what it IS: 'treatment' (an experimental management or system condition the "
+        f"study applies -- e.g. a cover-crop, tillage, fertilizer or irrigation level), 'crop' (an individual "
+        f"cultivar, variety, population or genotype), 'time' (a sampling or harvest date, growth stage, year, "
+        f"season or day after planting), 'site' (a location), 'variable' (WHICH measured quantity a row or "
+        f"column reports), 'replicate' (block or plot), or 'other'. encoding is where its levels live: "
+        f"'rows' (a label column -- the level goes in each row group's factor_values), 'columns' (column "
+        f"headers -- the level goes in that value column's factor_levels), or 'context' (one level for "
+        f"the whole table, taken from its caption or a footnote -- goes in context_levels). "
+        f"context_levels and each value column's factor_levels are JSON OBJECTS mapping a factor name to "
+        f"its level: write {{}} when empty, never []. Every key "
+        f"you use in factor_values, factor_levels or context_levels MUST be declared here. A "
+        f"single cultivar/population is 'crop', a date or growth stage is 'time', a location is 'site' -- none "
+        f"of these is a 'treatment'. {MIXTURE_LEVEL_RULE}\n"
+        f"- pooled_factors: ONLY when the table's values are means pooled over some factor that does NOT "
+        f"appear in its rows or columns (a table note such as 'means across all X'): one entry per such "
+        f"factor, {{name, dimension, evidence_anchor, evidence_excerpt}}, where evidence_excerpt is the "
+        f"LITERAL source text (caption, footnote or body) stating the pooling. Omit when nothing is pooled.\n"
+        f"- time_levels: ONLY for a table with a 'time'-dimension factor whose levels (a growth stage, a "
+        f"sampling occasion, ...) the paper DATES somewhere else, usually in Methods (use read_section): one "
+        f"entry per level -- and per site when the paper dates it differently at each site -- "
+        f"{{factor, level, site, date_text, year_text, anchors}}. factor is the declared time factor, level "
+        f"the level exactly as this table has it, site (only when it differs per site) the site as the paper "
+        f"calls it, date_text the LITERAL source text giving that level's day and month (e.g. '9 June'), "
+        f"year_text the LITERAL source text giving the year (it may be in another block), and anchors every "
+        f"content.md block you read them from. Copy the text verbatim -- never compute, convert or guess a "
+        f"date; omit this key when the table has no time factor or the paper states no date.\n"
+        f"- variables: one entry per measured variable the table reports, {{label, variable_name, units, "
+        f"method_hint}} -- label is the variable exactly as the table calls it (a row label or a column "
+        f"header), variable_name its normalized name (e.g. 'shoot biomass'), units as the table gives them, "
+        f"and method_hint ONLY when the paper's Methods actually says how THIS variable was measured "
+        f"(otherwise omit it -- never invent a method). When a variable is given by ROW labels (a "
+        f"'variable'-dimension factor with encoding 'rows'), declare it here and leave variable_name_hint "
+        f"out of the value columns; when it is given by a column header, set that column's `variable` to "
+        f"the entry's label. Omit `variables` for a table whose columns each carry their own "
+        f"variable_name_hint.\n"
         f"- table_anchors: every content.md block anchor that is part of THIS one logical table -- "
         f"just ['{seed_table_anchor}'] unless you confirmed a genuine continuation as described "
         f"above.\n"
         f"- value_columns: one entry per column that reports an actual measured value (never a "
         f"factor/label column like Population or Maturity), each "
-        f"{{value_column_id, variable_name_hint, units_hint, site_hint, method_hint}} -- "
+        f"{{value_column_id, variable_name_hint, variable, units_hint, site_hint, method_hint, "
+        f"treatment_level_hint, factor_levels}} -- "
         f"value_column_id is a short unique slug you choose; variable_name_hint combines "
         f"multi-level headers if the table has them (e.g. a 'Total yield' header spanning "
         f"'Ames'/'Mead' sub-columns becomes TWO value_columns, one per site, each with site_hint "
         f"set). method_hint is REQUIRED whenever the paper's Methods section (use read_section to "
         f"check it) names how this specific column's values were actually measured -- e.g. 'hand-"
         f"clipping harvest', 'LI-COR LAI-2000 leaf area analyzer', 'forced-draft oven at 55C' -- "
-        f"omit only when the paper genuinely never describes a method for this measurement.\n"
+        f"omit only when the paper genuinely never describes a method for this measurement. "
+        f"treatment_level_hint: set ONLY when the column header ITSELF names a distinct EXPERIMENTAL "
+        f"TREATMENT LEVEL (e.g. a table with separate 'Fallow'/'Mustard' sub-columns -- each becomes "
+        f"its own value_column with treatment_level_hint='Fallow' / 'Mustard'), as opposed to the "
+        f"far more common case where treatment is named in a row/factor column instead (leave "
+        f"treatment_level_hint unset in that case -- it must never be set 'just in case', only when "
+        f"the treatment genuinely lives in the column header itself).\n"
         f"- row_groups: one entry per LOGICAL data row (after splitting any packed cells -- see "
         f"above), each {{row_group_id, factor_values, source_table_anchor, cells}} -- factor_values "
         f'is e.g. {{"Population": "Trailblazer", "Maturity": "Vegetative"}}; source_table_anchor is '
@@ -1130,6 +1544,7 @@ def _load_cached_table_classification(run_id: str, record_key: str) -> Optional[
 def run_table_classification(
     *, run_id: str, paper_id: str, seed_table_anchor: str,
     other_tables: list[dict], model: str, invoke: Callable[..., AgentInvocation] = invoke_agent,
+    chain_anchors: Optional[list[str]] = None,
 ) -> tuple[Optional[TableClassification], Optional[str]]:
     """Step B: bounded, deterministically-validated classification/
     reconstruction pass for ONE table -- mirrors run_enumeration's own
@@ -1148,21 +1563,59 @@ def run_table_classification(
     cached = _load_cached_table_classification(run_id, record_key)
     if cached is not None:
         return cached, None
+    # A terminal failure is cached for the run too, so a second entity type's pass (Observation
+    # after Treatment) does not spend the same provider budget on the same table again.
+    cached_failure = _load_cached_table_failure(run_id, record_key)
+    if cached_failure is not None:
+        return None, cached_failure["message"]
 
     errors: list[dict] = []
+    methods_context = _methods_context(paper_id)
     last_message = "table classification never produced a valid TableClassification"
+    numbered = 0          # model answers that came back (a genuine attempt): bounded by MAX_TABLE_CLASSIFICATION_ATTEMPTS
+    rounds = 0            # every invocation round, provider-failed or not: the artifact index
+    provider = _ProviderBudget(run_id, record_key, "table_classification")  # rounds with no usable answer
+    failure_classes: list[str] = []
+    terminal_kind = "extraction"
 
-    for attempt in range(1, MAX_TABLE_CLASSIFICATION_ATTEMPTS + 1):
+    def _save(failure_class: Optional[str]) -> None:
+        artifact["failure_class"] = failure_class
+        artifact["failure_kind"] = None if failure_class is None else ("provider" if failure_class in PROVIDER_FAILURE_CLASSES else "extraction")
+        artifact["numbered_attempt"] = None if failure_class in PROVIDER_FAILURE_CLASSES else numbered
+        if failure_class is not None:
+            failure_classes.append(failure_class)
+        run_store.save_stage_attempt(run_id, record_key, "table_classification", rounds, artifact)
+
+    while numbered < MAX_TABLE_CLASSIFICATION_ATTEMPTS:
+        rounds += 1
         result = invoke(
             "extractor", model,
-            _table_classification_prompt(paper_id, seed_table_anchor, other_tables, errors),
+            _table_classification_prompt(
+                paper_id, seed_table_anchor, other_tables, errors, chain_anchors, methods_context=methods_context,
+            ),
         )
         artifact = result.as_artifact()
+
+        failure = _provider_failure(result)
+        if failure:
+            # Nothing usable came back: not a numbered attempt, and the model gets no "feedback" about
+            # a failure that was not its answer -- the next round repeats the same prompt.
+            artifact["validation_errors"] = [{"field": None, "message": result.parse_error}]
+            _save(failure)
+            last_message = f"round {rounds}: provider failure ({failure}): {result.parse_error}"
+            if provider.failed(failure):
+                terminal_kind = "provider"
+                break
+            provider.cooldown()
+            continue
+
+        numbered += 1
+        attempt = numbered
 
         if result.parsed_json is None:
             errors = [{"field": None, "message": result.parse_error}]
             artifact["validation_errors"] = errors
-            run_store.save_stage_attempt(run_id, record_key, "table_classification", attempt, artifact)
+            _save("invalid_json")
             last_message = f"attempt {attempt}: {result.parse_error}"
             continue
 
@@ -1173,7 +1626,7 @@ def run_table_classification(
                 {"field": ".".join(str(p) for p in err["loc"]), "message": err["msg"]} for err in exc.errors()
             ]
             artifact["validation_errors"] = errors
-            run_store.save_stage_attempt(run_id, record_key, "table_classification", attempt, artifact)
+            _save('schema_invalid')
             last_message = f"attempt {attempt}: TableClassification shape validation failed: {errors}"
             continue
 
@@ -1182,7 +1635,7 @@ def run_table_classification(
         except FileNotFoundError as exc:
             errors = [{"field": None, "message": f"cannot validate table anchors: {exc}"}]
             artifact["validation_errors"] = errors
-            run_store.save_stage_attempt(run_id, record_key, "table_classification", attempt, artifact)
+            _save('validation_failure')
             last_message = f"attempt {attempt}: {errors[0]['message']}"
             continue
 
@@ -1204,8 +1657,64 @@ def run_table_classification(
         if invalid_anchor_errors:
             errors = invalid_anchor_errors
             artifact["validation_errors"] = errors
-            run_store.save_stage_attempt(run_id, record_key, "table_classification", attempt, artifact)
+            _save('validation_failure')
             last_message = f"attempt {attempt}: invalid anchors: {errors}"
+            continue
+
+        # A deterministically confirmed continuation chain is part of THIS
+        # logical table: a classification that leaves a member out cannot be
+        # trusted (its sanity check would compare against only part of the
+        # raw table), so it is rejected with feedback and retried.
+        missing_chain = [a for a in (chain_anchors or []) if a not in validated.table_anchors]
+        if missing_chain:
+            errors = [{
+                "field": "table_anchors",
+                "message": (
+                    f"table_anchors {validated.table_anchors} omits {missing_chain}, which "
+                    f"{seed_table_anchor!r} was deterministically confirmed to continue across (same table, "
+                    f"page-split). table_anchors must include every block of the chain {chain_anchors}, and "
+                    f"row_groups must cover the rows of all of them."
+                ),
+            }]
+            artifact["validation_errors"] = errors
+            _save('validation_failure')
+            last_message = f"attempt {attempt}: classification omitted confirmed continuation block(s) {missing_chain}"
+            continue
+
+        # A pooled factor's evidence must be LITERAL source text actually
+        # present in its cited block -- the same grounding rule every other
+        # excerpt in this pipeline obeys (never accept an invented pooling
+        # statement; it decides aggregated_mean vs treatment_mean).
+        pooled_errors = []
+        for pooled in validated.pooled_factors:
+            block_text = blocks.get(pooled.evidence_anchor.strip("[]"))
+            if block_text is None:
+                pooled_errors.append({
+                    "field": "pooled_factors",
+                    "message": f"pooled factor '{pooled.name}' cites evidence_anchor '{pooled.evidence_anchor}' which does not exist in content.md.",
+                })
+            elif not _value_supported_by_text(pooled.evidence_excerpt, block_text):
+                pooled_errors.append({
+                    "field": "pooled_factors",
+                    "message": (
+                        f"pooled factor '{pooled.name}': evidence_excerpt {pooled.evidence_excerpt!r} is not found in "
+                        f"the text of {pooled.evidence_anchor} -- it must be the literal source text stating the "
+                        f"pooling, never a paraphrase."
+                    ),
+                })
+        if pooled_errors:
+            errors = pooled_errors
+            artifact["validation_errors"] = errors
+            _save('validation_failure')
+            last_message = f"attempt {attempt}: ungrounded pooled_factors: {errors}"
+            continue
+
+        time_errors = _time_level_grounding_errors(validated, blocks)
+        if time_errors:
+            errors = time_errors
+            artifact["validation_errors"] = errors
+            _save("validation_failure")
+            last_message = f"attempt {attempt}: ungrounded time_levels: {errors}"
             continue
 
         if validated.applicable and validated.row_groups:
@@ -1213,21 +1722,349 @@ def run_table_classification(
             if sanity_error:
                 errors = [{"field": "row_groups", "message": sanity_error}]
                 artifact["validation_errors"] = errors
-                run_store.save_stage_attempt(run_id, record_key, "table_classification", attempt, artifact)
+                _save('validation_failure')
                 last_message = f"attempt {attempt}: {sanity_error}"
                 continue
 
+        # A variable named by ROW labels can carry its units, canonical name and method hint only in `variables`
+        # (a value column has no such field), so a level left undeclared loses them for good. Every other check
+        # above has passed here, so this is the answer's only defect: retried with feedback, then -- on the last
+        # attempt -- accepted and flagged, because the reconstruction itself is sound and losing the whole table
+        # would cost more than its variables' metadata (candidates without a hint still refuse safely).
+        variable_flags: list[dict] = []
+        undeclared = _undeclared_variable_levels(validated)
+        if undeclared:
+            if numbered < MAX_TABLE_CLASSIFICATION_ATTEMPTS:
+                errors = [{
+                    "field": "variables",
+                    "message": (
+                        f"the table's row factor(s) of dimension 'variable' have level(s) {undeclared} that no `variables` "
+                        f"entry declares. Declare one `variables` entry per such level, its `label` exactly as the row "
+                        f"shows it; `variable_name`, `units` and `method_hint` are optional -- give a `method_hint` only "
+                        f"when the paper's Methods says how that variable was measured, otherwise omit it (never invent one)."
+                    ),
+                }]
+                artifact["validation_errors"] = errors
+                _save("validation_failure")
+                last_message = f"attempt {attempt}: undeclared variable level(s) {undeclared}"
+                continue
+            variable_flags = [{
+                "undeclared_levels": undeclared,
+                "reason": f"still undeclared after {numbered} attempts; the classification was accepted without their "
+                          f"units, canonical names and method hints",
+            }]
+            artifact["variable_declaration_flags"] = variable_flags
+
+        # Pooling supplied by the model is always recorded as the model's (the
+        # `origin` field is ours to set, never the model's), then completed
+        # deterministically from the table's own caption/note when it gave none.
+        validated = validated.model_copy(update={
+            "pooled_factors": [pf.model_copy(update={"origin": "model", "pattern": None}) for pf in validated.pooled_factors],
+        })
+        validated, pooling_records = _apply_pooling_evidence(validated, paper_id, blocks)
+        # Units hints the source does not contain are flagged deterministically (anything the model put in
+        # `unit_hint_flags` is discarded) and withheld from candidates.
+        validated = validated.model_copy(update={"unit_hint_flags": _unit_hint_flags(validated, blocks, paper_id)})
+        # Method hints the paper's prose does not support are withheld the same way (Felipe Table 1 / Item 10).
+        validated = _withhold_ungrounded_method_hints(validated, paper_id)
+
         artifact["validation_errors"] = []
-        run_store.save_stage_attempt(run_id, record_key, "table_classification", attempt, artifact)
-        run_store.save_final(run_id, record_key, {"status": "success", "classification": validated.model_dump()})
+        _save(None)
+        run_store.save_final(run_id, record_key, {
+            "status": "success", "classification": validated.model_dump(), "pooling_evidence": pooling_records,
+            **({"variable_declaration_flags": variable_flags} if variable_flags else {}),
+        })
         return validated, None
 
-    run_store.save_final(run_id, record_key, {"status": "error", "message": last_message})
+    run_store.save_final(run_id, record_key, {
+        "status": "error", "message": last_message,
+        # Item 9: why the table was given up on, and whether that is the provider's failure or the
+        # extraction's -- disclosed in the run manifest (`table_pass_failures`).
+        "failure_class": failure_classes[-1] if failure_classes else "validation_failure",
+        "failure_kind": terminal_kind, "failure_classes": failure_classes,
+        "numbered_attempts": numbered, "provider_failure_rounds": provider.rounds,
+    })
     return None, last_message
+
+
+def _cached_table_failures(run_id: str) -> dict[str, dict]:
+    """{record key: terminal failure record} for every Step B table this run gave up on."""
+    out: dict[str, dict] = {}
+    for record_key in run_store.list_records(run_id):
+        if record_key.startswith("table_classification__"):
+            failure = _load_cached_table_failure(run_id, record_key)
+            if failure is not None:
+                out[record_key] = failure
+    return out
+
+
+def _load_cached_table_failure(run_id: str, record_key: str) -> Optional[dict]:
+    """The terminal failure of an earlier Step B call for this table in this run, or None. Only
+    failures written with a `failure_class` (Item 9 onward) are treated as final; an older bare
+    error record is retried as before."""
+    path = run_store.record_dir(run_id, record_key) / "final.json"
+    if not path.is_file():
+        return None
+    try:
+        data = run_store.load_json(path)
+    except (OSError, ValueError):
+        return None
+    if isinstance(data, dict) and data.get("status") == "error" and data.get("failure_class") and data.get("message"):
+        return data
+    return None
+
+
+def _undeclared_variable_levels(classification: TableClassification) -> list[str]:
+    """The levels of a `variable`-dimension ROWS factor that no `variables` entry declares (compared as
+    `_variable_key`, so case and punctuation never matter), in row order. Only a label is needed to declare one;
+    everything else on a TableVariable stays optional. A table whose variables are named by column headers
+    (`variables` legitimately empty, each column carrying its own `variable_name_hint`) has no such factor, so it is
+    never affected, and neither is a table that feeds no candidates."""
+    if classification.table_role != "treatment_response" or not classification.applicable:
+        return []
+    factors = [f.name for f in classification.factors if f.dimension == "variable" and f.encoding == "rows"]
+    if not factors:
+        return []
+    declared = {_variable_key(v.label) for v in classification.variables}
+    missing: list[str] = []
+    seen: set[str] = set()
+    for row in classification.row_groups:
+        for name in factors:
+            level = (row.factor_values or {}).get(name) or ""
+            key = _variable_key(level)
+            if key and key not in declared and key not in seen:
+                seen.add(key)
+                missing.append(level.strip())
+    return missing
+
+
+def _time_level_grounding_errors(classification: TableClassification, blocks: dict[str, str]) -> list[dict]:
+    """A time level's dates are sealed evidence, so they get the same grounding rule as every excerpt
+    in this pipeline: each cited anchor must exist, and the literal `date_text` / `year_text` (and the
+    site, when given) must be found in at least one cited block's text. An invented or paraphrased date
+    is rejected with feedback -- it decides what a later Observation's temporal_info says."""
+    errors: list[dict] = []
+    for tl in classification.time_levels:
+        label = f"time_level {tl.factor}={tl.level!r}"
+        cited = {}
+        for anchor in tl.anchors:
+            text = blocks.get(anchor.strip("[]"))
+            if text is None:
+                errors.append({"field": "time_levels", "message": f"{label} cites anchor '{anchor}' which does not exist in content.md."})
+            else:
+                cited[anchor] = text
+        if not cited:
+            continue
+        for field, value in (("date_text", tl.date_text), ("year_text", tl.year_text)):
+            if value and not any(_value_supported_by_text(value, text) for text in cited.values()):
+                errors.append({
+                    "field": "time_levels",
+                    "message": f"{label}: {field} {value!r} is not found in the text of {sorted(cited)} -- it must be the "
+                               f"literal source text, never a paraphrase or a computed date.",
+                })
+        if tl.site and not any(_normalize_for_matching(tl.site) in _normalize_for_matching(text) for text in cited.values()):
+            errors.append({"field": "time_levels", "message": f"{label}: site {tl.site!r} is not named in {sorted(cited)}."})
+    return errors
+
+
+def _time_levels_for_cell(classification: TableClassification, row: Any, column: Any) -> list[TimeLevel]:
+    """The dated time levels that apply to ONE cell: for each `time`-dimension level the cell carries
+    (row, column or table context), the single matching `time_levels` entry -- matched by declared
+    factor and level, and by site when the entry is dated per site. Anything ambiguous (several entries,
+    or a per-site entry when the cell names no site) attaches nothing: refuse to guess. A table with no
+    time factor, or no `time_levels`, yields nothing."""
+    if not classification.time_levels:
+        return []
+    levels = _cell_dimension_levels(classification, row, column)
+    cell_sites = [_normalize_for_matching(level) for _, (dimension, level) in levels.items() if dimension == "site"]
+    matched: list[TimeLevel] = []
+    for name, (dimension, level) in levels.items():
+        if dimension != "time":
+            continue
+        entries = [
+            tl for tl in classification.time_levels
+            if _variable_key(tl.factor) == _variable_key(name) and _variable_key(tl.level) == _variable_key(level)
+        ]
+        applicable = []
+        for tl in entries:
+            if tl.site is None:
+                applicable.append(tl)
+            elif any(
+                (len(cs) >= 3 and cs in _normalize_for_matching(tl.site)) or (len(_normalize_for_matching(tl.site)) >= 3 and _normalize_for_matching(tl.site) in cs)
+                for cs in cell_sites
+            ):
+                applicable.append(tl)
+        if len(applicable) == 1:
+            matched.append(applicable[0])
+    return matched
+
+
+def _temporal_context(time_levels: list[TimeLevel]) -> dict[str, Any]:
+    """Sealed candidate context for a cell whose time level(s) the paper dates."""
+    if not time_levels:
+        return {}
+    return {"temporal_context": [
+        {"factor": tl.factor, "level": tl.level, "site": tl.site, "date_text": tl.date_text, "year_text": tl.year_text, "anchors": list(tl.anchors)}
+        for tl in time_levels
+    ]}
+
+
+def _table_level_texts(classification: TableClassification) -> set[str]:
+    """Normalized level texts this table reports in its rows, columns or context."""
+    texts: set[str] = set()
+    for row in classification.row_groups:
+        texts |= {pooling_evidence.normalize_name(v) for v in (row.factor_values or {}).values()}
+    for column in classification.value_columns:
+        texts |= {pooling_evidence.normalize_name(v) for v in (column.factor_levels or {}).values()}
+        for hint in (column.treatment_level_hint, column.site_hint):
+            if hint:
+                texts.add(pooling_evidence.normalize_name(hint))
+    texts |= {pooling_evidence.normalize_name(v) for v in (classification.context_levels or {}).values()}
+    return texts
+
+
+def _pooling_conflict(classification: TableClassification, name: str) -> Optional[str]:
+    """Why a detected pooled factor cannot be one: pooling means the factor is
+    ABSENT from the table, so a name that is a declared factor or a reported
+    level of this very table contradicts it."""
+    key = pooling_evidence.normalize_name(name)
+    for factor in classification.factors:
+        if pooling_evidence.normalize_name(factor.name) == key:
+            return f"'{name}' is the declared factor {factor.name!r} of this table, so its levels are not pooled away"
+    if key and key in _table_level_texts(classification):
+        return f"'{name}' is a level this table itself reports, so it is not pooled away"
+    return None
+
+
+def _apply_pooling_evidence(
+    classification: TableClassification, paper_id: str, blocks: dict[str, str],
+) -> tuple[TableClassification, list[dict]]:
+    """Deterministic pooling evidence (pipeline/pooling_evidence.py) for one
+    validated classification. Returns (classification, records) where every
+    detected statement is a record with `status` accepted/rejected, its
+    anchor, literal excerpt, factor, pattern and -- when rejected -- why.
+
+    Only an EMPTY `pooled_factors` of a `treatment_response` table is ever
+    filled in; a model-supplied result is preserved untouched and any
+    disagreement is recorded, and for any other table role the evidence is
+    informational. Every accepted excerpt is re-validated with the pipeline's
+    grounding check and the merged classification re-runs the schema
+    validation, so nothing ungrounded or self-contradictory gets through."""
+    found = pooling_evidence.detect_pooling_evidence(paper_id, classification.table_anchors, _papers_root())
+    if not found:
+        return classification, []
+
+    records: list[dict] = []
+    usable: list[dict] = []
+    for raw in found:
+        record = {**raw, "applied": False}
+        if record["status"] == "accepted":
+            reason = _pooling_conflict(classification, record["factor"])
+            if reason is None and not _value_supported_by_text(record["excerpt"], blocks.get(record["anchor"], "")):
+                reason = "the excerpt is not found in the cited block's text (ungrounded)"
+            if reason is not None:
+                record.update(status="rejected", rejection_reason=reason)
+            else:
+                usable.append(record)
+        records.append(record)
+    if not usable:
+        return classification, records
+
+    if classification.table_role != "treatment_response":
+        for record in usable:
+            record["note"] = f"informational only: the table role is {classification.table_role!r}, which has no pooled_factors use"
+        return classification, records
+
+    if classification.pooled_factors:
+        model_keys = {pooling_evidence.normalize_name(pf.name) for pf in classification.pooled_factors}
+        for record in usable:
+            agrees = pooling_evidence.normalize_name(record["factor"]) in model_keys
+            record["agreement"] = "agrees" if agrees else "disagrees"
+            record["model_pooled_factors"] = [pf.name for pf in classification.pooled_factors]
+            record["note"] = "the model's own pooled_factors were preserved; the deterministic result was not applied"
+        return classification, records
+
+    detected, seen = [], set()
+    for record in usable:
+        key = pooling_evidence.normalize_name(record["factor"])
+        if key in seen:
+            continue
+        seen.add(key)
+        detected.append({
+            "name": record["factor"], "dimension": record["dimension"], "evidence_anchor": record["anchor"],
+            "evidence_excerpt": record["excerpt"], "origin": "deterministic", "pattern": record["pattern"],
+        })
+    try:
+        merged = TableClassification.model_validate({**classification.model_dump(), "pooled_factors": detected})
+    except ValidationError as exc:
+        why = "; ".join(err["msg"] for err in exc.errors())
+        for record in usable:
+            record.update(status="rejected", rejection_reason=f"the merged classification failed schema validation: {why}")
+        return classification, records
+    for record in usable:
+        record["applied"] = True
+    return merged, records
+
+
+def _cached_pooling_evidence(run_id: str) -> dict[str, list[dict]]:
+    """{record key: pooling-evidence records} saved next to each cached Step B classification."""
+    out: dict[str, list[dict]] = {}
+    for record_key in run_store.list_records(run_id):
+        if not record_key.startswith("table_classification__"):
+            continue
+        path = run_store.record_dir(run_id, record_key) / "final.json"
+        try:
+            data = run_store.load_json(path) if path.is_file() else None
+        except (OSError, ValueError):
+            data = None
+        if isinstance(data, dict) and data.get("status") == "success" and data.get("pooling_evidence"):
+            out[record_key] = list(data["pooling_evidence"])
+    return out
+
+
+def _cached_variable_declaration_flags(run_id: str) -> dict[str, list[dict]]:
+    """{record key: variable-declaration flags} saved next to each Step B classification that was accepted with
+    undeclared row-encoded variable levels."""
+    out: dict[str, list[dict]] = {}
+    for record_key in run_store.list_records(run_id):
+        if not record_key.startswith("table_classification__"):
+            continue
+        path = run_store.record_dir(run_id, record_key) / "final.json"
+        try:
+            data = run_store.load_json(path) if path.is_file() else None
+        except (OSError, ValueError):
+            data = None
+        if isinstance(data, dict) and data.get("status") == "success" and data.get("variable_declaration_flags"):
+            out[record_key] = list(data["variable_declaration_flags"])
+    return out
 
 
 def _normalize_for_matching(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).strip()
+
+
+# Fix 1 (table-enumeration Method-linking design review): words that must
+# never, on their own, justify a token-containment match -- both generic
+# English stopwords and a handful of domain-generic words that show up in
+# almost every method_hint sentence regardless of which real method is
+# meant ("hand measurement of X as described in the Methods section" is
+# the SAME boilerplate for three completely different real measurements
+# in real Daren-1997-Canopy hints). Deliberately conservative and short:
+# this is a denylist against false positives, not an attempt at general
+# stopword removal.
+_GENERIC_MATCH_TOKENS = frozenset({
+    "the", "a", "an", "of", "and", "or", "in", "on", "at", "to", "for", "by", "with",
+    "as", "is", "was", "were", "using", "used", "based", "method", "methods",
+    "measurement", "measurements", "measured", "measure", "analysis", "described",
+    "section", "hand", "value", "values", "see", "materials",
+})
+
+
+def _significant_tokens(text: str) -> set[str]:
+    """Tokens long enough (>=4 chars, after normalization) and specific
+    enough (not in _GENERIC_MATCH_TOKENS) to mean something on their own --
+    the set a token-containment match is allowed to be judged against."""
+    return {t for t in text.split() if len(t) >= 4 and t not in _GENERIC_MATCH_TOKENS}
 
 
 def _match_row_group_to_pool(factor_values: dict[str, str], pool: list[dict]) -> Optional[str]:
@@ -1237,13 +2074,57 @@ def _match_row_group_to_pool(factor_values: dict[str, str], pool: list[dict]) ->
     `_multi_record_link_pools` already builds for the free-form pass).
 
     SCORES each pool entry by how many of the row's normalized values it
-    accounts for (exact match against `name`/`slug`, or substring
-    containment for values >=3 characters -- a `name` field is often a
-    long institution name, e.g. 'Iowa State University Agronomy and
-    Agricultural Engineering Research Center', that an exact match could
-    never reach; an exact match outweighs a substring one, 2 points vs 1),
-    then returns the slug of the entry with the STRICTLY HIGHEST score, or
-    None if the best score is 0 or tied.
+    accounts for, then returns the slug of the entry with the STRICTLY
+    HIGHEST score, or None if the best score is 0 or tied. Three tiers,
+    highest always wins outright over any lower tier:
+
+      1. EXACT match (2 points) -- value equals the pool entry's name/slug
+         verbatim after normalization.
+      2. BIDIRECTIONAL SUBSTRING (1 point) -- either the value is found
+         inside the pool text, or the pool text is found inside the value,
+         whichever side is being searched must be >=3 characters. The
+         short-in-long direction is the original Site case (a table's
+         short site_hint like 'Ames' inside a Site's long institution
+         name). The long-in-short direction is the same pattern for
+         Method: `method_hint` is deliberately a full descriptive clause
+         ("General Linear Model (GLM) analysis (SAS) - LSD (0.05) values"),
+         while a real Method's own `name` is a short label ("General
+         Linear Model (GLM)") that appears verbatim, contiguous, inside
+         the hint -- a value longer than the text it should match is not
+         evidence of anything BUT a short, literal pool name appearing
+         inside it.
+      3. TOKEN CONTAINMENT (1 point, same tier as substring, never higher)
+         -- only when a pool entry's SIGNIFICANT tokens (see
+         `_significant_tokens`: >=4 chars, non-generic, per
+         `_GENERIC_MATCH_TOKENS`) number at least TWO and are ALL present
+         as whole words in the value. Deliberately strict: a match must
+         never rest on a single shared word, generic or not (two
+         completely unrelated hints sharing one incidental word like
+         'standard' or 'area' must never score), and a pool name whose
+         significant vocabulary isn't fully echoed in the hint (e.g. a
+         hint about leaf blade WIDTH alone against a Method named 'leaf
+         blade length and width' -- 'length' is missing) correctly stays
+         unresolved rather than guessing the two are close enough.
+
+    This combined scoring (not a flat "any value matches" check) is what
+    correctly resolves a real, confirmed ambiguity: Daren-1997-Canopy's
+    Treatment pool has BOTH 'trailblazer_ames' and 'trailblazer_mead'
+    sharing the identical name 'Trailblazer' (site lives only in the
+    slug) -- a row with {'Population': 'Trailblazer', 'Site': 'Ames'}
+    scores 'trailblazer_ames' at 3 (exact match on 'trailblazer' + a
+    substring match on 'ames') and 'trailblazer_mead' at 2 (only the exact
+    population match), so the higher-scoring entry wins outright, without
+    requiring every value to match (a row
+    that ALSO carries an unrelated value, e.g. Maturity while matching
+    against the Site pool, simply never scores from that irrelevant value
+    on any entry -- it does not dilute a real match on Site elsewhere).
+    A genuine tie is preserved as unresolved rather than picked arbitrarily
+    -- e.g. the SAME row's Population+Maturity+Site values against a
+    Treatment pool that separately has 'trailblazer_ames' AND
+    'vegetative_ames' (population-level and maturity-level Treatments,
+    both real, both score 3) correctly returns None: a single treatment_id
+    genuinely cannot represent both dimensions at once, and this function
+    must not silently pick one and discard the other.
 
     This combined scoring (not a flat "any value matches" check) is what
     correctly resolves a real, confirmed ambiguity: Daren-1997-Canopy's
@@ -1273,11 +2154,24 @@ def _match_row_group_to_pool(factor_values: dict[str, str], pool: list[dict]) ->
     safe -- a WRONG match would silently attach a value to the wrong
     record, exactly the real failure class the refuse-to-guess gate exists
     to prevent."""
-    if not factor_values:
+    scored = _pool_scores(factor_values, pool)
+    best_score = max((s for _, s in scored), default=0)
+    if best_score == 0:
         return None
+    winners = [slug for slug, s in scored if s == best_score]
+    return winners[0] if len(winners) == 1 else None
+
+
+def _pool_scores(factor_values: dict[str, str], pool: list[dict]) -> list[tuple[str, int]]:
+    """Each pool entry's slug with the score `_match_row_group_to_pool`'s tiers give it
+    (exact 2, substring / name-token containment 1). Kept apart so a caller can tell
+    "nothing matched at all" from "several entries tied" -- both return None from the
+    matcher, but only the first may fall through to the description tier."""
+    if not factor_values:
+        return []
     normalized_values = {_normalize_for_matching(v) for v in factor_values.values() if v} - {""}
     if not normalized_values:
-        return None
+        return []
 
     pool_texts = [
         (item["slug"], {_normalize_for_matching(item.get("name") or ""),
@@ -1286,24 +2180,434 @@ def _match_row_group_to_pool(factor_values: dict[str, str], pool: list[dict]) ->
     ]
 
     def _score(texts: set[str]) -> int:
-        # An exact match (2 points) outweighs a mere substring match (1
-        # point) -- e.g. a row's site_hint 'Ames' exactly matching a real
+        # An exact match (2 points) outweighs a substring or token-
+        # containment match (1 point each, never stacked for the same
+        # value) -- e.g. a row's site_hint 'Ames' exactly matching a real
         # Site named 'Ames' must win outright over it merely being a
         # substring of an unrelated 'Ames Annex' entry.
         total = 0
         for value in normalized_values:
             if value in texts:
                 total += 2
-            elif len(value) >= 3 and any(value in text for text in texts):
+                continue
+            if any(
+                (len(value) >= 3 and value in text) or (len(text) >= 3 and text in value)
+                for text in texts
+            ):
                 total += 1
+                continue
+            for text in texts:
+                sig = _significant_tokens(text)
+                if len(sig) >= 2 and sig <= set(value.split()):
+                    total += 1
+                    break
         return total
 
-    scored = [(slug, _score(texts)) for slug, texts in pool_texts]
-    best_score = max((s for _, s in scored), default=0)
-    if best_score == 0:
-        return None
-    winners = [slug for slug, s in scored if s == best_score]
+    return [(slug, _score(texts)) for slug, texts in pool_texts]
+
+
+# Item 10 (Method matching, tier 3): a Method's own `name` is a short label, but its
+# `description` is the Methods-section sentence the hint was paraphrased from. A hint
+# with no exact/substring/name-token hit on ANY pool entry may still be resolved by
+# that description -- only when it is distinctive and unambiguous.
+_MIN_DESCRIPTION_TOKENS = 3
+
+
+def _description_tokens(item: dict) -> set[str]:
+    return _significant_tokens(_normalize_for_matching(item.get("name") or "")) | _significant_tokens(
+        _normalize_for_matching(item.get("description") or ""))
+
+
+def _description_candidates(hint: str, pool: list[dict]) -> list[str]:
+    """Slugs of pool entries whose name+description contain EVERY significant token of
+    `hint`, provided the hint has at least `_MIN_DESCRIPTION_TOKENS` of them (the
+    >=4-character minimum and the generic-token denylist still apply, so one generic
+    word can never match)."""
+    hint_tokens = _significant_tokens(_normalize_for_matching(hint))
+    if len(hint_tokens) < _MIN_DESCRIPTION_TOKENS:
+        return []
+    return [item["slug"] for item in pool if hint_tokens <= _description_tokens(item)]
+
+
+def _method_hint_seeds(
+    *, run_id: str, paper_id: str, model: str, invoke: Callable[..., AgentInvocation],
+    freeform_candidates: list[EnumerationCandidate],
+) -> tuple[list[EnumerationCandidate], list[dict]]:
+    """Seed Method candidates from the method hints of this paper's data tables (Step B,
+    cached per run) -- decision Q6, deliberately conservative. A hint seeds a candidate
+    ONLY when:
+      - it has enough distinctive tokens (`_MIN_DESCRIPTION_TOKENS`) -- an arbitrary
+        method-sounding phrase never qualifies;
+      - it is GROUNDED: some prose block (Text/ListItem, never a table) contains every one
+        of its significant tokens, and those blocks become the candidate's anchors, so a
+        method the paper never describes is never fabricated (Felipe's variables with no
+        method paragraph stay unresolved);
+      - the free-form pass has not already produced it: no free-form candidate scores on it
+        under the same matcher tiers (`_pool_scores`) or contains it by description, and no
+        earlier seed does -- a covered or ambiguous hint seeds nothing.
+    Returns (seeds, one decision per distinct hint)."""
+    classifications = run_table_classification_pass(run_id=run_id, paper_id=paper_id, model=model, invoke=invoke)
+    hints: dict[str, str] = {}
+    for classification in classifications.values():
+        if classification.table_role != "treatment_response":
+            continue
+        for hint in [v.method_hint for v in classification.variables] + [c.method_hint for c in classification.value_columns]:
+            if hint and hint.strip():
+                hints.setdefault(_normalize_for_matching(hint), hint.strip())
+    if not hints:
+        return [], []
+    prose = _prose_token_sets(paper_id)
+    if prose is None:
+        return [], []
+    pool = [{"slug": c.candidate_id, "name": c.description, "description": c.description} for c in freeform_candidates]
+
+    seeds: list[EnumerationCandidate] = []
+    decisions: list[dict] = []
+    for hint in hints.values():
+        tokens = _significant_tokens(_normalize_for_matching(hint))
+        record = {"hint": hint}
+        if len(tokens) < _MIN_DESCRIPTION_TOKENS:
+            decisions.append({**record, "decision": "skipped", "reason": "too few distinctive tokens to be a method description"})
+            continue
+        covered = [slug for slug, score in _pool_scores({"Method": hint}, pool) if score] or _description_candidates(hint, pool)
+        if covered:
+            decisions.append({**record, "decision": "skipped", "reason": f"already covered by Method candidate(s) {covered}"})
+            continue
+        anchors = [a for a in sorted(prose, key=content_reader._anchor_sort_key) if tokens <= prose[a]][:3]
+        if not anchors:
+            decisions.append({**record, "decision": "skipped", "reason": "no prose block states this method (not grounded), so no Method is created"})
+            continue
+        candidate = EnumerationCandidate(
+            candidate_id=_sanitize_candidate_id("method_hint_" + "_".join(_normalize_for_matching(hint).split()[:5])),
+            description=f"Measurement method described as: {hint}", anchors=anchors,
+        )
+        seeds.append(candidate)
+        pool.append({"slug": candidate.candidate_id, "name": candidate.description, "description": candidate.description})
+        decisions.append({**record, "decision": "seeded", "candidate_id": candidate.candidate_id, "anchors": anchors})
+    return seeds, decisions
+
+
+def _match_method_hint(match_values: dict[str, str], hint: Optional[str], pool: list[dict]) -> Optional[str]:
+    """Resolve a table row's Method link. Strict tier order: the existing exact /
+    substring / name-token scoring first; the description tier only when that scoring
+    hit NOTHING on any entry (a tie is a tie, never a reason to look further), and then
+    only for a unique winner -- several candidates, or none, stay unresolved."""
+    match = _match_row_group_to_pool(match_values, pool)
+    if match is not None or not hint:
+        return match
+    if any(score for _, score in _pool_scores(match_values, pool)):
+        return None  # something matched but tied: ambiguous, refuse to guess
+    winners = _description_candidates(hint, pool)
     return winners[0] if len(winners) == 1 else None
+
+
+# Current-IR representability limits, surfaced explicitly (never as extraction
+# failures) in the run manifest and in `blocked` reasons:
+#   L1: Observation.treatment_id is REQUIRED, so an observational design with no
+#       treatment-dimension factor (population -> Crop, maturity -> time,
+#       site -> Site) cannot yield Observations without inventing a Treatment.
+#   L2: Observation.site_id is REQUIRED and single-valued, so values pooled over
+#       sites cannot be represented.
+LIMITATION_L1 = (
+    "L1 (current-IR limitation, not an extraction failure): Observation.treatment_id is required, but this "
+    "paper's data tables declare no treatment-dimension factor (their dimensions are crop/time/site only), so "
+    "there is no Treatment to reference; a Treatment is deliberately not invented to satisfy the schema"
+)
+LIMITATION_L2 = (
+    "L2 (current-IR limitation, not an extraction failure): the values are pooled over the site dimension but "
+    "Observation.site_id is required and single-valued"
+)
+
+
+#   L3 (recorded, not yet detected per run): the IR has no home for the structured
+#       experimental design. Protocol Section 16.2 asks for design metadata (design_type,
+#       experimental_unit, replicate_unit, control_definition, "factor names and levels");
+#       `Study` holds only identity ("design_type / experimental_unit / replicate_unit are
+#       future work"). A factorial design such as Felipe's 2 (winter fallow, mustard cover
+#       crop) x 3 (1-cv, 3-cv, 5-cv mixtures) can therefore only be described in free-text
+#       `Treatment.definition`; its unreported combinations are NEVER manufactured as
+#       Treatments or Observations to compensate (Q2). Class D (schema/IR representability).
+LIMITATION_L3 = (
+    "L3 (current-IR limitation, not an extraction failure): the structured experimental design (factor names and "
+    "levels, design type, experimental/replicate unit; protocol Section 16.2) has no IR field -- Study holds only "
+    "identity -- so design combinations the source does not report are not represented as Treatments or Observations"
+)
+
+
+def _has_treatment_dimension(classification: TableClassification) -> bool:
+    """Does this table carry any treatment-dimension factor (declared, or --
+    for a legacy classification with no declared factors -- implied by the
+    legacy hints/row factors, which legacy code always treated as treatment
+    identity)? A column's legacy `treatment_level_hint` is a treatment level
+    even on a table with declared factors (`_cell_dimension_levels` reads it
+    as one, and Treatment generation already uses it), so it counts here too
+    -- otherwise a Fallow/Mustard column table was wrongly reported as L1."""
+    if classification.factors:
+        return (
+            any(f.dimension == "treatment" for f in classification.factors)
+            or any(vc.treatment_level_hint for vc in classification.value_columns)
+        )
+    return True  # legacy classification: behavior unchanged
+
+
+def _pooled_representability(classification: TableClassification) -> tuple[bool, Optional[str]]:
+    """Can this table's values be expressed as Observations in the current IR
+    (protocol Section 7.4: aggregated_mean + aggregated_over_factors)?
+
+    A table pooled over a NON-site factor, while still retaining at least one
+    treatment-dimension factor to reference, is representable: the Observation
+    is `aggregated_mean` with `aggregated_over_factors` naming what was pooled.
+    Pooled over the site (L2), or with no retained treatment (L1), it is not."""
+    if not classification.pooled_factors:
+        return True, None
+    if any(pf.dimension == "site" for pf in classification.pooled_factors):
+        return False, LIMITATION_L2
+    if not _has_treatment_dimension(classification):
+        return False, LIMITATION_L1
+    return True, None
+
+
+def _pooled_context(classification: TableClassification) -> dict[str, Any]:
+    """Sealed candidate context for a representable pooled table: which
+    factors the values are pooled over, with the literal source text that says
+    so. The candidate's Extraction cites that statement; Conversion is told to
+    use aggregated_mean rather than treatment_mean."""
+    if not classification.pooled_factors:
+        return {}
+    return {
+        "reported_effect_scope": "aggregated_mean",
+        "aggregated_over_factors": [pf.name for pf in classification.pooled_factors],
+        "pooling_evidence": [
+            {"factor": pf.name, "anchor": pf.evidence_anchor, "excerpt": pf.evidence_excerpt}
+            for pf in classification.pooled_factors
+        ],
+    }
+
+
+# --- Item 12: units and canonical variable name ------------------------------------
+# Marker's rendering of units is sometimes garbled (real Daren table b:0119: "kg DI | M m -2" for "kg DM m-2"),
+# and a table reconstruction may "correct" it from world knowledge. The datapackage says `reported_units` is
+# "units as reported by the source", so a units hint travels only when the source text supports it, is used
+# only where it agrees with that text, and a hint the source does not support is FLAGGED -- never silently
+# adopted and never silently corrected to either reading.
+_UNIT_CHAR_MAP = str.maketrans({
+    "⁻": "-", "−": "-", "–": "-", "—": "-", "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5",
+    "µ": "u", "μ": "u", "·": "", "×": "",
+})
+_PLACEHOLDER_UNITS = frozenset({"unknown", "n/a", "na", "none", "not reported", "not stated", "not given", "unspecified", "tbd", "?", "-"})
+
+
+def _units_key(text: str) -> str:
+    """Comparison key for a units string: lowercase, superscripts and unicode minus folded, whitespace and
+    brackets dropped ('g m -2 ' == 'g m⁻²' == 'g m-2')."""
+    return re.sub(r"[\s.^{}()\[\]|*,;:]+", "", (text or "").translate(_UNIT_CHAR_MAP).lower())
+
+
+def _units_supported(hint: str, texts: list[str]) -> bool:
+    """Is `hint` written in any of `texts`? Compared ignoring spacing and superscript spelling; a very short
+    hint ('g', 'm', '%') must additionally stand as a whole token so a stray letter never counts as support."""
+    key = _units_key(hint)
+    if not key:
+        return True
+    for text in texts:
+        if key not in _units_key(text):
+            continue
+        if len(key) >= 3 or re.search(rf"(?<![a-z0-9]){re.escape(hint.strip().lower())}(?![a-z0-9])", text.translate(_UNIT_CHAR_MAP).lower()):
+            return True
+    return False
+
+
+def _unit_hint_flags(classification: TableClassification, blocks: dict[str, str], paper_id: str) -> list[UnitHintFlag]:
+    """The units hints of this table that its own blocks, caption and notes do not contain."""
+    eligible = [blocks[a] for a in classification.table_anchors if a in blocks]
+    eligible += [
+        blocks[a] for _, a in pooling_evidence.pooling_windows(paper_id, classification.table_anchors, _papers_root()) if a in blocks
+    ]
+    reason = "not found in the table, its caption or its notes"
+    flags = [UnitHintFlag(scope="variable", key=v.label, units_hint=v.units, reason=reason)
+             for v in classification.variables if v.units and not _units_supported(v.units, eligible)]
+    flags += [UnitHintFlag(scope="column", key=c.value_column_id, units_hint=c.units_hint, reason=reason)
+              for c in classification.value_columns if c.units_hint and not _units_supported(c.units_hint, eligible)]
+    return flags
+
+
+# --- Method hints: supplied evidence and grounding (Felipe Table 1) -----------------------------------------------
+_METHODS_HEADER_RE = re.compile(r"method", re.IGNORECASE)
+_METHODS_END_HEADER_RE = re.compile(r"result|discussion|conclusion|acknowledg|reference|literature cited", re.IGNORECASE)
+_METHODS_CONTEXT_MAX_CHARS = 9000
+_METHODS_CONTEXT_BLOCK_CHARS = 1500
+
+
+def _methods_context(paper_id: str) -> str:
+    """The paper's own Methods prose, verbatim and anchor-labelled, for the Step B prompt.
+
+    The Methods span is found POSITIONALLY, in document order over the rendered blocks: it starts at the first
+    SectionHeader whose text contains "method" and ends at the next SectionHeader that opens Results / Discussion /
+    Conclusions / References. Deliberately NOT read from `section_path`: Marker's heading hierarchy is not reliable for
+    this (in Felipe-2010-Cultivar the subsections of "Materials and methods" hang under a sibling heading, so no block's
+    section_path mentions methods at all). Every Text/ListItem block inside the span is included, each cut to
+    `_METHODS_CONTEXT_BLOCK_CHARS`, the whole to `_METHODS_CONTEXT_MAX_CHARS`; nothing is summarised or rewritten. ""
+    when the paper has no such header (or no provenance), in which case the prompt is unchanged."""
+    provenance = content_reader._load_provenance(paper_id, _papers_root())
+    if not provenance:
+        return ""
+    try:
+        blocks = _load_rendered_blocks(paper_id)
+    except FileNotFoundError:
+        return ""
+    lines: list[str] = []
+    used = 0
+    in_methods = False
+    for anchor in sorted(blocks, key=content_reader._anchor_sort_key):
+        block_type = (provenance.get(anchor) or {}).get("block_type")
+        text = " ".join(blocks[anchor].split())
+        if block_type == "SectionHeader":
+            heading = text.lstrip("# ").strip()
+            if _METHODS_HEADER_RE.search(heading):
+                in_methods = True
+            elif in_methods and _METHODS_END_HEADER_RE.search(heading):
+                break
+            continue
+        if not in_methods or block_type not in ("Text", "ListItem") or not text:
+            continue
+        text = text[:_METHODS_CONTEXT_BLOCK_CHARS]
+        if used + len(text) > _METHODS_CONTEXT_MAX_CHARS:
+            break
+        lines.append(f"[{anchor}] {text}")
+        used += len(text)
+    return "\n".join(lines)
+
+
+def _prose_token_sets(paper_id: str) -> Optional[dict[str, set[str]]]:
+    """{anchor: significant tokens} of every prose (Text/ListItem, never a table) block of the paper, or None when the
+    paper has no rendered content. The evidence a method hint is grounded against."""
+    try:
+        blocks = _load_rendered_blocks(paper_id)
+    except FileNotFoundError:
+        return None
+    provenance = content_reader._load_provenance(paper_id, _papers_root()) or {}
+    return {
+        a: _significant_tokens(_normalize_for_matching(t)) for a, t in blocks.items()
+        if (provenance.get(a) or {}).get("block_type") in ("Text", "ListItem")
+    }
+
+
+def _prose_normalized_texts(paper_id: str) -> list[str]:
+    """Normalized text (`_normalize_for_matching`) of every prose block, for contiguous-phrase checks."""
+    try:
+        blocks = _load_rendered_blocks(paper_id)
+    except FileNotFoundError:
+        return []
+    provenance = content_reader._load_provenance(paper_id, _papers_root()) or {}
+    return [
+        f" {_normalize_for_matching(t)} " for a, t in blocks.items()
+        if (provenance.get(a) or {}).get("block_type") in ("Text", "ListItem")
+    ]
+
+
+def _method_hint_grounded(hint: str, prose: dict[str, set[str]], texts: list[str]) -> bool:
+    """A hint is grounded when ONE prose block contains every one of its significant words (>=4 characters, not a
+    generic method word -- the matcher's own `_significant_tokens`) AND either it has at least two of them or the whole
+    hint occurs contiguously in a prose block. So a hint of one distinctive word ("oven") must be found as that exact
+    word, and a hint made only of generic words, or resting on one incidental word ("measured using standard
+    methods"), is never grounded."""
+    tokens = _significant_tokens(_normalize_for_matching(hint))
+    if not tokens or not any(tokens <= block_tokens for block_tokens in prose.values()):
+        return False
+    if len(tokens) >= 2:
+        return True
+    phrase = f" {_normalize_for_matching(hint)} "
+    return any(phrase in text for text in texts)
+
+
+def _withhold_ungrounded_method_hints(classification: TableClassification, paper_id: str) -> TableClassification:
+    """Withhold every method hint (per variable and per legacy column) that no prose block of the paper supports,
+    recording each as a `method_hint_flags` entry. A withheld hint can neither link a Method (the approved matcher is
+    unchanged) nor seed one; the candidate's Method stays unresolved. A grounded hint is passed through untouched.
+    Anything the model put in `method_hint_flags` is discarded."""
+    prose = _prose_token_sets(paper_id)
+    if prose is None:
+        return classification.model_copy(update={"method_hint_flags": []})
+    texts = _prose_normalized_texts(paper_id)
+    reason = "no prose block of the paper contains this hint's significant words (or it has none)"
+    flags: list[MethodHintFlag] = []
+    variables = []
+    for variable in classification.variables:
+        if variable.method_hint and not _method_hint_grounded(variable.method_hint, prose, texts):
+            flags.append(MethodHintFlag(scope="variable", key=variable.label, method_hint=variable.method_hint, reason=reason))
+            variable = variable.model_copy(update={"method_hint": None})
+        variables.append(variable)
+    columns = []
+    for column in classification.value_columns:
+        if column.method_hint and not _method_hint_grounded(column.method_hint, prose, texts):
+            flags.append(MethodHintFlag(scope="column", key=column.value_column_id, method_hint=column.method_hint, reason=reason))
+            column = column.model_copy(update={"method_hint": None})
+        columns.append(column)
+    return classification.model_copy(update={"variables": variables, "value_columns": columns, "method_hint_flags": flags})
+
+
+def _effective_units(classification: TableClassification, variable: Optional[TableVariable], column: Any) -> Optional[str]:
+    """The units hint for a cell -- the variable's own, else the column's legacy hint -- unless the source did not support it."""
+    if variable is not None and variable.units:
+        hint, key = variable.units, ("variable", variable.label)
+    elif column.units_hint:
+        hint, key = column.units_hint, ("column", column.value_column_id)
+    else:
+        return None
+    return None if key in {(f.scope, f.key) for f in classification.unit_hint_flags} else hint
+
+
+def _match_variable_pool(label: str, variable_name: Optional[str], pool: list[dict]) -> Optional[dict]:
+    """The ready Variable record a table variable IS, or None. The table's verbatim label and its canonical name are
+    each matched with the standard tiers; they must agree (or one must be silent) -- a disagreement is refused, so
+    several spellings of one variable share a Variable record without any two variables ever being merged on a guess."""
+    slugs = {m for m in (_match_row_group_to_pool({"Variable": text}, pool) for text in (label, variable_name) if text) if m}
+    if len(slugs) != 1:
+        return None
+    slug = slugs.pop()
+    return next((item for item in pool if item["slug"] == slug), None)
+
+
+def _effective_variable(classification: TableClassification, row: Any, column: Any) -> tuple[str, Optional[TableVariable]]:
+    """(label for descriptions, declared TableVariable or None) of the variable one cell
+    reports. Column -> variable first (`column.variable`), then row -> variable (the
+    row's level of a `variable`-dimension rows factor, matched to a declared variable's
+    label; an undeclared level still names the variable, but has no method), then the
+    legacy column hint. A declared variable's canonical `variable_name` wins."""
+    by_label = {_variable_key(v.label): v for v in classification.variables}
+    if column.variable:
+        variable = by_label.get(_variable_key(column.variable))
+        if variable is not None:
+            return variable.variable_name or variable.label, variable
+    for factor in classification.factors:
+        if factor.dimension == "variable" and factor.encoding == "rows":
+            level = (row.factor_values or {}).get(factor.name)
+            if level:
+                variable = by_label.get(_variable_key(level))
+                return (variable.variable_name or variable.label) if variable else level, variable
+    return column.variable_name_hint or column.variable or "value", None
+
+
+def _effective_method_hint(variable: Optional[TableVariable], column: Any) -> Optional[str]:
+    """The measurement-method hint for a cell: the variable's own (the stable unit),
+    else the column's legacy hint. Never invented: absent means unresolved."""
+    return (variable.method_hint if variable is not None and variable.method_hint else None) or column.method_hint
+
+
+def _method_match_values(classification: TableClassification, row: Any, value_column: Any, method_hint: Optional[str]) -> dict[str, str]:
+    """The values ONE cell may offer the Method matcher: the variable it reports (a `variable`-dimension level) and the
+    method the source names for it. The cell's treatment, site, time, crop and replicate levels say WHICH
+    condition/place/date was measured, never HOW, so they are not Method signals -- offering them lets a Method win
+    because its description happens to mention e.g. "fallow" (real Felipe Table 1: 10 of 22 cells linked to the wrong
+    Method that way). A row factor literally named "Method" is the one other explicit Method signal."""
+    values = {
+        name: level
+        for name, (dimension, level) in _cell_dimension_levels(classification, row, value_column).items()
+        if dimension == "variable" or name == "Method"
+    }
+    if method_hint:
+        values.setdefault("Method", method_hint)
+    return values
 
 
 def _table_classification_to_candidates(
@@ -1316,8 +2620,23 @@ def _table_classification_to_candidates(
     own module comment -- code can never lose count or silently summarize
     the way free-form LLM enumeration did on the same real table."""
     candidates: list[EnumerationCandidate] = []
-    if not classification.applicable:
+    # Only a treatment_response table feeds cell-level candidates. An
+    # aggregated_summary (a valid source of aggregated data that the current
+    # IR cannot express as a normal treatment-combination row), a
+    # weather_context table, and a non_enumerable table never do.
+    if classification.table_role != "treatment_response":
         return candidates
+    # (Fix 2, real Daren-1997-Canopy Table 7: a successfully-reconstructed
+    # aggregated/main-effects summary is the wrong KIND of table for
+    # cell-level candidates -- that is now the `aggregated_summary` role, gated
+    # out by the role check above.)
+    # A table pooled over a factor the IR cannot represent (site: L2) or with
+    # nothing left to reference (no treatment: L1) is registered as an
+    # aggregated source, never expanded into misleading cell-level candidates.
+    representable, _why = _pooled_representability(classification)
+    if not representable:
+        return candidates
+    pooled_context = _pooled_context(classification)
 
     value_columns_by_id = {c.value_column_id: c for c in classification.value_columns}
 
@@ -1330,11 +2649,20 @@ def _table_classification_to_candidates(
                 continue  # schema validation already guarantees this can't happen; defensive only
 
             candidate_id = _sanitize_candidate_id(f"{value_column_id}_{row.row_group_id}")
-            factor_desc = ", ".join(f"{k}={v}" for k, v in (row.factor_values or {}).items())
-            description = (
-                f"{value_column.variable_name_hint} for {factor_desc}" if factor_desc
-                else value_column.variable_name_hint
-            )
+            # Declared column-/table-level factor levels are part of the
+            # candidate's description too (legacy classifications have none, so
+            # their description is unchanged).
+            described_levels = dict(row.factor_values or {})
+            for _k, _v in (value_column.factor_levels or {}).items():
+                described_levels.setdefault(_k, _v)
+            for _k, _v in (classification.context_levels or {}).items():
+                described_levels.setdefault(_k, _v)
+            factor_desc = ", ".join(f"{k}={v}" for k, v in described_levels.items())
+            variable_label, variable = _effective_variable(classification, row, value_column)
+            method_hint = _effective_method_hint(variable, value_column)
+            units_hint = _effective_units(classification, variable, value_column)
+            variable_name_hint = variable_label
+            description = f"{variable_label} for {factor_desc}" if factor_desc else variable_label
             if value_column.site_hint:
                 description += f" at {value_column.site_hint}"
             description += f" (reported value: {cell_text.strip()})"
@@ -1349,12 +2677,38 @@ def _table_classification_to_candidates(
             match_values = dict(row.factor_values or {})
             if value_column.site_hint:
                 match_values.setdefault("Site", value_column.site_hint)
-            if value_column.method_hint:
-                match_values.setdefault("Method", value_column.method_hint)
+            if method_hint:
+                match_values.setdefault("Method", method_hint)
+            if value_column.treatment_level_hint:
+                # Fix 5 (column-as-treatment): same pattern as site_hint/
+                # method_hint above -- a column-encoded table's treatment
+                # identity lives on the column, not row.factor_values, so
+                # Observation.treatment_id linking needs it merged in here
+                # too, not just Treatment's own candidate generation.
+                match_values.setdefault("Treatment", value_column.treatment_level_hint)
+            # Declared factor structure: column- and table-level levels join
+            # the linking values under their own factor names (row levels are
+            # already in row.factor_values).
+            for _k, _v in (value_column.factor_levels or {}).items():
+                match_values.setdefault(_k, _v)
+            for _k, _v in (classification.context_levels or {}).items():
+                match_values.setdefault(_k, _v)
 
             linked_candidates: dict[str, str] = {}
             for field, pool in (link_pools or {}).items():
-                match = _match_row_group_to_pool(match_values, pool)
+                if field == "method_id":
+                    # Method-relevant values only (never the Treatment/Site/time levels); the matcher is unchanged.
+                    match = _match_method_hint(_method_match_values(classification, row, value_column, method_hint), method_hint, pool)
+                elif field == "variable_id":
+                    # Item 12: the variable link rests on the VARIABLE's own label/name only (never on the
+                    # row's other factor values); every spelling that resolves to one Variable record shares
+                    # its name.
+                    record = _match_variable_pool(variable_label, variable.variable_name if variable else None, pool)
+                    match = record["slug"] if record else None
+                    if record and record.get("name"):
+                        variable_name_hint = record["name"]
+                else:
+                    match = _match_row_group_to_pool(match_values, pool)
                 if match:
                     linked_candidates[field] = match
 
@@ -1364,6 +2718,8 @@ def _table_classification_to_candidates(
                 anchors=[row.source_table_anchor],
                 linked_candidates=linked_candidates,
                 known_value=cell_text.strip(),
+                variable_name_hint=variable_name_hint, units_hint=units_hint,
+                context={**pooled_context, **_temporal_context(_time_levels_for_cell(classification, row, value_column))},
             ))
 
     return candidates
@@ -1402,16 +2758,33 @@ def run_table_classification_pass(
     classifications: dict[str, TableClassification] = {}
     consumed_anchors: set[str] = set()  # anchors already absorbed as a page-split continuation of an earlier table
 
+    # Deterministic continuation chains (content_reader.table_continuation_map):
+    # a block that directly continues the table before it is never a seed of
+    # its own -- it is classified together with its head, as ONE logical table.
+    continuation_of = {t["table_anchor"]: t.get("continuation_of") for t in listing["tables"]}
+    follower = {prev: cur for cur, prev in continuation_of.items() if prev}
+
+    def _chain_from(head: str) -> list[str]:
+        chain = [head]
+        while chain[-1] in follower:
+            chain.append(follower[chain[-1]])
+        return chain
+
     for table in listing["tables"]:
         anchor = table["table_anchor"]
-        if anchor in consumed_anchors:
+        if anchor in consumed_anchors or continuation_of.get(anchor):
             continue
 
-        other_tables = [t for t in listing["tables"] if t["table_anchor"] != anchor]
+        chain = _chain_from(anchor)
+        other_tables = [t for t in listing["tables"] if t["table_anchor"] not in chain]
         classification, _error = run_table_classification(
             run_id=run_id, paper_id=paper_id,
             seed_table_anchor=anchor, other_tables=other_tables, model=model, invoke=invoke,
+            chain_anchors=chain if len(chain) > 1 else None,
         )
+        # The chain is one logical table whether or not its classification
+        # succeeded -- its later blocks are never re-seeded on their own.
+        consumed_anchors.update(chain)
         if classification is None:
             continue  # logged by run_table_classification itself; free-form pass gets a shot at this table
 
@@ -1424,8 +2797,90 @@ def run_table_classification_pass(
     return classifications
 
 
+def _cell_dimension_levels(
+    classification: TableClassification, row: Any, value_column: Any,
+) -> dict[str, tuple[Optional[str], str]]:
+    """{factor name: (declared dimension, level)} for ONE (row, value column)
+    cell: row-encoded levels, column-encoded levels, and table-context levels,
+    plus the legacy site_hint / treatment_level_hint (which always meant the
+    site / a treatment level)."""
+    levels: dict[str, tuple[Optional[str], str]] = {}
+    for name, level in (row.factor_values or {}).items():
+        levels[name] = (classification.factor_dimension(name), level)
+    for name, level in (value_column.factor_levels or {}).items():
+        levels.setdefault(name, (classification.factor_dimension(name), level))
+    for name, level in (classification.context_levels or {}).items():
+        levels.setdefault(name, (classification.factor_dimension(name), level))
+    if value_column.site_hint:
+        levels.setdefault("Site", ("site", value_column.site_hint))
+    if value_column.treatment_level_hint:
+        levels.setdefault("Treatment", ("treatment", value_column.treatment_level_hint))
+    return levels
+
+
+def _declared_treatment_parts(
+    classification: TableClassification, row: Any, value_column: Any,
+) -> Optional[tuple[dict[str, str], dict[str, str]]]:
+    """(treatment-dimension levels, site-dimension levels) for one cell of a
+    table with DECLARED factors, or None when the cell has no
+    treatment-dimension level at all. Never includes a crop, time, replicate,
+    variable or other dimension: those describe the OBSERVATION
+    (Observation.crop_id / temporal_info / variable), not the experimental
+    condition."""
+    levels = _cell_dimension_levels(classification, row, value_column)
+    treatment = {name: level for name, (dim, level) in levels.items() if dim == "treatment"}
+    if not treatment:
+        return None
+    site = {name: level for name, (dim, level) in levels.items() if dim == "site"}
+    return treatment, site
+
+
+def _canonical_treatment_identity(
+    treatment: dict[str, str], site: dict[str, str], site_pool: Optional[list[dict]],
+    factor_names_matter: bool = False, site_matters: bool = False,
+) -> tuple[tuple, str, bool]:
+    """(identity key, candidate-id text, ambiguous) for a Treatment candidate
+    of a declared-factor table.
+
+    Identity is built from canonical SEMANTIC content, never from how a table
+    happened to spell it:
+      - the normalized treatment LEVELS (key names such as 'Location' vs 'Site'
+        or 'Winter treatment' vs 'Cover crop' are ignored);
+      - the site, RESOLVED to a ready Site record through the run's site pool,
+        so 'Ames, IA' and 'Ames' are the same site. With no site pool the site
+        is implicit -- and its text ignored -- ONLY when the table itself has a
+        single site level (`site_matters` False); a table that distinguishes
+        several sites it cannot resolve keeps them apart (ambiguous).
+    A site that cannot be uniquely resolved against an existing pool is
+    AMBIGUOUS: the candidate keeps its raw spelling in its identity, so it is
+    never silently merged with anything (and is flagged by the caller).
+    `factor_names_matter` (set when two different treatment factors of one table
+    share a level string) keeps the factor names in the identity for the same
+    fail-safe reason."""
+    if factor_names_matter:
+        level_part = frozenset((_normalize_for_matching(n), _normalize_for_matching(v)) for n, v in treatment.items())
+        id_bits = sorted(f"{_normalize_for_matching(n)} {_normalize_for_matching(v)}" for n, v in treatment.items())
+    else:
+        level_part = frozenset(_normalize_for_matching(v) for v in treatment.values())
+        id_bits = sorted(_normalize_for_matching(v) for v in treatment.values())
+
+    site_key = ""
+    ambiguous = False
+    if site and (site_pool or site_matters):
+        resolved = _match_row_group_to_pool(site, site_pool) if site_pool else None
+        if resolved:
+            site_key = f"site:{resolved}"
+        else:
+            ambiguous = True
+            site_key = "raw:" + "|".join(sorted(_normalize_for_matching(v) for v in site.values()))
+    if site_key:
+        id_bits.append(site_key.split(":", 1)[1] if site_key.startswith("site:") else site_key[4:])
+    return (site_key, level_part), "_".join(bit for bit in id_bits if bit), ambiguous
+
+
 def _table_classifications_to_treatment_candidates(
     classifications: list[TableClassification], link_pools: dict[str, list[dict]],
+    notes: Optional[list[dict]] = None,
 ) -> tuple[list[EnumerationCandidate], set[str]]:
     """Step C, Treatment projection: a Treatment is the DISTINCT
     combination of factor levels actually applied to one experimental
@@ -1456,10 +2911,58 @@ def _table_classifications_to_treatment_candidates(
     covered_anchors: set[str] = set()
 
     for classification in classifications:
-        if not classification.applicable:
+        # Same role gate as Observation's projection
+        # (_table_classification_to_candidates). Fix 2: Table 7's "Location,
+        # across populations" and "Population, across locations and
+        # maturities" sections (an aggregated_summary) previously produced
+        # exactly the nonsense Treatment(name="Ames, IA") /
+        # Treatment(name="Trailblazer") (no site/maturity at all) records this
+        # gate prevents; a weather_context table's Location x Month rows are
+        # excluded the same way.
+        if classification.table_role != "treatment_response":
             continue
+        if not _pooled_representability(classification)[0]:
+            continue  # registered as an aggregated source instead (see summarize_table_pass)
         value_columns_by_id = {c.value_column_id: c for c in classification.value_columns}
         contributed = False
+        # A table whose experimental dimensions were DECLARED (`factors`) has
+        # been analysed for what a Treatment is: only treatment-dimension
+        # factors (plus the site) can form a Treatment's identity -- a
+        # cultivar/population is `crop`, a date or growth stage is `time`
+        # (protocol Section 6.3). Such a table is "covered" for Treatment even
+        # when it yields none (a design with no treatment dimension), so the
+        # free-form pass is not invited to re-invent Treatments from it.
+        declared = bool(classification.factors)
+        # Two DIFFERENT treatment factors of one table sharing a level string
+        # would collapse if identity ignored factor names -- keep the names in
+        # that table's identities instead (fail safe: never merge on a guess).
+        factor_names_matter = False
+        if declared:
+            level_owners: dict[str, set[str]] = {}
+            for f in classification.factors:
+                if f.dimension == "treatment":
+                    for level in _factor_levels_of(classification, f.name):
+                        level_owners.setdefault(_normalize_for_matching(level), set()).add(f.name)
+            factor_names_matter = any(len(owners) > 1 for owners in level_owners.values())
+        # Does this table itself distinguish more than one site?
+        site_level_texts: set[str] = set()
+        if declared:
+            for f in classification.factors:
+                if f.dimension == "site":
+                    site_level_texts |= {_normalize_for_matching(x) for x in _factor_levels_of(classification, f.name)}
+        site_level_texts |= {_normalize_for_matching(vc.site_hint) for vc in classification.value_columns if vc.site_hint}
+        site_matters = len(site_level_texts - {""}) > 1
+        # Fix 5 (column-as-treatment), real Felipe-2010-Cultivar evidence:
+        # a table where ANY value_column sets treatment_level_hint is
+        # COLUMN-ENCODED for Treatment purposes -- the treatment's
+        # identity comes from the column (plus site_hint, if set), and
+        # row-level factor_values (e.g. a DAP time point) are CONTEXT for
+        # the observation, never folded into the Treatment's own combo
+        # (folding them in would incorrectly mint one "treatment" per
+        # (context, column) cell instead of one per real treatment level).
+        # A table with no such hint on any column is ROW-ENCODED, exactly
+        # the pre-Fix-5 behavior, unchanged.
+        column_encoded = any(vc.treatment_level_hint for vc in classification.value_columns)
 
         for row in classification.row_groups:
             for value_column_id, cell_text in (row.cells or {}).items():
@@ -1469,19 +2972,60 @@ def _table_classifications_to_treatment_candidates(
                 if value_column is None:
                     continue
 
-                combo = dict(row.factor_values or {})
-                if value_column.site_hint:
-                    combo.setdefault("Site", value_column.site_hint)
+                identity_key: Optional[tuple] = None
+                identity_id: Optional[str] = None
+                dimension_entries: list[CandidateDimension] = []
+                if declared:
+                    parts = _declared_treatment_parts(classification, row, value_column)
+                    if parts is None:
+                        continue  # no treatment-dimension factor at this cell -> no Treatment
+                    treatment_levels, site_levels = parts
+                    combo = {**treatment_levels, **site_levels}
+                    dimension_entries = (
+                        [CandidateDimension(name=n, dimension="treatment", level=v) for n, v in treatment_levels.items()]
+                        + [CandidateDimension(name=n, dimension="site", level=v) for n, v in site_levels.items()]
+                    )
+                    identity_key, identity_id, ambiguous = _canonical_treatment_identity(
+                        treatment_levels, site_levels, (link_pools or {}).get("site_id"), factor_names_matter, site_matters,
+                    )
+                    if ambiguous:
+                        # never merged: the raw spelling is part of the identity
+                        identity_key = (identity_key, tuple(sorted(combo.items())))
+                        if notes is not None:
+                            notes.append({
+                                "kind": "identity_ambiguous_site", "combo": dict(combo),
+                                "detail": "the site could not be uniquely resolved against this run's Site records; "
+                                          "kept as a separate candidate, not merged",
+                            })
+                elif column_encoded:
+                    if not value_column.treatment_level_hint:
+                        continue  # this column isn't itself a treatment level in a column-encoded table
+                    combo = {"Treatment": value_column.treatment_level_hint}
+                    if value_column.site_hint:
+                        combo["Site"] = value_column.site_hint
+                else:
+                    combo = dict(row.factor_values or {})
+                    if value_column.site_hint:
+                        combo.setdefault("Site", value_column.site_hint)
                 if not combo:
                     continue
+                if not declared:
+                    # legacy (no declared factors): every row factor was always the
+                    # treatment identity, and `Site` the site -- behavior unchanged
+                    dimension_entries = [
+                        CandidateDimension(name=n, dimension="site" if n == "Site" else "treatment", level=v)
+                        for n, v in combo.items()
+                    ]
 
                 contributed = True
-                key = tuple(sorted(combo.items()))
+                key = identity_key if identity_key is not None else tuple(sorted(combo.items()))
                 if key in seen:
                     continue
                 seen.add(key)
 
-                candidate_id = _sanitize_candidate_id("_".join(str(v) for _, v in sorted(combo.items())))
+                candidate_id = _sanitize_candidate_id(
+                    identity_id if identity_id is not None else "_".join(str(v) for _, v in sorted(combo.items()))
+                )
                 description = "Experimental condition: " + ", ".join(f"{k}={v}" for k, v in sorted(combo.items()))
                 linked_candidates: dict[str, str] = {}
                 for field, pool in (link_pools or {}).items():
@@ -1492,18 +3036,119 @@ def _table_classifications_to_treatment_candidates(
                 candidates.append(EnumerationCandidate(
                     candidate_id=candidate_id, description=description,
                     anchors=[row.source_table_anchor], linked_candidates=linked_candidates,
+                    dimensions=dimension_entries,
                 ))
 
-        if contributed:
+        if contributed or declared:
             covered_anchors.update(classification.table_anchors)
 
     return candidates, covered_anchors
+
+
+def _factor_levels_of(classification: TableClassification, name: str) -> set[str]:
+    """Every level a declared factor takes anywhere in the table."""
+    levels: set[str] = set()
+    for row in classification.row_groups:
+        if name in (row.factor_values or {}):
+            levels.add(row.factor_values[name])
+    for column in classification.value_columns:
+        if name in (column.factor_levels or {}):
+            levels.add(column.factor_levels[name])
+    if name in (classification.context_levels or {}):
+        levels.add(classification.context_levels[name])
+    return {level for level in levels if level and level.strip()}
+
+
+def _exact_pool_match(level: str, pool: list[dict]) -> Optional[str]:
+    """Slug of the ONE pool entry whose normalized name (or slug phrase) equals
+    the normalized level exactly, else None (no match, or ambiguous). Exact
+    only: this is a semantic cross-check on a declared dimension, so it must
+    never rest on a substring or token guess."""
+    target = _normalize_for_matching(level)
+    if not target:
+        return None
+    hits = [
+        item["slug"] for item in pool
+        if target in {_normalize_for_matching(item.get("name") or ""), _normalize_for_matching(item["slug"].replace("_", " "))} - {""}
+    ]
+    return hits[0] if len(hits) == 1 else None
+
+
+def _reconcile_factor_dimensions(
+    classification: TableClassification, dimension_pools: Optional[dict[str, list[dict]]],
+) -> tuple[TableClassification, list[dict]]:
+    """Deterministic cross-check of the model's declared factor dimensions
+    against records this run already committed. A factor declared `treatment`
+    whose EVERY level is exactly a ready Crop record (a cultivar/population) is
+    a crop dimension, not a treatment; whose every level is exactly a ready
+    Site is a site dimension (protocol Section 6.3). All-or-nothing and exact,
+    so a factor that only partly matches is left as declared. Returns the
+    (possibly corrected) classification and a diagnostic list of overrides."""
+    if not dimension_pools or not (classification.factors or classification.pooled_factors):
+        return classification, []
+    overrides: list[dict] = []
+    corrected = []
+    for factor in classification.factors:
+        new_dimension = factor.dimension
+        if factor.dimension == "treatment":
+            levels = _factor_levels_of(classification, factor.name)
+            for kind in ("crop", "site"):
+                pool = dimension_pools.get(kind) or []
+                if levels and pool and all(_exact_pool_match(level, pool) for level in levels):
+                    new_dimension = kind
+                    overrides.append({
+                        "factor": factor.name, "declared": factor.dimension, "corrected_to": kind,
+                        "reason": f"every level {sorted(levels)} is exactly a ready {kind} record of this run",
+                    })
+                    break
+        corrected.append(factor.model_copy(update={"dimension": new_dimension}) if new_dimension != factor.dimension else factor)
+    # A deterministically detected pooled factor whose dimension the source
+    # text did not reveal (`other`) is a site/crop when it is exactly a ready
+    # Site/Crop record of this run (e.g. "averaged across Ames and Mead"): the
+    # site case matters, since values pooled over the site are L2.
+    pooled_corrected = []
+    for pooled in classification.pooled_factors:
+        new_dimension = pooled.dimension
+        if pooled.origin == "deterministic" and pooled.dimension == "other":
+            for kind in ("crop", "site"):
+                pool = dimension_pools.get(kind) or []
+                if pool and _exact_pool_match(pooled.name, pool):
+                    new_dimension = kind
+                    overrides.append({
+                        "factor": pooled.name, "declared": pooled.dimension, "corrected_to": kind, "pooled": True,
+                        "reason": f"the pooled name is exactly a ready {kind} record of this run",
+                    })
+                    break
+        pooled_corrected.append(pooled.model_copy(update={"dimension": new_dimension}) if new_dimension != pooled.dimension else pooled)
+    if not overrides:
+        return classification, []
+    return classification.model_copy(update={"factors": corrected, "pooled_factors": pooled_corrected}), overrides
+
+
+def _dimension_pools(paper_id: str, this_run_records: dict) -> dict[str, list[dict]]:
+    """{"crop": [...], "site": [...]} -- {slug, name} of this run's READY Crop
+    and Site records, for `_reconcile_factor_dimensions`."""
+    def value(payload: dict, key: str) -> Optional[str]:
+        field = payload.get(key)
+        return field.get("value") if isinstance(field, dict) else None
+
+    pools: dict[str, list[dict]] = {"crop": [], "site": []}
+    for kind, entity_type, keys in (("crop", "Crop", ("cultivar", "common_name")), ("site", "Site", ("name",))):
+        for record in _ready_records(this_run_records, entity_type):
+            payload = ((record.get("detail") or {}).get("payload")) or {}
+            slug = _candidate_slug_from_record_id(paper_id, entity_type, record["record_id"])
+            for key in keys:
+                name = value(payload, key)
+                if name:
+                    pools[kind].append({"slug": slug, "name": name})
+    return pools
 
 
 def run_table_enumeration(
     *, run_id: str, paper_id: str, entity_type: str, model: str,
     invoke: Callable[..., AgentInvocation] = invoke_agent,
     link_pools: Optional[dict[str, list[dict]]] = None,
+    dimension_pools: Optional[dict[str, list[dict]]] = None,
 ) -> tuple[list[EnumerationCandidate], set[str]]:
     """Steps A + B (shared, cached across entity types within one run --
     see run_table_classification_pass) + Step C (entity-specific
@@ -1524,8 +3169,25 @@ def run_table_enumeration(
     if not classifications:
         return [], set()
 
+    overrides_log: list[dict] = []
+    for seed, classification in list(classifications.items()):
+        classifications[seed], overrides = _reconcile_factor_dimensions(classification, dimension_pools)
+        overrides_log.extend({"table": seed, **o} for o in overrides)
+    if overrides_log:
+        run_store.save_stage_attempt(
+            run_id, f"{entity_type}__enumeration", "dimension_check", 1, {"overrides": overrides_log},
+        )
+
     if entity_type == "Treatment":
-        return _table_classifications_to_treatment_candidates(list(classifications.values()), link_pools or {})
+        identity_notes: list[dict] = []
+        result = _table_classifications_to_treatment_candidates(
+            list(classifications.values()), link_pools or {}, identity_notes,
+        )
+        if identity_notes:
+            run_store.save_stage_attempt(
+                run_id, f"{entity_type}__enumeration", "identity_check", 1, {"ambiguous_identities": identity_notes},
+            )
+        return result
 
     all_candidates: list[EnumerationCandidate] = []
     covered_anchors: set[str] = set()
@@ -1569,6 +3231,251 @@ def _drop_candidates_covered_by_tables(
     ]
 
 
+def _drop_freeform_candidates_subsumed_by_tables(
+    freeform_candidates: list[EnumerationCandidate], table_candidates: list[EnumerationCandidate],
+) -> list[EnumerationCandidate]:
+    """Fix 3 (table-enumeration fix-pass design review): a SEPARATE,
+    additive check from `_drop_candidates_covered_by_tables` above.
+
+    Real Daren-1997-Canopy evidence this exists for: the anchor-based
+    check only catches a free-form candidate that cites a table anchor --
+    it does nothing when free-form grounds its candidate in PROSE instead
+    (every population in Daren is also named in the Materials and Methods
+    paragraph, so free-form minted 12 population-x-site candidates
+    anchored ONLY in that prose, none of them a table anchor, each a
+    valid-but-coarser duplicate of maturity-specific table candidates for
+    the same site).
+
+    Deliberately NOT a text/name comparison (never runs a free-form
+    candidate's description through `_match_row_group_to_pool` or any
+    other fuzzy matcher against table candidates' names) -- the identity
+    key here is exclusively each candidate's own ALREADY-RESOLVED,
+    deterministic `linked_candidates` (e.g. site_id), computed earlier by
+    the exact same mechanism table candidates themselves used. A free-form
+    candidate is dropped only when EVERY field it resolved a link for is a
+    value some table candidate ALSO resolved that same field to -- i.e.
+    table enumeration has already independently verified coverage of
+    every real entity this free-form candidate also points at. A
+    candidate with NO resolved links at all is never dropped this way
+    (nothing to compare -- stays conservative, kept), and a candidate
+    whose link points at something no table candidate ever resolved (a
+    site only ever mentioned in prose, say) is genuinely new evidence and
+    is kept."""
+    if not table_candidates:
+        return freeform_candidates
+    table_linked_values: dict[str, set[str]] = {}
+    for tc in table_candidates:
+        for field, value in (tc.linked_candidates or {}).items():
+            if isinstance(value, str):
+                table_linked_values.setdefault(field, set()).add(value)
+
+    kept = []
+    for c in freeform_candidates:
+        links = c.linked_candidates or {}
+        if not links or any(not isinstance(v, str) for v in links.values()):  # a list link is not comparable: kept
+            kept.append(c)
+            continue
+        if all(table_linked_values.get(field) and value in table_linked_values[field] for field, value in links.items()):
+            continue  # every real link this candidate has is already covered by table enumeration
+        kept.append(c)
+    return kept
+
+
+# Words that name a KIND of level without distinguishing any one: a declared level made only of these ("mixture",
+# "treatment") is never supported by their mere presence in the text -- the word "mixture" alone is not a Treatment.
+_GENERIC_LEVEL_TOKENS = frozenset({
+    "mixture", "mixtures", "treatment", "treatments", "level", "levels", "cultivar", "cultivars", "group", "groups",
+    "condition", "conditions", "system", "systems", "factor", "factors",
+})
+_LEVEL_QUALIFIER_RE = re.compile(r"\s*[\(\[][^\)\]]*[\)\]]")
+_LEVEL_HEAD_SPLIT_RE = re.compile(r"\s+[-\u2010-\u2015:;,]\s+|\s*[;:,]\s*")
+
+
+def _level_forms(level: str) -> list[str]:
+    """The normalized forms under which a declared level may legitimately appear in the source: the level as written
+    and, when the model decorated it with a qualifier, the level WITHOUT the qualifier -- the part outside brackets,
+    and the part before a ':' ';' ',' or spaced dash. Real case (Felipe-2010-Cultivar): the model declared
+    "1-cv (choice cultivar only)"; the paper writes "(1-cv)". Only the decoration is removed, never a word of the level
+    itself, and a form made only of generic words ("mixture") is discarded, so nothing is inferred from them."""
+    unbracketed = _LEVEL_QUALIFIER_RE.sub("", level).strip()
+    candidates = [level, unbracketed, _LEVEL_HEAD_SPLIT_RE.split(unbracketed)[0] if unbracketed else ""]
+    forms: list[str] = []
+    for candidate in candidates:
+        form = _normalize_for_matching(candidate)
+        if form and form not in forms and any(tok not in _GENERIC_LEVEL_TOKENS for tok in form.split()):
+            forms.append(form)
+    return forms
+
+
+def _level_supported(level: str, support: str) -> bool:
+    """A declared level is supported when the level as written occurs in the support text (the original check), or a
+    qualifier-free form of it occurs there as whole words. A level of only generic words is never supported."""
+    forms = _level_forms(level)
+    full = _normalize_for_matching(level)
+    if full in forms and full in support:
+        return True
+    padded = f" {support} "
+    return any(f" {form} " in padded for form in forms)
+
+
+def _candidate_dimension_errors(
+    candidates: list[EnumerationCandidate], blocks: dict[str, str],
+) -> tuple[list[dict], set[str]]:
+    """Validation of the dimensions a free-form candidate declared: present, and
+    every declared level actually appears (normalized; see `_level_supported` for the tolerance to a decorated level)
+    in the candidate's own description or in the blocks it cites -- a level the candidate itself does
+    not support could otherwise make it look identical to a table candidate."""
+    errors: list[dict] = []
+    bad: set[str] = set()
+    for candidate in candidates:
+        if not candidate.dimensions:
+            errors.append({
+                "field": "dimensions",
+                "message": f"candidate '{candidate.candidate_id}' declares no dimensions -- give one "
+                           f"{{name, dimension, level}} per factor level that distinguishes it.",
+            })
+            bad.add(candidate.candidate_id)
+            continue
+        support = _normalize_for_matching(
+            " ".join([candidate.description] + [blocks.get(a.strip("[]"), "") for a in candidate.anchors])
+        )
+        for d in candidate.dimensions:
+            if not _level_supported(d.level, support):
+                errors.append({
+                    "field": "dimensions",
+                    "message": f"candidate '{candidate.candidate_id}' declares {d.name}={d.level!r}, which "
+                               f"appears neither in its description nor in the blocks it cites -- give the level as the "
+                               f"source writes it (a qualifier in brackets is fine, but the level itself must be in the text).",
+                })
+                bad.add(candidate.candidate_id)
+    return errors, bad
+
+
+def _reconcile_candidate_dimensions(
+    candidate: EnumerationCandidate, dimension_pools: Optional[dict[str, list[dict]]],
+) -> list[CandidateDimension]:
+    """A level declared `treatment` that is exactly a ready Crop/Site record of
+    this run is a crop/site (protocol Section 6.3) -- the same exact-match
+    correction `_reconcile_factor_dimensions` applies to a table's factors."""
+    out = []
+    for d in candidate.dimensions:
+        new_dimension = d.dimension
+        if d.dimension == "treatment":
+            for kind in ("crop", "site"):
+                pool = (dimension_pools or {}).get(kind) or []
+                if pool and _exact_pool_match(d.level, pool):
+                    new_dimension = kind
+                    break
+        out.append(d.model_copy(update={"dimension": new_dimension}) if new_dimension != d.dimension else d)
+    return out
+
+
+def _dimensioned_identity(
+    dimensions: list[CandidateDimension], site_pool: Optional[list[dict]], site_matters: bool,
+) -> Optional[tuple[tuple, str, bool]]:
+    """Canonical identity (the SAME `_canonical_treatment_identity` table
+    candidates use) from a candidate's declared dimensions, or None when it has
+    no treatment-dimension level at all. Factor names are ignored (the same
+    design spelled `Tillage` or `Practice` is one identity) EXCEPT when two of
+    the candidate's own treatment levels are the same string, where names are
+    all that tell the factors apart."""
+    treatment = {d.name: d.level for d in dimensions if d.dimension == "treatment"}
+    if not treatment:
+        return None
+    site = {d.name: d.level for d in dimensions if d.dimension == "site"}
+    levels = [_normalize_for_matching(v) for v in treatment.values()]
+    names_matter = len(set(levels)) < len(levels)
+    return _canonical_treatment_identity(treatment, site, site_pool, factor_names_matter=names_matter, site_matters=site_matters)
+
+
+def _treatment_name_map(dimensions: list[CandidateDimension]) -> dict[str, str]:
+    return {_normalize_for_matching(d.name): _normalize_for_matching(d.level) for d in dimensions if d.dimension == "treatment"}
+
+
+def _covered_condition_labels(table_candidates: list[EnumerationCandidate]) -> list[str]:
+    return [c.description for c in table_candidates]
+
+
+def _drop_freeform_treatments_covered_by_tables(
+    freeform_candidates: list[EnumerationCandidate], table_candidates: list[EnumerationCandidate],
+    site_pool: Optional[list[dict]], dimension_pools: Optional[dict[str, list[dict]]],
+) -> tuple[list[EnumerationCandidate], list[dict]]:
+    """Item 8: SEMANTIC free-form/table Treatment dedup, replacing the coarse
+    anchor- and link-based drops for Treatment. Both sides are compared by the
+    same canonical identity (treatment-dimension levels + the site resolved
+    through the run's site pool; key names never matter).
+
+    A free-form candidate is:
+      - DROPPED as covered only when its identity equals that of a table
+        candidate whose own identity is unambiguous;
+      - DROPPED as not-a-Treatment when its declared dimensions contain no
+        treatment-dimension level (a population, a growth stage and a site are
+        crop / time / site, never a Treatment -- protocol Section 6.3);
+      - KEPT (and flagged) when it declares no dimensions or its identity is
+        ambiguous (an unresolved site): never merged on a guess;
+      - KEPT when its identity matches no table candidate: it is new.
+    Dedup only ever REMOVES; it never edits a surviving candidate, copies
+    anchors or a known value across, or makes anything grounded that was not.
+    Returns (kept, decisions) -- one decision per free-form candidate."""
+    reconciled = {c.candidate_id: _reconcile_candidate_dimensions(c, dimension_pools) for c in freeform_candidates}
+    site_texts = {
+        _normalize_for_matching(d.level)
+        for dims in list(reconciled.values()) + [c.dimensions for c in table_candidates]
+        for d in dims if d.dimension == "site"
+    } - {""}
+    site_matters = len(site_texts) > 1
+
+    table_identities: dict[tuple, list[tuple[str, dict[str, str]]]] = {}
+    for tc in table_candidates:
+        identity = _dimensioned_identity(tc.dimensions, site_pool, site_matters)
+        if identity is not None and not identity[2]:
+            table_identities.setdefault(identity[0], []).append((tc.candidate_id, _treatment_name_map(tc.dimensions)))
+
+    kept: list[EnumerationCandidate] = []
+    decisions: list[dict] = []
+    for c in freeform_candidates:
+        dims = reconciled[c.candidate_id]
+        base = {"candidate_id": c.candidate_id, "description": c.description, "anchors": list(c.anchors)}
+        if not dims:
+            kept.append(c)
+            decisions.append({**base, "decision": "kept_unresolved", "reason": "no valid dimensions were declared, so its identity cannot be compared"})
+            continue
+        identity = _dimensioned_identity(dims, site_pool, site_matters)
+        if identity is None:
+            decisions.append({**base, "decision": "dropped_no_treatment_dimension", "dimensions": [d.model_dump() for d in dims],
+                              "reason": "its declared dimensions contain no treatment-dimension level (crop/time/site are not a Treatment)"})
+            continue
+        key, _id_text, ambiguous = identity
+        if ambiguous:
+            kept.append(c)
+            decisions.append({**base, "decision": "kept_unresolved",
+                              "reason": "its site cannot be uniquely resolved, so its identity is ambiguous; not merged"})
+            continue
+        equal_levels = table_identities.get(key, [])
+        if not equal_levels:
+            kept.append(c)
+            decisions.append({**base, "decision": "kept_new", "reason": "its identity matches no table-derived candidate"})
+            continue
+        # Same levels, same site. Several treatment factors can still pair the
+        # levels differently (Cover=none/Tillage=till vs Cover=till/Tillage=none):
+        # when the two share any factor NAME they must also agree on which level
+        # each name carries; sharing no name at all is just two spellings of one design.
+        names = _treatment_name_map(dims)
+        matched = next(
+            (tc_id for tc_id, tmap in equal_levels
+             if len(names) == 1 or not (set(names) & set(tmap)) or names == tmap),
+            None,
+        )
+        if matched is None:
+            kept.append(c)
+            decisions.append({**base, "decision": "kept_unresolved",
+                              "reason": "the same treatment levels are paired with different factor names than the table's; not merged"})
+            continue
+        decisions.append({**base, "decision": "dropped_covered", "matched_table_candidate": matched,
+                          "reason": "same canonical identity as an unambiguous table-derived candidate"})
+    return kept, decisions
+
+
 def _dedupe_candidate_record_ids(
     candidates: list[EnumerationCandidate],
 ) -> tuple[list[EnumerationCandidate], list[str]]:
@@ -1610,6 +3517,170 @@ def _dedupe_candidate_record_ids(
         )
         deduped.append(candidate.model_copy(update={"candidate_id": disambiguated_id}))
     return deduped, notes
+
+
+def _levenshtein_distance(a: str, b: str) -> int:
+    """Minimal edit distance, pure Python (no external dependency needed)
+    -- only ever called on short, already-sanitized candidate_id strings
+    for a bounded, per-run candidate list (see
+    _flag_near_duplicate_candidates), so O(len(a)*len(b)) is never a
+    performance concern here."""
+    if a == b:
+        return 0
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i] + [0] * len(b)
+        for j, cb in enumerate(b, 1):
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb))
+        prev = cur
+    return prev[-1]
+
+
+_NEAR_DUPLICATE_MAX_EDIT_DISTANCE = 1
+
+
+def _flag_near_duplicate_candidates(candidates: list[EnumerationCandidate]) -> list[str]:
+    """Fix 4 (table-enumeration fix-pass design review, population-name
+    reconciliation): DETECTS, never merges. Real Daren-1997-Canopy
+    evidence: Marker's OCR misread 'Ey' as 'Ev' specifically in Table 4's
+    rendering, producing a candidate_id like 'ev_ff_ldmdc1_ames_vegetative'
+    one edit away from the real 'ey_ff_ldmdc1_ames_vegetative' -- two
+    candidates that are almost certainly the same real treatment reported
+    twice under a corrupted spelling, sourced from two different tables
+    (so neither the exact-collision dedup above nor Fix 3's link-based
+    subsumption catch it -- their candidate_ids and, in general, their
+    resolved links can both legitimately differ).
+
+    Deliberately conservative, per the explicit requirement not to
+    introduce fuzzy matching that silently converts arbitrary strings into
+    entities: this NEVER merges, drops, or relabels either candidate -- it
+    only returns human-readable diagnostic notes (the caller logs them via
+    the same run_store.save_stage_attempt convention
+    _dedupe_candidate_record_ids's own collision_notes already use) so a
+    near-duplicate is VISIBLE for review rather than silently sitting in
+    the output unexplained. Only flags a pair whose candidate_id differs
+    by at most `_NEAR_DUPLICATE_MAX_EDIT_DISTANCE` character -- a
+    genuinely different short candidate_id (two different populations,
+    two different maturities) essentially never lands this close by
+    chance, but this is explicitly NOT a semantic-similarity judgment and
+    never decides which (if either) spelling is correct. Exact collisions
+    (distance 0) are `_dedupe_candidate_record_ids`'s job, not this one,
+    and are skipped here to avoid double-reporting the same pair."""
+    notes: list[str] = []
+    ids = [c.candidate_id for c in candidates]
+    for i in range(len(ids)):
+        for j in range(i + 1, len(ids)):
+            if ids[i] == ids[j]:
+                continue
+            distance = _levenshtein_distance(ids[i], ids[j])
+            if distance <= _NEAR_DUPLICATE_MAX_EDIT_DISTANCE:
+                notes.append(
+                    f"candidate_id {ids[i]!r} and {ids[j]!r} differ by only {distance} character(s) -- "
+                    f"possible near-duplicate (e.g. an OCR-corrupted spelling of the same real entity). "
+                    f"Neither candidate was modified or dropped; review both against the source before "
+                    f"trusting either in isolation."
+                )
+    return notes
+
+
+def _cached_table_classifications(run_id: str) -> dict[str, TableClassification]:
+    """Every successfully cached Step B classification of this run, keyed by
+    its run_store record key (`table_classification__<seed>`)."""
+    out: dict[str, TableClassification] = {}
+    for record_key in run_store.list_records(run_id):
+        if record_key.startswith("table_classification__"):
+            classification = _load_cached_table_classification(run_id, record_key)
+            if classification is not None:
+                out[record_key] = classification
+    return out
+
+
+def _reconciled_classifications(run_id: str, paper_id: str, this_run_records: dict) -> dict[str, TableClassification]:
+    pools = _dimension_pools(paper_id, this_run_records)
+    return {
+        key: _reconcile_factor_dimensions(c, pools)[0]
+        for key, c in _cached_table_classifications(run_id).items()
+    }
+
+
+def _treatment_dimension_limitation(run_id: str, paper_id: str, this_run_records: dict) -> Optional[str]:
+    """L1 text when the paper's cell-level data tables declare factors but not
+    ONE of them is a treatment dimension; None otherwise (including when no
+    table declared its factors, or no treatment_response table exists)."""
+    declared = [
+        c for c in _reconciled_classifications(run_id, paper_id, this_run_records).values()
+        if c.table_role == "treatment_response" and c.factors
+    ]
+    if declared and not any(_has_treatment_dimension(c) for c in declared):
+        return LIMITATION_L1
+    return None
+
+
+def summarize_table_pass(run_id: str, paper_id: str, this_run_records: dict) -> dict[str, Any]:
+    """What the deterministic table pass established about this paper, for the
+    run manifest -- so nothing it found is discarded just because the current
+    cell-level path cannot express it:
+      - `tables`: every classified table's role, reason, declared dimensions
+        and pooled factors;
+      - `aggregated_sources`: tables that are valid sources of AGGREGATED data
+        (protocol Section 7.4) -- an `aggregated_summary`, or a
+        treatment_response table pooled over some factor -- with whether the
+        current IR can represent them and, if not, why;
+      - `limitations`: explicit current-IR limits (L1/L2) that apply, distinct
+        from extraction failures."""
+    reconciled = _reconciled_classifications(run_id, paper_id, this_run_records)
+    variable_flags = _cached_variable_declaration_flags(run_id)
+    tables, sources = [], []
+    for key, c in sorted(reconciled.items()):
+        tables.append({
+            "table": key.split("__", 1)[1], "table_anchors": c.table_anchors, "table_role": c.table_role,
+            "reason": c.reason, "row_groups": len(c.row_groups),
+            "factors": [f.model_dump() for f in c.factors], "context_levels": c.context_levels,
+            "pooled_factors": [pf.name for pf in c.pooled_factors],
+            "unit_hint_flags": [f.model_dump() for f in c.unit_hint_flags],
+            "method_hint_flags": [f.model_dump() for f in c.method_hint_flags],
+            "variable_declaration_flags": variable_flags.get(key, []),
+            "time_levels": [{"factor": tl.factor, "level": tl.level, "site": tl.site, "date_text": tl.date_text, "year_text": tl.year_text,
+                             "anchors": tl.anchors} for tl in c.time_levels],
+            "has_treatment_dimension": _has_treatment_dimension(c) if c.factors else None,
+        })
+        if c.table_role == "aggregated_summary":
+            sources.append({
+                "table_anchors": c.table_anchors, "kind": "aggregated_summary", "representable_in_current_ir": False,
+                "reason": c.reason,
+                "why_not_represented": "rows are pooled/averaged summaries, not treatment-combination cells",
+            })
+        elif c.table_role == "treatment_response" and c.pooled_factors:
+            representable, why = _pooled_representability(c)
+            sources.append({
+                "table_anchors": c.table_anchors, "kind": "pooled_treatment_response",
+                "aggregated_over_factors": [pf.name for pf in c.pooled_factors],
+                "representable_in_current_ir": representable, "why_not_represented": why,
+            })
+    limitations = []
+    if _treatment_dimension_limitation(run_id, paper_id, this_run_records):
+        limitations.append({"code": "L1", "text": LIMITATION_L1})
+    if any(src.get("why_not_represented") == LIMITATION_L2 for src in sources):
+        limitations.append({"code": "L2", "text": LIMITATION_L2})
+    evidence = []
+    for key, records in sorted(_cached_pooling_evidence(run_id).items()):
+        anchors = reconciled[key].table_anchors if key in reconciled else [key.split("__", 1)[1]]
+        for record in records:
+            evidence.append({"table_anchors": anchors, **record})
+    failures = [
+        {
+            "table": key.split("__", 1)[1], "failure_class": f["failure_class"], "failure_kind": f.get("failure_kind"),
+            "failure_classes": f.get("failure_classes", []), "numbered_attempts": f.get("numbered_attempts"),
+            "provider_failure_rounds": f.get("provider_failure_rounds"), "message": f["message"],
+        }
+        for key, f in sorted(_cached_table_failures(run_id).items())
+    ]
+    return {
+        "tables": tables, "aggregated_sources": sources, "limitations": limitations, "pooling_evidence": evidence,
+        # Step B tables given up on, each with the cause and whether it is the provider's failure
+        # ("provider") or the extraction's ("extraction") -- never conflated.
+        "table_pass_failures": failures,
+    }
 
 
 def _run_multi_record_entity(
@@ -1658,6 +3729,10 @@ def _run_multi_record_entity(
     single-record `run_paper()` behavior byte-for-byte."""
     known_refs, blocked_reason = _resolve_known_refs(entity_type, this_run_records)
     if blocked_reason is not None:
+        if entity_type == "Observation" and "Treatment" in blocked_reason:
+            limitation = _treatment_dimension_limitation(run_id, paper_id, this_run_records)
+            if limitation:
+                blocked_reason = f"{blocked_reason}. {limitation}"
         return [{
             "entity_type": entity_type, "record_id": _entity_record_id(paper_id, entity_type),
             "status": "blocked", "reason": blocked_reason,
@@ -1676,15 +3751,52 @@ def _run_multi_record_entity(
     if entity_type in TABLE_ENUMERATION_ENTITY_TYPES:
         table_candidates, covered_table_anchors = run_table_enumeration(
             run_id=run_id, paper_id=paper_id, entity_type=entity_type, model=model, invoke=invoke,
-            link_pools=link_pools or None,
+            link_pools=link_pools or None, dimension_pools=_dimension_pools(paper_id, this_run_records),
         )
 
+    # Item 8: for Treatment, when the tables cover it, free-form candidates are
+    # compared with table candidates by canonical identity (declared
+    # dimensions), not dropped by anchor or by coarse link overlap. Every other
+    # case -- other entity types, and a paper with no applicable table -- keeps
+    # the existing behavior untouched.
+    semantic_dedup = entity_type == "Treatment" and bool(covered_table_anchors or table_candidates)
     freeform_candidates, enum_error = run_enumeration(
         run_id=run_id, paper_id=paper_id, entity_type=entity_type, model=model, invoke=invoke,
         link_pools=link_pools or None,
         excluded_table_anchors=covered_table_anchors or None,
+        covered_conditions=_covered_condition_labels(table_candidates) if semantic_dedup else None,
+        declare_dimensions=semantic_dedup,
     )
-    freeform_candidates = _drop_candidates_covered_by_tables(freeform_candidates, covered_table_anchors)
+    if semantic_dedup:
+        dimension_pools = _dimension_pools(paper_id, this_run_records)
+        # The site pool is the SAME one table candidates resolved their site with:
+        # `link_pools["site_id"]`, which exists only when the paper has more than one
+        # ready Site. With a single Site the site is implicit and must be ignored on
+        # both sides -- a one-entry pool would make a free-form candidate that names
+        # the site differ from an identical table candidate that (rightly) does not.
+        freeform_candidates, dedup_decisions = _drop_freeform_treatments_covered_by_tables(
+            freeform_candidates, table_candidates, (link_pools or {}).get("site_id") or None, dimension_pools,
+        )
+        if dedup_decisions:
+            run_store.save_stage_attempt(
+                run_id, f"{entity_type}__enumeration", "freeform_dedup", 1,
+                {"decisions": dedup_decisions, "counts": {
+                    d: sum(1 for x in dedup_decisions if x["decision"] == d)
+                    for d in sorted({x["decision"] for x in dedup_decisions})
+                }},
+            )
+    else:
+        freeform_candidates = _drop_candidates_covered_by_tables(freeform_candidates, covered_table_anchors)
+        freeform_candidates = _drop_freeform_candidates_subsumed_by_tables(freeform_candidates, table_candidates)
+
+    if entity_type == "Method":
+        # Item 10 (decision Q6): a distinct, grounded method hint from the tables may seed a
+        # Method candidate the free-form pass did not already produce.
+        table_candidates, seed_decisions = _method_hint_seeds(
+            run_id=run_id, paper_id=paper_id, model=model, invoke=invoke, freeform_candidates=freeform_candidates,
+        )
+        if seed_decisions:
+            run_store.save_stage_attempt(run_id, f"{entity_type}__enumeration", "method_hint_seeds", 1, {"decisions": seed_decisions})
 
     candidates = table_candidates + freeform_candidates
     if enum_error is not None and not candidates:
@@ -1702,7 +3814,24 @@ def _run_multi_record_entity(
             {"collisions": collision_notes},
         )
 
+    # Fix 4: near-duplicate spelling detection (e.g. a Marker OCR typo
+    # producing a phantom second population) -- disclosed, never resolved
+    # automatically. See _flag_near_duplicate_candidates's own docstring.
+    near_duplicate_notes = _flag_near_duplicate_candidates(candidates)
+    if near_duplicate_notes:
+        run_store.save_stage_attempt(
+            run_id, f"{entity_type}__enumeration", "near_duplicate_check", 1,
+            {"near_duplicates": near_duplicate_notes},
+        )
+
     record_infos = []
+    link_decisions: list[dict] = []
+    link_blocks: dict[str, str] = {}
+    if entity_type in OPTIONAL_LINKS:
+        try:
+            link_blocks = _load_rendered_blocks(paper_id)
+        except FileNotFoundError:
+            link_blocks = {}
     for candidate in candidates:
         record_id = f"{paper_id}_{entity_type.lower()}_{_sanitize_candidate_id(candidate.candidate_id)}"
         candidate_known_refs = _apply_candidate_links(
@@ -1712,23 +3841,107 @@ def _run_multi_record_entity(
             f"{candidate.description} (identified by an earlier enumeration pass from "
             f"anchor(s): {', '.join(candidate.anchors)})"
         )
+        if candidate.context.get("pooling_evidence"):
+            evidence = "; ".join(
+                f"{e['factor']!r}: \"{e['excerpt']}\" (block {e['anchor']})" for e in candidate.context["pooling_evidence"]
+            )
+            context += (
+                f" NOTE: this table's values are means POOLED over the factor(s) not shown in its rows/columns -- "
+                f"{evidence}. Also report that pooling statement as a fact (field_name 'pooled_over', citing the "
+                f"block above) so the record can state what the value was averaged over."
+            )
+        if candidate.context.get("temporal_context"):
+            context += _temporal_extraction_note(candidate.context["temporal_context"])
+        hints = {k: v for k, v in (("variable_name_hint", candidate.variable_name_hint), ("units_hint", candidate.units_hint)) if v}
+        if hints:
+            context += _hint_extraction_note(hints)
+        if entity_type == "Management":
+            verified, decisions = _verified_treatment_links(paper_id, candidate, this_run_records, link_blocks)
+            link_decisions.extend(decisions)
+            if verified:
+                hints["treatment_link"] = {
+                    "treatment_ids": [v["record_id"] for v in verified], "names": [v["name"] for v in verified],
+                    "evidence_anchors": list(candidate.anchors),
+                }
         result = run_record(
             run_id=run_id, paper_id=paper_id, entity_type=entity_type, record_id=record_id,
             model=model, client=client, invoke=invoke, enable_ai_validation=enable_ai_validation,
             known_refs=candidate_known_refs or None, extraction_context=context,
-            known_value=candidate.known_value,
+            known_value=candidate.known_value, candidate_context={**candidate.context, **hints} or None,
         )
         record_info = {
             "entity_type": entity_type, "record_id": record_id,
             "status": result.status, "detail": result.detail,
         }
         record_infos.append(record_info)
+    if link_decisions:
+        run_store.save_stage_attempt(run_id, f"{entity_type}__enumeration", "treatment_links", 1, {"decisions": link_decisions})
     return record_infos
+
+
+def _temporal_extraction_note(temporal_context: list[dict]) -> str:
+    """Appended to a table candidate's extraction context when the paper dates its time level(s): the
+    date is NOT in the table block, so without this Extraction (which reads the candidate's anchor)
+    never finds it and Conversion, which is sealed, can only mark temporal_info UNRESOLVED."""
+    parts = []
+    for entry in temporal_context:
+        text = " ".join(t for t in (entry.get("date_text"), entry.get("year_text")) if t)
+        where = f" at {entry['site']}" if entry.get("site") else ""
+        parts.append(f"{entry['factor']}={entry['level']}{where} is dated {text!r} (block(s) {', '.join(entry['anchors'])})")
+    return (
+        " NOTE: the paper states when this value's time level was sampled -- " + "; ".join(parts) + ". Also report that "
+        "date as a fact (field_name 'sampling_date', with the literal source text and citing those block(s)) so the "
+        "record's temporal_info can be grounded. If the block does not actually say it, report nothing for it."
+    )
+
+
+def _payload_field_value(payload: dict, field: str) -> Optional[Any]:
+    """The `value` of an ExtractedField in a committed payload, or None when absent or UNRESOLVED."""
+    entry = (payload or {}).get(field)
+    if isinstance(entry, dict) and entry.get("provenance_label") != "UNRESOLVED":
+        return entry.get("value")
+    return None
+
+
+def _hint_consistency_flags(payload: dict, candidate_context: Optional[dict[str, Any]]) -> list[dict]:
+    """Advisory flags on a committed Observation about its units and variable name. Never blocks, never edits the
+    payload: what the source said stays what the record says, and a reviewer sees the disagreement.
+      units_placeholder             -- reported_units is a placeholder such as 'unknown';
+      units_differ_from_hint        -- the units the record carries are not the units hint (either may be the wrong one);
+      variable_name_differs_from_hint -- the record's name is not the canonical one (same variable, another spelling)."""
+    flags: list[dict] = []
+    quantity = _payload_field_value(payload, "value")
+    units = quantity.get("reported_units") if isinstance(quantity, dict) else None
+    hints = candidate_context or {}
+    if units is not None and _units_key(units) in {_units_key(p) for p in _PLACEHOLDER_UNITS}:
+        flags.append({"flag": "units_placeholder", "reported_units": units})
+    elif units and hints.get("units_hint") and _units_key(units) != _units_key(hints["units_hint"]):
+        flags.append({"flag": "units_differ_from_hint", "reported_units": units, "units_hint": hints["units_hint"]})
+    name = _payload_field_value(payload, "variable_name")
+    if isinstance(name, str) and hints.get("variable_name_hint") and _normalize_for_matching(name) != _normalize_for_matching(hints["variable_name_hint"]):
+        flags.append({"flag": "variable_name_differs_from_hint", "variable_name": name, "variable_name_hint": hints["variable_name_hint"]})
+    return flags
+
+
+def _hint_extraction_note(hints: dict[str, str]) -> str:
+    """Appended to a table candidate's extraction context: the table reconstruction's UNVERIFIED variable-name and
+    units hints. Extraction must still report what the SOURCE writes."""
+    said = []
+    if hints.get("variable_name_hint"):
+        said.append(f"the measured variable is called {hints['variable_name_hint']!r}")
+    if hints.get("units_hint"):
+        said.append(f"its units are {hints['units_hint']!r}")
+    return (
+        " NOTE (unverified hints from the table reconstruction): " + " and ".join(said) + ". Report the variable name and "
+        "the units as the SOURCE writes them (field_names 'variable_name' and 'reported_units', with the literal source "
+        "text and anchors); where the source text differs from these hints, report the source's."
+    )
 
 
 def _conversion_prompt(
     paper_id: str, entity_type: str, record_id: str, raw_extraction: dict, prior_errors: Optional[list[dict]],
     known_refs: Optional[dict[str, str]] = None,
+    candidate_context: Optional[dict[str, Any]] = None,
 ) -> str:
     parts = [
         f"Map the following sealed raw evidence into a Sage IR `{entity_type}` "
@@ -1738,6 +3951,9 @@ def _conversion_prompt(
         "```json",
         json.dumps(raw_extraction, indent=2),
         "```",
+        "",
+        "`source.page_number` is filled in by the pipeline from the document's own layout data: leave it out, and never "
+        "mark a field UNRESOLVED because a page number is not known.",
     ]
     if known_refs:
         # ir_schema.py's bare-reference fields (site_id, citation_id,
@@ -1767,6 +3983,66 @@ def _conversion_prompt(
             json.dumps(known_refs, indent=2),
             "```",
         ]
+    if entity_type == "Management":
+        link = (candidate_context or {}).get("treatment_link")
+        if link:
+            parts += [
+                "",
+                "CANDIDATE_CONTEXT.treatment_link names the Treatment record id(s) whose condition the source text this "
+                "event cites NAMES: "
+                f"{link['treatment_ids']!r} ({link.get('names')!r}). Set `treatment_ids` to exactly that list, EXTRACTED, "
+                "citing the anchor where the source names the condition, when RAW_EVIDENCE contains that statement; "
+                "otherwise omit `treatment_ids`. Never add any other Treatment id.",
+            ]
+        else:
+            parts += [
+                "",
+                "`treatment_ids`: this event is not established to belong to a specific Treatment -- omit `treatment_ids` "
+                "(do NOT list every Treatment). It is linked only when the source text the event cites names the condition.",
+            ]
+    if candidate_context:
+        # Sealed, orchestrator-authored hints from the deterministic table
+        # reconstruction that produced this candidate (never model-authored,
+        # never verified source text). Present ONLY for table candidates that
+        # carry context, so every other conversion prompt is byte-identical.
+        parts += [
+            "",
+            "CANDIDATE_CONTEXT -- deterministic hints from the table reconstruction that produced this "
+            "candidate (NOT verified source text; use them only where RAW_EVIDENCE above supports them, and "
+            "never as a substitute for it):",
+            "```json",
+            json.dumps(candidate_context, indent=2),
+            "```",
+        ]
+        if candidate_context.get("variable_name_hint") or candidate_context.get("units_hint"):
+            parts += [
+                "",
+                "CANDIDATE_CONTEXT may carry `variable_name_hint` and `units_hint` (unverified). variable_name: when "
+                "RAW_EVIDENCE shows this record is that measured quantity, use `variable_name_hint` exactly, so the same "
+                "variable carries the same name in every record (a naming judgment: label it INFERRED with a real basis "
+                "unless the identical text is in RAW_EVIDENCE, then EXTRACTED). reported_units: take them from the source "
+                "text in RAW_EVIDENCE; use `units_hint` only where it agrees with that text -- where they differ keep the "
+                "source's units and say so in `unit_basis_notes`. Never write a placeholder such as 'unknown' or 'n/a': if "
+                "RAW_EVIDENCE gives no units, the value is UNRESOLVED with a real reason.",
+            ]
+        if candidate_context.get("temporal_context"):
+            parts += [
+                "",
+                "CANDIDATE_CONTEXT lists where the paper dates this value's time level. Set `temporal_info` from the "
+                "`sampling_date` fact in RAW_EVIDENCE when it is there (cite that fact's anchor): call "
+                "apply_reconstruction with kind `date_mapping` on the date text followed by the year text (e.g. "
+                "\"9 June 1993\") and use its result. If RAW_EVIDENCE has no such fact, or the year is missing, "
+                "temporal_info is UNRESOLVED with a real reason -- never compute or assume a date or a year.",
+            ]
+        if candidate_context.get("aggregated_over_factors"):
+            parts += [
+                "",
+                "CANDIDATE_CONTEXT says this table's values are MEANS POOLED over "
+                f"{candidate_context['aggregated_over_factors']!r}. Set `reported_effect_scope` to "
+                "\"aggregated_mean\" (never \"treatment_mean\" for a pooled value) and `aggregated_over_factors` "
+                "to that list -- EXTRACTED when RAW_EVIDENCE contains the pooling statement (cite its anchor), "
+                "otherwise UNRESOLVED with a real reason. Do not invent a mixture- or factor-specific value.",
+            ]
     if prior_errors:
         parts += [
             "",
@@ -2005,6 +4281,7 @@ def _attempt_ai_validation_correction(
     *, run_id: str, record_key: str, paper_id: str, entity_type: str, record_id: str,
     raw_extraction: dict, known_refs: Optional[dict[str, str]], ai_validation: dict,
     model: str, client: IRServiceClient, invoke: Callable[..., AgentInvocation], stage_counts: dict,
+    candidate_context: Optional[dict[str, Any]] = None,
 ) -> dict:
     """Phase 1D: exactly ONE bounded Conversion correction pass, triggered
     only by the AI Validator's "suspicious" verdict -- never a second,
@@ -2032,7 +4309,7 @@ def _attempt_ai_validation_correction(
     stage_counts["conversion"] += 1
     conv_result = invoke(
         "converter", model,
-        _conversion_prompt(paper_id, entity_type, record_id, raw_extraction, correction_errors, known_refs),
+        _conversion_prompt(paper_id, entity_type, record_id, raw_extraction, correction_errors, known_refs, candidate_context),
     )
     run_store.save_stage_attempt(run_id, record_key, "conversion", stage_counts["conversion"], conv_result.as_artifact())
 
@@ -2042,13 +4319,13 @@ def _attempt_ai_validation_correction(
             "errors": [{"field": None, "message": f"AI-Validator-triggered correction attempt: {conv_result.parse_error}"}],
         }
 
-    corrected_payload = conv_result.parsed_json
+    corrected_payload = _apply_source_pages(paper_id, conv_result.parsed_json)
 
     ref_errors = [
         {"field": field, "message": _ref_expectation_message(field, expected, corrected_payload.get(field))}
         for field, expected in (known_refs or {}).items()
         if field in corrected_payload and _ref_mismatch(corrected_payload.get(field), expected)
-    ]
+    ] + _management_link_errors(entity_type, corrected_payload, candidate_context)
     if ref_errors:
         run_store.save_stage_attempt(
             run_id, record_key, "conversion_validation", stage_counts["conversion"],
@@ -2058,6 +4335,7 @@ def _attempt_ai_validation_correction(
 
     propose_result = client.propose_record(
         paper_id=paper_id, entity_type=entity_type, record_id=record_id, payload=corrected_payload,
+        run_id=run_id,
     )
     run_store.save_stage_attempt(run_id, record_key, "conversion_validation", stage_counts["conversion"], propose_result)
     if not propose_result.get("valid"):
@@ -2122,11 +4400,15 @@ def _raw_extraction_grounding_errors(paper_id: str, extraction: RawExtraction) -
             })
             continue
 
-        anchor_text = "\n".join(blocks[a] for a in cited_anchors)
-        if not _value_supported_by_text(fact.raw_text_excerpt, anchor_text):
+        # The cited blocks are read as one text in DOCUMENT order (never the order the model happened to
+        # list them in), so a quote that runs from one cited block into the next passes.
+        ordered_anchors = sorted(set(cited_anchors), key=content_reader._anchor_sort_key)
+        anchor_text = "\n".join(blocks[a] for a in ordered_anchors)
+        supported, why = _excerpt_supported(fact.raw_text_excerpt, anchor_text)
+        if not supported:
             errors.append({
                 "field": f"facts[{index}].raw_text_excerpt",
-                "message": (
+                "message": why or (
                     f"fact {fact.field_name!r}: raw_text_excerpt {fact.raw_text_excerpt!r} is not found "
                     f"(even accounting for whitespace/typographic differences) in the text of its own cited "
                     f"anchor(s) {cited_anchors} -- raw_text_excerpt must be the literal source text you "
@@ -2134,6 +4416,68 @@ def _raw_extraction_grounding_errors(paper_id: str, extraction: RawExtraction) -
                 ),
             })
     return errors
+
+
+# Item 13 (grounding): an excerpt may elide stretches of a longer passage with "..." / "…". Every
+# stretch that IS quoted must be literal source text, in the order it is written, with no leniency per
+# segment; an annotation such as "(header row)" or any invented wording is simply a segment that is not
+# in the source, so it still fails. A literal excerpt (no ellipsis, or an ellipsis the source itself
+# contains) is checked exactly as before.
+_ELLIPSIS_RE = re.compile(r"\.\.\.|\u2026")
+_MIN_SEGMENT_ALNUM = 3
+
+
+def _segments_in_order(segments: list[str], text: str) -> Optional[int]:
+    """Index of the first segment that is NOT found (in order, after the previous one) in `text`, or None when
+    all are. Compared with the same normalization `_value_supported_by_text` applies; a segment may also match
+    with all whitespace removed (source rendering of scientific notation), but every segment must then match
+    that way together."""
+    def normalize(t: str) -> str:
+        return _normalize_typography(" ".join(t.split()).casefold())
+
+    haystack = normalize(text)
+    needles = [normalize(seg) for seg in segments]
+    first_missing: Optional[int] = None
+    for compact in (False, True):
+        hay = re.sub(r"\s+", "", haystack) if compact else haystack
+        position, missing = 0, None
+        for i, needle in enumerate(needles):
+            target = re.sub(r"\s+", "", needle) if compact else needle
+            found = hay.find(target, position) if target else -1
+            if found < 0:
+                missing = i
+                break
+            position = found + len(target)
+        if missing is None:
+            return None
+        first_missing = missing if first_missing is None else first_missing
+    return first_missing
+
+
+def _excerpt_supported(excerpt: str, text: str) -> tuple[bool, Optional[str]]:
+    """(supported, error message) for a raw_text_excerpt against its cited text. Without an ellipsis this is
+    exactly `_value_supported_by_text`. With one, the excerpt is split on it and EVERY segment must appear in
+    order; a segment of fewer than `_MIN_SEGMENT_ALNUM` alphanumeric characters cannot ground anything on its
+    own and is refused."""
+    if _value_supported_by_text(excerpt, text):
+        return True, None
+    if not _ELLIPSIS_RE.search(excerpt):
+        return False, None
+    segments = [seg.strip() for seg in _ELLIPSIS_RE.split(excerpt) if seg.strip()]
+    if not segments:
+        return False, f"raw_text_excerpt {excerpt!r} quotes nothing (only an ellipsis)."
+    for seg in segments:
+        if sum(ch.isalnum() for ch in seg) < _MIN_SEGMENT_ALNUM:
+            return False, (f"raw_text_excerpt {excerpt!r}: the segment {seg!r} is too short to ground anything; quote "
+                           f"each stretch you keep in full, with the ellipsis only where text is left out.")
+    missing = _segments_in_order(segments, text)
+    if missing is None:
+        return True, None
+    return False, (
+        f"raw_text_excerpt {excerpt!r}: segment {missing + 1} ({segments[missing]!r}) is not found, in the order "
+        f"written, in the cited text (every stretch around an ellipsis must be literal source text, in order -- "
+        f"never paraphrased, annotated or re-ordered)."
+    )
 
 
 def _extraction_matches_known_value(known_value: str, extraction: RawExtraction) -> bool:
@@ -2156,12 +4500,240 @@ def _extraction_matches_known_value(known_value: str, extraction: RawExtraction)
     `field_name` naming convention is enforced), so this checks every
     fact's `raw_value` AND `raw_text_excerpt` for the known value, rather
     than assuming one specific field_name."""
-    for fact in extraction.facts:
-        if fact.raw_value is not None and _value_supported_by_text(known_value, fact.raw_value):
-            return True
-        if _value_supported_by_text(known_value, fact.raw_text_excerpt):
-            return True
-    return False
+    return any(_fact_bears_value(known_value, fact) for fact in extraction.facts)
+
+
+def _fact_bears_value(known_value: str, fact: Any) -> bool:
+    """Does this fact's raw_value or raw_text_excerpt contain the known table value? (The per-fact test behind
+    `_extraction_matches_known_value`.)"""
+    if fact.raw_value is not None and _value_supported_by_text(known_value, fact.raw_value):
+        return True
+    return _value_supported_by_text(known_value, fact.raw_text_excerpt)
+
+
+def _drop_ungrounded_auxiliary_facts(
+    extraction: RawExtraction, known_value: str, grounding_errors: list[dict],
+) -> tuple[RawExtraction, list[dict], list[dict]]:
+    """Item 13 (decision Q7), TABLE CANDIDATES ONLY (the caller passes `known_value` only for them): an
+    UNGROUNDED AUXILIARY fact -- a unit, method, date or note whose excerpt is not in its cited text -- is removed
+    from the raw extraction and logged, rather than costing the whole attempt. Returns (extraction, remaining
+    errors, dropped-fact log). Nothing is dropped unless ALL of these hold, otherwise the errors stand untouched:
+      - every grounding error belongs to one specific fact (no pipeline-level error is hidden);
+      - some fact carries the known table value AND is itself grounded -- the value-bearing fact must be real;
+      - no ungrounded fact carries the known value (an ungrounded value-bearing fact stays an extraction error).
+    A dropped fact never reaches Conversion; it is recorded as `dropped_ungrounded_facts`. The grounding CHECK is
+    unchanged, so annotations and fabricated excerpts are still ungrounded -- they are dropped, never accepted."""
+    bad: dict[int, list[str]] = {}
+    for error in grounding_errors:
+        match = re.match(r"facts\[(\d+)\]", error.get("field") or "")
+        if match is None:
+            return extraction, grounding_errors, []
+        bad.setdefault(int(match.group(1)), []).append(error["message"])
+    if not bad:
+        return extraction, grounding_errors, []
+    value_bearing = {i for i, fact in enumerate(extraction.facts) if _fact_bears_value(known_value, fact)}
+    if not (value_bearing - set(bad)) or (value_bearing & set(bad)):
+        return extraction, grounding_errors, []
+    dropped = [
+        {"field_name": extraction.facts[i].field_name, "raw_text_excerpt": extraction.facts[i].raw_text_excerpt,
+         "anchors": list(extraction.facts[i].anchors), "errors": bad[i]}
+        for i in sorted(bad)
+    ]
+    kept = [fact for i, fact in enumerate(extraction.facts) if i not in bad]
+    return extraction.model_copy(update={"facts": kept}), [], dropped
+
+
+# --- Correction pass, Fix 3: ungrounded AUXILIARY facts / fields (non-table candidates) -----------------------------
+#
+# Real evidence. Replaying the stored extractions of every record that ended in error in the Daren and Felipe runs
+# (tests/fixtures/pass2/replay_extractions.json): in each, the LAST attempt had the identity-bearing fact grounded and
+# only auxiliary facts ungrounded -- `definition`, `measurement_units`, `unit`, `effect_size_percent`, a Study's design
+# descriptions -- plus two facts with no anchors at all. One paraphrased definition cost the paper its Leaf-area-index
+# Variable. Item 13 already drops such a fact for TABLE candidates (where the known cell value proves the value fact is
+# real); this generalises it, conservatively, to the other entity types.
+#
+# The rule is by field NAME per entity type, from the IR schema and protocol -- not "optional means droppable":
+# an ungrounded fact is droppable only if it is NOT named like an identity/value-bearing field of its entity type.
+# Facts named like one (a Variable's `name`/`variable_name`, a Treatment's `definition`, an event's `date`, ...) are
+# never dropped: their failure stands as an error. And nothing is dropped unless a grounded fact remains.
+# Observation is excluded: its value-bearing facts have no fixed names outside the table path (`known_value`).
+CORE_FACT_FIELDS: dict[str, frozenset[str]] = {
+    "Citation": frozenset({"title", "author", "authors", "year", "persistent_identifier", "doi", "pid"}),
+    "Site": frozenset({"name", "site_name", "site", "latitude", "longitude"}),
+    "Species": frozenset({"scientific_name", "genus", "species_epithet", "species", "name"}),
+    "Crop": frozenset({"cultivar", "cultivar_name", "variety", "name", "population", "crop", "species"}),
+    "Method": frozenset({"name", "method_name", "description", "method_description", "method"}),
+    "Variable": frozenset({"name", "variable_name", "variable", "label"}),
+    "Treatment": frozenset({"name", "treatment_name", "treatment", "definition", "treatment_definition"}),
+    "TreatmentPair": frozenset({"comparison_factor", "comparison_label", "treatment_1", "treatment_2",
+                                "treatment_id_1", "treatment_id_2"}),
+    "Management": frozenset({"event_type", "event", "date", "event_date", "date_range", "timing", "amount", "rate"}),
+    "Study": frozenset(),      # no ExtractedField at all in the IR: nothing an ungrounded fact could leak into
+    "Coverage": frozenset(),   # plain (non-extracted) fields only
+}
+_NO_AUXILIARY_DROP_ENTITY_TYPES = frozenset({"Observation"})
+
+
+def _fact_field_key(field_name: Any) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", str(field_name or "").strip().lower()).strip("_")
+
+
+def _is_droppable_fact_name(entity_type: str, field_name: Any) -> bool:
+    """A fact may be dropped for want of grounding only when it has a name and that name is not one of the entity
+    type's identity/value-bearing names."""
+    key = _fact_field_key(field_name)
+    return bool(key) and key not in CORE_FACT_FIELDS.get(entity_type, frozenset())
+
+
+def _is_droppable_fact(entity_type: str, fact: Any) -> bool:
+    """`_is_droppable_fact_name`, plus: a fact that reports NO value (`raw_value` null or blank -- "I looked and the
+    field is not stated") is droppable under any usable name. The core-name protection exists so an ungrounded VALUE
+    never reaches an identity field; a fact with no value has none to leak, and Conversion marks an absent field
+    UNRESOLVED on its own. Takes a RawFact or a raw dict (the shape-recovery path)."""
+    name, raw_value = (fact.get("field_name"), fact.get("raw_value")) if isinstance(fact, dict) else (fact.field_name, fact.raw_value)
+    if _is_droppable_fact_name(entity_type, name):
+        return True
+    return bool(_fact_field_key(name)) and (raw_value is None or (isinstance(raw_value, str) and not raw_value.strip()))
+
+
+def _drop_ungrounded_noncore_facts(
+    entity_type: str, extraction: RawExtraction, grounding_errors: list[dict],
+) -> tuple[RawExtraction, list[dict], list[dict]]:
+    """Returns (extraction, remaining errors, dropped-fact log). Nothing is dropped, and the errors stand untouched,
+    unless ALL of these hold:
+      - the entity type is eligible (not Observation);
+      - every grounding error belongs to one specific fact (a pipeline-level error is never hidden);
+      - no ungrounded fact is named like an identity/value-bearing field of this entity type, unless it carries no
+        value at all (`raw_value` null or blank -- see `_is_droppable_fact`);
+      - at least one grounded fact remains.
+    A dropped fact never reaches Conversion; it is logged with its excerpt, anchors and the reason. The grounding
+    CHECK itself is unchanged."""
+    if entity_type in _NO_AUXILIARY_DROP_ENTITY_TYPES:
+        return extraction, grounding_errors, []
+    bad: dict[int, list[str]] = {}
+    for error in grounding_errors:
+        match = re.match(r"facts\[(\d+)\]", error.get("field") or "")
+        if match is None:
+            return extraction, grounding_errors, []
+        bad.setdefault(int(match.group(1)), []).append(error["message"])
+    if not bad or len(bad) >= len(extraction.facts):
+        return extraction, grounding_errors, []
+    if not all(_is_droppable_fact(entity_type, extraction.facts[i]) for i in bad):
+        return extraction, grounding_errors, []
+    dropped = [
+        {"field_name": extraction.facts[i].field_name, "raw_text_excerpt": extraction.facts[i].raw_text_excerpt,
+         "anchors": list(extraction.facts[i].anchors), "errors": bad[i], "rule": "ungrounded_auxiliary_fact"}
+        for i in sorted(bad)
+    ]
+    kept = [fact for i, fact in enumerate(extraction.facts) if i not in bad]
+    return extraction.model_copy(update={"facts": kept}), [], dropped
+
+
+def _recover_extraction_shape(parsed: dict, entity_type: str) -> Optional[tuple[RawExtraction, list[dict]]]:
+    """A RawExtraction whose only shape problem is auxiliary facts that FAIL RawFact validation (real cases: Felipe
+    shoot_biomass `unit` and Daren/Felipe Study facts with no anchors) is recovered by treating those facts as
+    ungrounded -- same rule, same log -- so one anchor-less side fact does not cost the whole record. None when
+    anything else is wrong: a top-level key, a fact with no usable name or a valued identity-bearing name, no good fact
+    left."""
+    if entity_type in _NO_AUXILIARY_DROP_ENTITY_TYPES:
+        return None
+    facts = parsed.get("facts")
+    if not isinstance(facts, list):
+        return None
+    good: list[Any] = []
+    bad: list[tuple[Any, str]] = []
+    for fact in facts:
+        try:
+            RawFact.model_validate(fact)
+            good.append(fact)
+        except ValidationError as exc:
+            bad.append((fact, "; ".join(f"{'.'.join(str(x) for x in e['loc'])}: {e['msg']}" for e in exc.errors())))
+    if not bad or not good:
+        return None
+    if not all(isinstance(fact, dict) and _is_droppable_fact(entity_type, fact) for fact, _ in bad):
+        return None
+    try:
+        extraction = RawExtraction.model_validate({**parsed, "facts": good})
+    except ValidationError:
+        return None
+    dropped = [
+        {"field_name": fact.get("field_name"), "raw_text_excerpt": fact.get("raw_text_excerpt"),
+         "anchors": list(fact.get("anchors") or []), "errors": [why], "rule": "ungrounded_auxiliary_fact"}
+        for fact, why in bad
+    ]
+    return extraction, dropped
+
+
+# Conversion side of the same principle. Real cases: Felipe's mustard-CO2 Observation (its optional `notes` failed
+# grounding) and Daren's internode-length Variable (`notes` = "Name of the variable as described in the methods.").
+# Only DESCRIPTIVE optional fields are listed: never an identity (name, cultivar, event_type), never a value or a
+# statistic, never a reference. A payload is demoted only when EVERY validation error sits inside these fields, so the
+# re-validated remainder (identity and value included) is proven grounded by the same deterministic validator.
+AUXILIARY_PAYLOAD_FIELDS: dict[str, frozenset[str]] = {
+    "Variable": frozenset({"description", "units", "notes"}),
+    "Site": frozenset({"description", "soil_context", "nearest_city"}),
+    "Crop": frozenset({"common_name", "notes"}),
+    "Species": frozenset({"common_name"}),
+    "Observation": frozenset({"notes", "replicate_id"}),
+}
+
+
+def _apply_source_pages(paper_id: str, payload: Any) -> Any:
+    """A copy of a Conversion payload in which every ExtractedField's `source.page_number` is the 1-indexed PDF page of
+    its FIRST cited block that provenance.json can place, or None when none can (no provenance, unknown anchor) --
+    whatever the model wrote is overwritten. The model has no page data at all (a RawExtraction carries none), so its
+    numbers were inventions: in the Daren and Felipe runs 160 of 160 values were 1 or 0 while the cited blocks sit on
+    pages 2-6, and two records were made hollow by "page number not available". Deterministic, downstream, no
+    Marker involvement."""
+    payload = copy.deepcopy(payload)
+    provenance = content_reader._load_provenance(paper_id, _papers_root()) or {}
+
+    def visit(node: Any) -> None:
+        if isinstance(node, dict):
+            source = node.get("source")
+            if "provenance_label" in node and isinstance(source, dict) and isinstance(source.get("locators"), list):
+                page = None
+                for locator in source["locators"]:
+                    anchor = locator.get("block_anchor") if isinstance(locator, dict) else None
+                    if anchor:
+                        entry = provenance.get(content_reader._normalize_anchor(anchor)) or {}
+                        page = content_reader.physical_page(entry.get("page_id"))
+                        if page is not None:
+                            break
+                source["page_number"] = page
+            for value in node.values():
+                visit(value)
+        elif isinstance(node, list):
+            for value in node:
+                visit(value)
+
+    visit(payload)
+    return payload
+
+
+def _demote_auxiliary_payload_fields(
+    entity_type: str, payload: dict, errors: list[dict],
+) -> Optional[tuple[dict, list[dict]]]:
+    """(payload without the failing auxiliary fields, demotion log), or None when the errors are not exclusively
+    about auxiliary optional fields of this entity type (then the record fails or retries exactly as before)."""
+    allowed = AUXILIARY_PAYLOAD_FIELDS.get(entity_type)
+    if not allowed or not errors or not isinstance(payload, dict):
+        return None
+    bad: dict[str, list[str]] = {}
+    for error in errors:
+        path = _error_field(error)
+        top = re.split(r"[.\[]", path)[0] if path else None
+        if top not in allowed or top not in payload:
+            return None
+        bad.setdefault(top, []).append(error.get("message") or "")
+    demoted = []
+    for name in sorted(bad):
+        entry = payload[name]
+        demoted.append({
+            "field": name, "value": entry.get("value") if isinstance(entry, dict) else entry, "errors": bad[name],
+            "rule": "ungrounded_auxiliary_field",
+        })
+    return {k: v for k, v in payload.items() if k not in bad}, demoted
 
 
 @dataclass
@@ -2185,12 +4757,14 @@ def run_record(
     known_refs: Optional[dict[str, str]] = None,
     extraction_context: Optional[str] = None,
     known_value: Optional[str] = None,
+    candidate_context: Optional[dict[str, Any]] = None,
 ) -> RecordResult:
     record_key = f"{entity_type}__{record_id}"
     stage_counts = {"extraction": 0, "conversion": 0, "ai_validation": 0}
 
     # --- Stage 1: Extraction (sealed evidence gathering) ---
     raw_extraction: Optional[dict] = None
+    dropped_ungrounded_facts: list[dict] = []
     extraction_errors: list[dict] = []
     last_extraction_message = "extraction stage never produced a valid RawExtraction"
     # Tracks whether EVERY failed attempt was specifically one of the two
@@ -2212,7 +4786,14 @@ def run_record(
     # "all infrastructure noise", just not uniformly the same sub-class.
     saw_genuine_content_failure = False
     any_malformed_tool_call_failure = False
-    for attempt in range(1, MAX_EXTRACTION_ATTEMPTS + 1):
+    # Provider failures (empty final text, timeout, harmony leak) spend the SEPARATE provider budget, never one of
+    # the numbered attempts (correction pass, Fix 2): `numbered` counts the answers the model actually gave.
+    provider = _ProviderBudget(run_id, record_key, "extraction")
+    numbered = 0
+    attempt = 0  # every invocation round: the artifact index
+    provider_terminal = False
+    while numbered < MAX_EXTRACTION_ATTEMPTS:
+        attempt += 1
         stage_counts["extraction"] = attempt
         result = invoke(
             "extractor", model,
@@ -2220,11 +4801,24 @@ def run_record(
         )
         artifact = result.as_artifact()
 
-        if result.parsed_json is None:
+        failure = _provider_failure(result)
+        if failure:
+            # No answer to correct: the model gets no feedback, the next round repeats the same prompt.
             if result.had_malformed_tool_call:
                 any_malformed_tool_call_failure = True
-            elif result.final_text is not None:
-                saw_genuine_content_failure = True
+            artifact["validation_errors"] = [{"field": None, "message": result.parse_error}]
+            artifact.update(failure_class=failure, failure_kind="provider", numbered_attempt=None)
+            run_store.save_stage_attempt(run_id, record_key, "extraction", attempt, artifact)
+            last_extraction_message = f"round {attempt}: provider failure ({failure}): {result.parse_error}"
+            if provider.failed(failure):
+                provider_terminal = True
+                break
+            provider.cooldown()
+            continue
+        numbered += 1
+
+        if result.parsed_json is None:
+            saw_genuine_content_failure = True  # text came back but is not JSON: the model's own answer
             extraction_errors = [{"field": None, "message": result.parse_error}]
             artifact["validation_errors"] = extraction_errors
             run_store.save_stage_attempt(run_id, record_key, "extraction", attempt, artifact)
@@ -2235,17 +4829,23 @@ def run_record(
         # check is not enough: RawFact's own invariants (anchors required,
         # etc.) must actually hold before this evidence is handed to the
         # sealed Conversion stage.
+        shape_dropped: list[dict] = []
         try:
             validated = RawExtraction.model_validate(result.parsed_json)
         except ValidationError as exc:
-            saw_genuine_content_failure = True
-            extraction_errors = [
-                {"field": ".".join(str(p) for p in err["loc"]), "message": err["msg"]} for err in exc.errors()
-            ]
-            artifact["validation_errors"] = extraction_errors
-            run_store.save_stage_attempt(run_id, record_key, "extraction", attempt, artifact)
-            last_extraction_message = f"attempt {attempt}: RawExtraction shape validation failed: {extraction_errors}"
-            continue
+            # Auxiliary facts that fail RawFact validation (no anchors) are treated as ungrounded auxiliary facts
+            # (Fix 3); anything else wrong with the shape is a genuine failure, as before.
+            recovered = _recover_extraction_shape(result.parsed_json, entity_type) if known_value is None else None
+            if recovered is None:
+                saw_genuine_content_failure = True
+                extraction_errors = [
+                    {"field": ".".join(str(p) for p in err["loc"]), "message": err["msg"]} for err in exc.errors()
+                ]
+                artifact["validation_errors"] = extraction_errors
+                run_store.save_stage_attempt(run_id, record_key, "extraction", attempt, artifact)
+                last_extraction_message = f"attempt {attempt}: RawExtraction shape validation failed: {extraction_errors}"
+                continue
+            validated, shape_dropped = recovered
 
         if not validated.facts:
             saw_genuine_content_failure = True
@@ -2258,6 +4858,15 @@ def run_record(
         # Phase 1.1: raw evidence grounding gate -- see
         # _raw_extraction_grounding_errors's own docstring.
         grounding_errors = _raw_extraction_grounding_errors(paper_id, validated)
+        if grounding_errors and known_value is not None:
+            validated, grounding_errors, dropped = _drop_ungrounded_auxiliary_facts(validated, known_value, grounding_errors)
+            if dropped:
+                artifact["dropped_ungrounded_facts"] = dropped
+        elif grounding_errors:
+            validated, grounding_errors, dropped = _drop_ungrounded_noncore_facts(entity_type, validated, grounding_errors)
+            shape_dropped = shape_dropped + dropped
+        if shape_dropped:
+            artifact["dropped_ungrounded_facts"] = shape_dropped + artifact.get("dropped_ungrounded_facts", [])
         if grounding_errors:
             saw_genuine_content_failure = True
             extraction_errors = grounding_errors
@@ -2290,8 +4899,11 @@ def run_record(
         artifact["validation_errors"] = []
         run_store.save_stage_attempt(run_id, record_key, "extraction", attempt, artifact)
         raw_extraction = validated.model_dump()
+        dropped_ungrounded_facts = artifact.get("dropped_ungrounded_facts", [])
         break
 
+    if provider.rounds:
+        stage_counts["provider_failure_rounds"] = provider.rounds
     if raw_extraction is None:
         if saw_genuine_content_failure:
             failure_class = None
@@ -2299,7 +4911,10 @@ def run_record(
             failure_class = "provider_malformed_response"
         else:
             failure_class = "provider_empty_response"
-        return _finalize_error(run_id, record_key, entity_type, record_id, last_extraction_message, stage_counts, failure_class=failure_class)
+        return _finalize_error(
+            run_id, record_key, entity_type, record_id, last_extraction_message, stage_counts, failure_class=failure_class,
+            extra=provider.disclosure(numbered, provider_terminal) if provider.rounds else None,
+        )
 
     # Refuse-to-guess gate (Kathryn-2020-Winter conversion-misattribution
     # finding, enumeration-granularity design-review session): a `list`
@@ -2357,6 +4972,7 @@ def run_record(
 
     # --- Stage 2: Conversion, gated by deterministic validation (Stage 3) ---
     last_errors: list[dict] = []
+    demoted_optional_fields: list[dict] = []
     candidate_payload: Optional[dict] = None
     propose_result: Optional[dict] = None
     previous_error_signature: Optional[frozenset] = None
@@ -2394,7 +5010,7 @@ def run_record(
         stage_counts["conversion"] = attempt
         conv_result = invoke(
             "converter", model,
-            _conversion_prompt(paper_id, entity_type, record_id, raw_extraction, last_errors, known_refs),
+            _conversion_prompt(paper_id, entity_type, record_id, raw_extraction, last_errors, known_refs, candidate_context),
         )
         run_store.save_stage_attempt(run_id, record_key, "conversion", attempt, conv_result.as_artifact())
 
@@ -2402,7 +5018,7 @@ def run_record(
             last_errors = [{"field": None, "message": f"conversion attempt {attempt}: {conv_result.parse_error}"}]
             continue
 
-        candidate_payload = conv_result.parsed_json
+        candidate_payload = _apply_source_pages(paper_id, conv_result.parsed_json)
 
         # Deterministic cross-check against known_refs, before spending a
         # propose_record attempt: a bare ExtractedReference field
@@ -2414,7 +5030,7 @@ def run_record(
             {"field": field, "message": _ref_expectation_message(field, expected, candidate_payload.get(field))}
             for field, expected in (known_refs or {}).items()
             if field in candidate_payload and _ref_mismatch(candidate_payload.get(field), expected)
-        ]
+        ] + _management_link_errors(entity_type, candidate_payload, candidate_context)
         if ref_errors:
             run_store.save_stage_attempt(
                 run_id, record_key, "conversion_validation", attempt,
@@ -2425,6 +5041,7 @@ def run_record(
 
         propose_result = client.propose_record(
             paper_id=paper_id, entity_type=entity_type, record_id=record_id, payload=candidate_payload,
+            run_id=run_id,
         )
         run_store.save_stage_attempt(run_id, record_key, "conversion_validation", attempt, propose_result)
 
@@ -2433,11 +5050,39 @@ def run_record(
         last_errors = propose_result.get("errors", [])
         if propose_result.get("forced_flag_unresolved"):
             break
+        # Fix 3 (conversion side): when EVERY error is about a descriptive optional field, that field is demoted
+        # (removed) and logged, and the remainder is re-proposed -- the deterministic validator then proves identity
+        # and value grounded. Nothing else about the retry behaviour changes.
+        demotion = _demote_auxiliary_payload_fields(entity_type, candidate_payload, last_errors)
+        if demotion is not None:
+            reduced_payload, demoted = demotion
+            reproposal = client.propose_record(
+                paper_id=paper_id, entity_type=entity_type, record_id=record_id, payload=reduced_payload, run_id=run_id,
+            )
+            run_store.save_stage_attempt(
+                run_id, record_key, "conversion_demotion", attempt, {"demoted": demoted, "reproposal": reproposal},
+            )
+            if reproposal.get("valid"):
+                candidate_payload, propose_result = reduced_payload, reproposal
+                demoted_optional_fields.extend(demoted)
+                break
 
     if not propose_result or not propose_result.get("valid"):
         return _finalize_unresolved(
             run_id, client, paper_id, entity_type, record_id, record_key,
             raw_extraction, candidate_payload, last_errors, stage_counts,
+        )
+
+    # --- Readiness (Item 15) ---
+    # Structurally valid is not the same as READY: an Observation whose `value` or `variable_name` is UNRESOLVED has no
+    # measurement to speak of. Such a record is committed as `unresolved` with its payload KEPT (the ir-service rejects
+    # it as `ready`), and no AI-validation call is spent on it. This is not a failure of the extraction pipeline: the
+    # source may genuinely not give a value, and the reason the extraction stated is preserved.
+    if propose_result.get("ready") is False:
+        return _finalize_not_ready(
+            run_id, client, paper_id, entity_type, record_id, record_key, candidate_payload,
+            propose_result.get("readiness_issues") or [], stage_counts, dropped_ungrounded_facts,
+            demoted_optional_fields,
         )
 
     # --- Stage 4: AI Validator (Phase 1D: wired -- one bounded correction) ---
@@ -2468,7 +5113,7 @@ def run_record(
                 run_id=run_id, record_key=record_key, paper_id=paper_id, entity_type=entity_type,
                 record_id=record_id, raw_extraction=raw_extraction, known_refs=known_refs,
                 ai_validation=ai_validation, model=model, client=client, invoke=invoke,
-                stage_counts=stage_counts,
+                stage_counts=stage_counts, candidate_context=candidate_context,
             )
             if not correction["ok"]:
                 # The correction itself failed deterministic validation (or
@@ -2521,12 +5166,54 @@ def run_record(
         "paper_id": paper_id, "entity_type": entity_type, "record_id": record_id,
         "payload": candidate_payload, "ai_validation": ai_validation, "commit_result": commit_result,
     }
+    hint_flags = _hint_consistency_flags(candidate_payload, candidate_context)
+    if hint_flags:
+        final_record["hint_flags"] = hint_flags
+    if dropped_ungrounded_facts:
+        final_record["dropped_ungrounded_facts"] = dropped_ungrounded_facts
+    if demoted_optional_fields:
+        final_record["demoted_optional_fields"] = demoted_optional_fields
     run_store.save_final(run_id, record_key, final_record)
     run_store.save_record_manifest(run_id, record_key, {
         "entity_type": entity_type, "record_id": record_id, "status": outcome,
         "attempts": stage_counts,
+        **({"dropped_ungrounded_facts": len(dropped_ungrounded_facts)} if dropped_ungrounded_facts else {}),
+        **({"demoted_optional_fields": [d["field"] for d in demoted_optional_fields]} if demoted_optional_fields else {}),
     })
     return RecordResult(status=outcome, entity_type=entity_type, record_id=record_id, detail=final_record)
+
+
+def _finalize_not_ready(
+    run_id: str, client: IRServiceClient, paper_id: str, entity_type: str, record_id: str, record_key: str,
+    candidate_payload: dict, readiness: list[dict], stage_counts: dict, dropped_ungrounded_facts: list[dict],
+    demoted_optional_fields: Optional[list[dict]] = None,
+) -> RecordResult:
+    """Commit a valid-but-not-ready record as `unresolved`, payload kept (the same result shape as
+    `_finalize_unresolved`, so results and the review UI read it unchanged), with the readiness issues as the reason."""
+    commit_result = client.commit_record(
+        paper_id=paper_id, entity_type=entity_type, record_id=record_id,
+        payload=candidate_payload, status="unresolved",
+        run_metadata={"run_id": run_id, "schema_version": schema_fingerprint(), "readiness_issues": readiness},
+    )
+    final_record = {
+        "status": "unresolved",
+        "paper_id": paper_id, "entity_type": entity_type, "record_id": record_id,
+        "payload": candidate_payload,
+        "last_candidate_payload": candidate_payload,
+        "last_errors": [{"field": issue.get("code"), "message": issue.get("message")} for issue in readiness],
+        "readiness_issues": readiness,
+        "commit_result": commit_result,
+    }
+    if dropped_ungrounded_facts:
+        final_record["dropped_ungrounded_facts"] = dropped_ungrounded_facts
+    if demoted_optional_fields:
+        final_record["demoted_optional_fields"] = demoted_optional_fields
+    run_store.save_final(run_id, record_key, final_record)
+    run_store.save_record_manifest(run_id, record_key, {
+        "entity_type": entity_type, "record_id": record_id, "status": "unresolved", "attempts": stage_counts,
+        "not_ready": [issue.get("code") for issue in readiness],
+    })
+    return RecordResult(status="unresolved", entity_type=entity_type, record_id=record_id, detail=final_record)
 
 
 def _finalize_unresolved(
@@ -2564,7 +5251,7 @@ def _finalize_unresolved(
 
 def _finalize_error(
     run_id: str, record_key: str, entity_type: str, record_id: str, message: str, stage_counts: dict,
-    failure_class: Optional[str] = None,
+    failure_class: Optional[str] = None, extra: Optional[dict] = None,
 ) -> RecordResult:
     """A pipeline-level failure with no ir_service call to make (e.g. the
     Extraction stage never returned parseable evidence at all). Still writes
@@ -2584,10 +5271,13 @@ def _finalize_error(
     final_record = {"status": "error", "entity_type": entity_type, "record_id": record_id, "message": message}
     if failure_class:
         final_record["failure_class"] = failure_class
+    if extra:  # whose failure it was: `failure_kind` provider vs extraction, the classes and the budgets spent
+        final_record.update(extra)
     run_store.save_final(run_id, record_key, final_record)
     run_store.save_record_manifest(run_id, record_key, {
         "entity_type": entity_type, "record_id": record_id, "status": "error", "attempts": stage_counts,
         **({"failure_class": failure_class} if failure_class else {}),
+        **(extra or {}),
     })
     return RecordResult(status="error", entity_type=entity_type, record_id=record_id, detail=final_record)
 
@@ -2603,7 +5293,21 @@ ENTITY_TYPE_TO_PLURAL = {
 }
 
 
-def build_dataset_from_store(paper_id: str, dataset_id: Optional[str] = None) -> tuple[dict, list[str]]:
+def _store_entries(paper_id: str, run_id: Optional[str] = None) -> list[dict]:
+    """ir-store entries for one paper, optionally restricted to the entries
+    one run committed/flagged (each entry carries its `run_id` from
+    run_metadata). With no `run_id` this is every entry, exactly as before --
+    ir-store is a shared, append-only ledger across runs, so a caller that
+    wants ONE run's view (run isolation) must ask for it explicitly."""
+    entries = store.read_all(paper_id)
+    if run_id is not None:
+        entries = [e for e in entries if e.get("run_id") == run_id]
+    return entries
+
+
+def build_dataset_from_store(
+    paper_id: str, dataset_id: Optional[str] = None, run_id: Optional[str] = None,
+) -> tuple[dict, list[str]]:
     """Assemble an IRDataset-shaped dict from ir-store's LATEST entry per
     (entity_type, record_id) for one paper -- store.py's own definition of
     "current state" ("a record's current status is whatever the last line
@@ -2612,7 +5316,7 @@ def build_dataset_from_store(paper_id: str, dataset_id: Optional[str] = None) ->
     incomplete record and are reported separately rather than silently
     folded in as if they validated. Returns (dataset_dict, skipped_keys).
     """
-    entries = store.read_all(paper_id)
+    entries = _store_entries(paper_id, run_id)
     latest: dict[tuple[str, str], dict] = {}
     for entry in entries:
         latest[(entry["entity_type"], entry["record_id"])] = entry  # later lines win
@@ -2633,7 +5337,7 @@ def build_dataset_from_store(paper_id: str, dataset_id: Optional[str] = None) ->
     return dataset, skipped
 
 
-def _citation_record_id_conflicts(paper_id: str) -> list[str]:
+def _citation_record_id_conflicts(paper_id: str, run_id: Optional[str] = None) -> list[str]:
     """Citation is documented as 1:1 with 'the paper currently being
     curated' (extractor.md/AGENTS.md) -- unlike Treatment/Observation/etc,
     which legitimately have many record_ids per paper. More than one
@@ -2643,17 +5347,17 @@ def _citation_record_id_conflicts(paper_id: str) -> list[str]:
     normal outcome. A bare Pydantic "citations.0.persistent_identifier:
     Input should be a valid dictionary" is technically correct but
     unhelpful on its own -- this turns it into an actionable diagnostic."""
-    record_ids = sorted({e["record_id"] for e in store.read_all(paper_id) if e["entity_type"] == "Citation"})
+    record_ids = sorted({e["record_id"] for e in _store_entries(paper_id, run_id) if e["entity_type"] == "Citation"})
     return record_ids if len(record_ids) > 1 else []
 
 
-def graph_check(paper_id: str) -> dict:
+def graph_check(paper_id: str, run_id: Optional[str] = None) -> dict:
     """Deterministic whole-paper audit: does everything currently marked
     'ready' in ir-store for this paper actually form a consistent
     IRDataset per validators.validate_dataset (Table 19)? Read-only --
     never commits, flags, or mutates anything."""
-    dataset_dict, skipped = build_dataset_from_store(paper_id)
-    citation_conflicts = _citation_record_id_conflicts(paper_id)
+    dataset_dict, skipped = build_dataset_from_store(paper_id, run_id=run_id)
+    citation_conflicts = _citation_record_id_conflicts(paper_id, run_id)
     try:
         ds = IRDataset.model_validate(dataset_dict)
     except ValidationError as exc:
@@ -2724,6 +5428,16 @@ ENTITY_DEPENDENCIES: dict[str, list[tuple[str, str, bool]]] = {
 
 assert set(ENTITY_DEPENDENCIES.keys()) == set(ENTITY_TYPE_TO_PLURAL.keys())
 
+# Item 14: links that are NOT bare-reference dependencies. Management.treatment_ids is an OPTIONAL list of
+# Treatment ids (protocol Section 9.3: the events define each treatment), so Treatment must be extracted first --
+# but it is deliberately NOT an ENTITY_DEPENDENCIES entry: that table feeds `known_refs`, which would bind the field
+# to the only ready Treatment (or hand Conversion an allowed set to pick from). Here the field is offered to
+# enumeration as a link pool and admitted only for a Treatment whose name the event's own cited text states
+# (`_verified_treatment_links`); otherwise it stays None.
+OPTIONAL_LINKS: dict[str, list[tuple[str, str]]] = {
+    "Management": [("treatment_ids", "Treatment")],
+}
+
 
 def _topological_entity_order() -> list[str]:
     """Real topological sort over ENTITY_DEPENDENCIES's prerequisite edges
@@ -2735,6 +5449,8 @@ def _topological_entity_order() -> list[str]:
     prereqs: dict[str, set[str]] = {
         et: {prereq_type for _, prereq_type, _ in deps} for et, deps in ENTITY_DEPENDENCIES.items()
     }
+    for et, links in OPTIONAL_LINKS.items():  # order only: an optional link's target is extracted first
+        prereqs[et] |= {prereq_type for _, prereq_type in links}
     order: list[str] = []
     placed: set[str] = set()
     remaining = set(prereqs.keys())
@@ -2907,12 +5623,96 @@ def _multi_record_link_pools(
             payload = ((r.get("detail") or {}).get("payload")) or {}
             name_field = payload.get("name")
             name = name_field.get("value") if isinstance(name_field, dict) else None
+            description_field = payload.get("description")
+            description = description_field.get("value") if isinstance(description_field, dict) else None
             items.append({
                 "slug": _candidate_slug_from_record_id(paper_id, prereq_type, record_id),
-                "record_id": record_id, "name": name,
+                "record_id": record_id, "name": name, "description": description,
             })
         pools[field] = items
+    for field, prereq_type in OPTIONAL_LINKS.get(entity_type, []):
+        ready = _ready_records(this_run_records, prereq_type)
+        if ready:  # an optional link is offered even when only ONE record exists -- it is never assumed
+            pools[field] = [
+                {"slug": _candidate_slug_from_record_id(paper_id, prereq_type, r["record_id"]), "record_id": r["record_id"],
+                 "name": _payload_field_value(((r.get("detail") or {}).get("payload")) or {}, "name"), "description": None}
+                for r in ready
+            ]
     return pools
+
+
+def _verified_treatment_links(
+    paper_id: str, candidate: EnumerationCandidate, this_run_records: dict, blocks: dict[str, str],
+) -> tuple[list[dict], list[dict]]:
+    """Which of a Management candidate's `treatment_ids` links are actually ESTABLISHED, plus one decision per
+    proposed slug. The model may propose links, but nothing is trusted (decision: never link every event to every
+    treatment). A link stands only when
+      - the slug is a READY Treatment of this run, and
+      - the Treatment's name appears as a whole phrase BOTH in the event's own description (so the event is about
+        that condition, not merely cited from a block that mentions it in passing -- a site-wide operation such as
+        land leveling stays unlinked even when its block also names a treatment) AND in the text of the blocks it
+        cites (so the link rests on what the source says, never on plausibility).
+    Anything else is dropped and logged; an event with no verified link keeps `treatment_ids=None`."""
+    proposed = (candidate.linked_candidates or {}).get("treatment_ids")
+    if not proposed:
+        return [], []
+    slugs = list(dict.fromkeys([proposed] if isinstance(proposed, str) else proposed))
+    ready = {r["record_id"]: r for r in _ready_records(this_run_records, "Treatment")}
+    text = " " + _normalize_for_matching(" ".join(blocks.get(a.strip("[]"), "") for a in candidate.anchors)) + " "
+    described = " " + _normalize_for_matching(candidate.description) + " "
+    verified: list[dict] = []
+    decisions: list[dict] = []
+    for slug in slugs:
+        record_id = f"{paper_id}_treatment_{_sanitize_candidate_id(slug)}"
+        base = {"candidate_id": candidate.candidate_id, "slug": slug, "record_id": record_id}
+        record = ready.get(record_id)
+        if record is None:
+            decisions.append({**base, "decision": "dropped", "reason": "not a ready Treatment of this run"})
+            continue
+        name = _payload_field_value(((record.get("detail") or {}).get("payload")) or {}, "name")
+        key = _normalize_for_matching(name) if isinstance(name, str) else ""
+        if len(key) < 3 or f" {key} " not in text:
+            decisions.append({**base, "decision": "dropped", "name": name,
+                              "reason": "the event's cited text does not name this condition"})
+            continue
+        if f" {key} " not in described:
+            decisions.append({**base, "decision": "dropped", "name": name,
+                              "reason": "the event's own description does not name this condition (it is cited text that mentions it in passing)"})
+            continue
+        verified.append({"record_id": record_id, "name": name})
+        decisions.append({**base, "decision": "linked", "name": name})
+    return verified, decisions
+
+
+def _management_link_errors(entity_type: str, payload: dict, candidate_context: Optional[dict[str, Any]]) -> list[dict]:
+    """Deterministic guard on Conversion's output: a Management record's `treatment_ids` may only name Treatments the
+    orchestrator verified for THIS event (`_verified_treatment_links`, carried in `treatment_link`). Any other id --
+    e.g. Conversion linking an event to every Treatment -- is an error; no link at all (absent or UNRESOLVED) is
+    always fine."""
+    if entity_type != "Management":
+        return []
+    entry = (payload or {}).get("treatment_ids")
+    if isinstance(entry, dict):
+        if entry.get("provenance_label") == "UNRESOLVED":
+            return []
+        ids = entry.get("value")
+    else:
+        ids = entry
+    if not ids:
+        return []
+    ids = ids if isinstance(ids, list) else [ids]
+    allowed = set(((candidate_context or {}).get("treatment_link") or {}).get("treatment_ids") or [])
+    extra = [i for i in ids if not (_is_hashable(i) and i in allowed)]
+    if not extra:
+        return []
+    return [{
+        "field": "treatment_ids",
+        "message": (
+            f"treatment_ids {extra} is not established for this event: a Management event is linked to a Treatment only "
+            f"when its own cited source text names that condition (verified ids: {sorted(allowed) or 'none'}). Omit "
+            f"treatment_ids (or mark it UNRESOLVED with a reason) rather than link every treatment."
+        ),
+    }]
 
 
 def _apply_candidate_links(
@@ -3031,6 +5831,38 @@ def run_paper(
     invoke: Callable[..., AgentInvocation] = invoke_agent,
     enable_ai_validation: bool = True,
     run_id: Optional[str] = None,
+    manifest_extra: Optional[dict] = None,
+) -> dict:
+    """Run one full-paper extraction, exclusively.
+
+    Run isolation (infrastructure only -- extraction behavior is unchanged
+    and pinned by tests/test_run_characterization.py): the run holds a
+    per-paper lock (`pipeline.run_lock`) for its whole duration, so a second
+    run on the same paper is REFUSED (`run_lock.RunAlreadyActive`) instead of
+    silently interleaving with it; its per-entity results are written under
+    `results/<paper_id>/<run_id>/` (never overwriting another run's), and
+    `results/<paper_id>/LATEST` is pointed at this run only after it
+    COMPLETED. `manifest_extra` (model/provider/base-URL/fingerprint
+    metadata, see pipeline.run_config) is merged into the run manifest.
+
+    See `_run_paper_locked` for the pipeline itself."""
+    run_id = run_id or _new_run_id()
+    with run_lock.paper_run_lock(paper_id, run_id):
+        return _run_paper_locked(
+            paper_id=paper_id, model=model, client=client, invoke=invoke,
+            enable_ai_validation=enable_ai_validation, run_id=run_id, manifest_extra=manifest_extra,
+        )
+
+
+def _run_paper_locked(
+    *,
+    paper_id: str,
+    model: str,
+    client: IRServiceClient,
+    invoke: Callable[..., AgentInvocation],
+    enable_ai_validation: bool,
+    run_id: str,
+    manifest_extra: Optional[dict],
 ) -> dict:
     """Run the complete Extraction -> Conversion -> deterministic validation
     -> AI Validator -> commit pipeline for ALL 12 Sage IR entity types for
@@ -3056,67 +5888,111 @@ def run_paper(
     (`this_run_records`) -- never from ir-store's historical records under
     other record_ids, even when they exist for the same paper_id.
     """
-    run_id = run_id or _new_run_id()
     order = _topological_entity_order()
     this_run_records: dict[str, Any] = {}  # dict per entity_type, or list[dict] for a multi-record type
 
-    for entity_type in order:
-        if entity_type in results_store.MULTI_RECORD_ENTITY_TYPES:
-            record_infos = _run_multi_record_entity(
-                run_id=run_id, paper_id=paper_id, entity_type=entity_type, model=model,
-                client=client, invoke=invoke, enable_ai_validation=enable_ai_validation,
-                this_run_records=this_run_records,
+    # One model per run, enforced (not merely conventional): every agent call
+    # in this run must request `model`, and the calls are counted per agent
+    # for the manifest. Pure pass-through -- arguments and results are not
+    # touched, so extraction behavior is identical.
+    raw_invoke = invoke
+    agent_call_counts: dict[str, int] = {}
+
+    def invoke(agent: str, model_requested: str, prompt: str, *args: Any, **kwargs: Any) -> AgentInvocation:  # noqa: F811
+        if model_requested != model:
+            raise RuntimeError(
+                f"mixed models within one run: this run is pinned to {model!r} but a call requested {model_requested!r}"
             )
-            this_run_records[entity_type] = record_infos
-            results_store.save_multi_entity_results(
-                paper_id, entity_type,
-                [
-                    _entity_result_file(paper_id, entity_type, run_id, r["record_id"], r)
-                    for r in record_infos
-                ],
-            )
-            continue
+        agent_call_counts[agent] = agent_call_counts.get(agent, 0) + 1
+        result = raw_invoke(agent, model_requested, prompt, *args, **kwargs)
+        if _provider_failure(result) is None:
+            _PROVIDER_OUTAGE.pop(run_id, None)   # any answer at all: the provider is back, full patience again
+        return result
 
-        record_id = _entity_record_id(paper_id, entity_type)
-        record_key = f"{entity_type}__{record_id}"
-        known_refs, blocked_reason = _resolve_known_refs(entity_type, this_run_records)
-
-        if blocked_reason is not None:
-            record_info = {
-                "entity_type": entity_type, "record_id": record_id,
-                "status": "blocked", "reason": blocked_reason,
-            }
-            run_store.save_stage_attempt(run_id, record_key, "blocked", 1, record_info)
-            run_store.save_final(run_id, record_key, record_info)
-        else:
-            result = run_record(
-                run_id=run_id, paper_id=paper_id, entity_type=entity_type, record_id=record_id,
-                model=model, client=client, invoke=invoke, enable_ai_validation=enable_ai_validation,
-                known_refs=known_refs or None,
-            )
-            record_info = {
-                "entity_type": entity_type, "record_id": record_id,
-                "status": result.status, "detail": result.detail,
-            }
-
-        this_run_records[entity_type] = record_info
-        results_store.save_entity_result(
-            paper_id, entity_type,
-            _entity_result_file(paper_id, entity_type, run_id, record_id, record_info),
-        )
-
-    run_store.save_run_manifest(run_id, {
+    started_at = time.time()
+    base_manifest = {
         "run_id": run_id, "paper_id": paper_id, "model": model,
         "schema_fingerprint": schema_fingerprint(),
         "opencode_config_fingerprint": config_fingerprint(OPENCODE_CONFIG_PATH),
         "ai_validation_enabled": enable_ai_validation,
         "kind": "run-paper", "entity_order": order,
-        "started_at": time.time(), "finished_at": time.time(),
+        "started_at": started_at,
+        **(manifest_extra or {}),
+    }
+    # The manifest exists from the START of the run (a crashed run used to
+    # leave none at all); `run_status` says whether it is still going,
+    # finished, or failed. `results/<paper>/LATEST` is NOT moved until the
+    # run completed, so readers keep seeing the previous completed run.
+    run_store.save_run_manifest(run_id, {**base_manifest, "run_status": "running"})
+    results_store.mark_run_results(paper_id, run_id)
+
+    try:
+        for entity_type in order:
+            if entity_type in results_store.MULTI_RECORD_ENTITY_TYPES:
+                record_infos = _run_multi_record_entity(
+                    run_id=run_id, paper_id=paper_id, entity_type=entity_type, model=model,
+                    client=client, invoke=invoke, enable_ai_validation=enable_ai_validation,
+                    this_run_records=this_run_records,
+                )
+                this_run_records[entity_type] = record_infos
+                results_store.save_multi_entity_results(
+                    paper_id, entity_type,
+                    [
+                        _entity_result_file(paper_id, entity_type, run_id, r["record_id"], r)
+                        for r in record_infos
+                    ],
+                    run_id=run_id,
+                )
+                continue
+
+            record_id = _entity_record_id(paper_id, entity_type)
+            record_key = f"{entity_type}__{record_id}"
+            known_refs, blocked_reason = _resolve_known_refs(entity_type, this_run_records)
+
+            if blocked_reason is not None:
+                record_info = {
+                    "entity_type": entity_type, "record_id": record_id,
+                    "status": "blocked", "reason": blocked_reason,
+                }
+                run_store.save_stage_attempt(run_id, record_key, "blocked", 1, record_info)
+                run_store.save_final(run_id, record_key, record_info)
+            else:
+                result = run_record(
+                    run_id=run_id, paper_id=paper_id, entity_type=entity_type, record_id=record_id,
+                    model=model, client=client, invoke=invoke, enable_ai_validation=enable_ai_validation,
+                    known_refs=known_refs or None,
+                )
+                record_info = {
+                    "entity_type": entity_type, "record_id": record_id,
+                    "status": result.status, "detail": result.detail,
+                }
+
+            this_run_records[entity_type] = record_info
+            results_store.save_entity_result(
+                paper_id, entity_type,
+                _entity_result_file(paper_id, entity_type, run_id, record_id, record_info),
+                run_id=run_id,
+            )
+    except BaseException as exc:  # record the failure, never swallow it
+        run_store.save_run_manifest(run_id, {
+            **base_manifest, "run_status": "failed", "finished_at": time.time(),
+            "agent_calls": {"model": model, "by_agent": dict(agent_call_counts), "total": sum(agent_call_counts.values())},
+            "provider_failures": summarize_provider_failures(run_id),
+            "error": f"{type(exc).__name__}: {exc}",
+        })
+        raise
+
+    run_store.save_run_manifest(run_id, {
+        **base_manifest, "run_status": "completed", "finished_at": time.time(),
+        "table_pass": summarize_table_pass(run_id, paper_id, this_run_records),
+        "provider_failures": summarize_provider_failures(run_id),
+        "agent_calls": {"model": model, "by_agent": dict(agent_call_counts), "total": sum(agent_call_counts.values())},
         "status": {
             et: (r["status"] if not isinstance(r, list) else [x["status"] for x in r])
             for et, r in this_run_records.items()
         },
     })
+    results_store.set_latest(paper_id, run_id)
 
     return {"run_id": run_id, "paper_id": paper_id, "entity_order": order, "records": this_run_records}
 
@@ -3126,7 +6002,7 @@ def run_paper(
 # --------------------------------------------------------------------------- #
 
 
-def finalize_paper(paper_id: str) -> dict:
+def finalize_paper(paper_id: str, run_id: Optional[str] = None) -> dict:
     """Aggregate the latest ir-store record per (entity_type, record_id) for
     ONE paper into a single, unified, deterministic result covering all 12
     Sage IR entity types -- the "current best known state" of everything
@@ -3146,7 +6022,7 @@ def finalize_paper(paper_id: str) -> dict:
     (non-empty `unresolved`, empty `ready`). Nothing is ever fabricated to
     fill a gap.
     """
-    entries = store.read_all(paper_id)
+    entries = _store_entries(paper_id, run_id)
     latest: dict[tuple[str, str], dict] = {}
     for entry in entries:
         latest[(entry["entity_type"], entry["record_id"])] = entry  # later lines win, same as build_dataset_from_store
@@ -3167,8 +6043,8 @@ def finalize_paper(paper_id: str) -> dict:
         bucket = "ready" if entry.get("status") == "ready" else "unresolved"
         entities[entity_type][bucket].append(record_summary)
 
-    graph = graph_check(paper_id)
-    dataset_dict, _skipped = build_dataset_from_store(paper_id)
+    graph = graph_check(paper_id, run_id)
+    dataset_dict, _skipped = build_dataset_from_store(paper_id, run_id=run_id)
 
     result = {
         "paper_id": paper_id,
@@ -3213,6 +6089,60 @@ def _finalize_summary_line(result: dict) -> str:
 # --------------------------------------------------------------------------- #
 
 
+def _run_constants() -> dict[str, Any]:
+    """The attempt/retry constants in force for a run, recorded in its
+    manifest (they shape how many model calls a record can cost)."""
+    return {
+        "MAX_EXTRACTION_ATTEMPTS": MAX_EXTRACTION_ATTEMPTS,
+        "MAX_ENUMERATION_ATTEMPTS": MAX_ENUMERATION_ATTEMPTS,
+        "MAX_TABLE_CLASSIFICATION_ATTEMPTS": MAX_TABLE_CLASSIFICATION_ATTEMPTS,
+        "MAX_PROVIDER_FAILURE_ROUNDS": MAX_PROVIDER_FAILURE_ROUNDS,
+        "TABLE_PROVIDER_COOLDOWN_SECONDS": TABLE_PROVIDER_COOLDOWN_SECONDS,
+        "PROVIDER_COOLDOWN_GROWTH": PROVIDER_COOLDOWN_GROWTH,
+        "PROVIDER_COOLDOWN_CAP_SECONDS": PROVIDER_COOLDOWN_CAP_SECONDS,
+        "MAX_CONSECUTIVE_PROVIDER_TERMINALS": MAX_CONSECUTIVE_PROVIDER_TERMINALS,
+        "MAX_CONVERSION_LOOP_SAFETY": MAX_CONVERSION_LOOP_SAFETY,
+        "MAX_AI_VALIDATION_CORRECTIONS": MAX_AI_VALIDATION_CORRECTIONS,
+        "MAX_EMPTY_RESPONSE_RETRIES": MAX_EMPTY_RESPONSE_RETRIES,
+        "EMPTY_RESPONSE_RETRY_BACKOFF_SECONDS": EMPTY_RESPONSE_RETRY_BACKOFF_SECONDS,
+        "ir_service_MAX_PROPOSE_ATTEMPTS": 4,
+    }
+
+
+def prepare_run(
+    *, config_path: Optional[str] = None, model_override: Optional[str] = None,
+    ir_service_url: Optional[str] = None, probe: bool = True,
+) -> tuple[run_config.RunConfig, dict, Callable[..., AgentInvocation]]:
+    """Resolve the explicit run configuration and everything a run needs that
+    is derived from it: (cfg, manifest_extra, invoke).
+
+    - cfg: from the checked-in config (error if absent -- no silent default),
+      with an optional explicit `provider/model` override that is recorded.
+    - manifest_extra: model/provider/base-URL/timeouts/fingerprints/git state
+      plus a `/models` endpoint snapshot. If that snapshot succeeds and the
+      configured model is not listed, this raises `run_config.ModelUnavailable`
+      (refuse to run); an inconclusive probe is only a recorded warning.
+    - invoke: `invoke_agent` bound to the configured per-call timeout.
+    """
+    cfg = run_config.load_run_config(config_path)
+    source = "config"
+    if model_override:
+        cfg = run_config.with_model_override(cfg, model_override)
+        source = "cli_override"
+    probe_result = probe_warning = None
+    if probe:
+        probe_result = run_config.probe_models(cfg)
+        probe_warning = run_config.require_model_available(cfg, probe_result)
+    import functools
+
+    manifest_extra = run_config.build_manifest_metadata(
+        cfg, model_source=source, constants=_run_constants(), probe=probe_result, probe_warning=probe_warning,
+        ir_service={"url": ir_service_url or DEFAULT_IR_SERVICE_URL, "schema_fingerprint_on_disk": schema_fingerprint()},
+    )
+    invoke = functools.partial(invoke_agent, timeout=cfg.agent_call_timeout_seconds)
+    return cfg, manifest_extra, invoke
+
+
 def _new_run_id() -> str:
     return f"{time.strftime('%Y%m%dT%H%M%S')}_{uuid.uuid4().hex[:8]}"
 
@@ -3231,7 +6161,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     run.add_argument("--paper-id", required=True)
     run.add_argument("--entity-type", required=True)
     run.add_argument("--record-id", required=True)
-    run.add_argument("--model", default=DEFAULT_MODEL)
+    run.add_argument("--model", default=None, help="Explicit 'provider/model' override of the run config (recorded as model_source=cli_override). Default: the model in --config.")
+    run.add_argument("--config", default=None, help="Run config JSON (default: src/eval_config.json).")
     run.add_argument("--ir-service-url", default=DEFAULT_IR_SERVICE_URL)
     run.add_argument("--no-ai-validation", action="store_true")
     run.add_argument("--run-id", default=None, help="Reuse an existing run id instead of generating a new one.")
@@ -3249,12 +6180,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Assemble the latest 'ready' records for one paper from ir-store and run whole-graph (Table 19) validation.",
     )
     graph.add_argument("--paper-id", required=True)
+    graph.add_argument("--run-id", default=None, help="Only consider ir-store entries committed by this run (default: all runs, latest per record).")
 
     finalize = sub.add_parser(
         "finalize",
         help="Aggregate the latest ir-store records for one paper into a unified results/<paper_id>/result.json covering all 12 entity types.",
     )
     finalize.add_argument("--paper-id", required=True)
+    finalize.add_argument("--run-id", default=None, help="Only aggregate ir-store entries committed by this run (default: all runs, latest per record).")
 
     run_paper_cmd = sub.add_parser(
         "run-paper",
@@ -3262,7 +6195,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
              "for all 12 entity types for one paper, in dependency order, and write results/<paper_id>/<Entity>.json.",
     )
     run_paper_cmd.add_argument("--paper-id", required=True)
-    run_paper_cmd.add_argument("--model", default=DEFAULT_MODEL)
+    run_paper_cmd.add_argument("--model", default=None, help="Explicit 'provider/model' override of the run config (recorded as model_source=cli_override). Default: the model in --config.")
+    run_paper_cmd.add_argument("--config", default=None, help="Run config JSON (default: src/eval_config.json).")
     run_paper_cmd.add_argument("--ir-service-url", default=DEFAULT_IR_SERVICE_URL)
     run_paper_cmd.add_argument("--no-ai-validation", action="store_true")
     run_paper_cmd.add_argument("--run-id", default=None)
@@ -3279,13 +6213,13 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 0 if ok else 1
 
     if args.command == "graph-check":
-        result = graph_check(args.paper_id)
+        result = graph_check(args.paper_id, args.run_id)
         print(json.dumps(result, indent=2))
         has_errors = not result.get("constructed") or any(i["severity"] == "error" for i in result.get("issues", []))
         return 1 if has_errors else 0
 
     if args.command == "finalize":
-        result = finalize_paper(args.paper_id)
+        result = finalize_paper(args.paper_id, args.run_id)
         print(_finalize_summary_line(result))
         print(f"\nwritten to: {results_store.result_path(args.paper_id)}")
         has_errors = not result["graph_constructed"] or any(i["severity"] == "error" for i in result["graph_issues"])
@@ -3297,12 +6231,27 @@ def main(argv: Optional[list[str]] = None) -> int:
         if not ok:
             return 1
 
-        http_client = httpx.Client(base_url=args.ir_service_url, timeout=120.0)
+        try:
+            cfg, manifest_extra, invoke = prepare_run(
+                config_path=args.config, model_override=args.model, ir_service_url=args.ir_service_url,
+            )
+        except (run_config.RunConfigError, run_config.ModelUnavailable) as exc:
+            print(f"run configuration error: {exc}")
+            return 1
+        print(f"model: {cfg.model_ref}  base_url: {cfg.base_url}")
+        if manifest_extra.get("endpoint_probe_warning"):
+            print(f"warning: {manifest_extra['endpoint_probe_warning']}")
+
+        http_client = httpx.Client(base_url=args.ir_service_url, timeout=cfg.ir_service_timeout_seconds)
         client = IRServiceClient(http_client)
-        outcome = run_paper(
-            paper_id=args.paper_id, model=args.model, client=client,
-            enable_ai_validation=not args.no_ai_validation, run_id=args.run_id,
-        )
+        try:
+            outcome = run_paper(
+                paper_id=args.paper_id, model=cfg.model_ref, client=client, invoke=invoke,
+                enable_ai_validation=not args.no_ai_validation, run_id=args.run_id, manifest_extra=manifest_extra,
+            )
+        except run_lock.RunAlreadyActive as exc:
+            print(f"refusing to start: {exc}")
+            return 1
         print(f"\nrun_id: {outcome['run_id']}")
         print(f"entity_order: {outcome['entity_order']}")
         any_error = False
@@ -3335,14 +6284,24 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(f"invalid --ref value (expected FIELD=VALUE): {args.ref}")
         return 1
 
+    try:
+        cfg, manifest_extra, invoke = prepare_run(
+            config_path=args.config, model_override=args.model, ir_service_url=args.ir_service_url,
+        )
+    except (run_config.RunConfigError, run_config.ModelUnavailable) as exc:
+        print(f"run configuration error: {exc}")
+        return 1
+    print(f"model: {cfg.model_ref}  base_url: {cfg.base_url}")
+
     run_id = args.run_id or _new_run_id()
-    http_client = httpx.Client(base_url=args.ir_service_url, timeout=120.0)
+    http_client = httpx.Client(base_url=args.ir_service_url, timeout=cfg.ir_service_timeout_seconds)
     client = IRServiceClient(http_client)
 
     run_store.save_run_manifest(run_id, {
+        **manifest_extra,
         "run_id": run_id,
         "paper_id": args.paper_id, "entity_type": args.entity_type, "record_id": args.record_id,
-        "model": args.model,
+        "model": cfg.model_ref,
         "schema_fingerprint": schema_fingerprint(),
         "opencode_config_fingerprint": config_fingerprint(OPENCODE_CONFIG_PATH),
         "ai_validation_enabled": not args.no_ai_validation,
@@ -3353,7 +6312,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     result = run_record(
         run_id=run_id, paper_id=args.paper_id, entity_type=args.entity_type, record_id=args.record_id,
-        model=args.model, client=client, enable_ai_validation=not args.no_ai_validation,
+        model=cfg.model_ref, client=client, invoke=invoke, enable_ai_validation=not args.no_ai_validation,
         known_refs=known_refs or None,
     )
 

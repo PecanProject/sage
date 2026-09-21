@@ -277,7 +277,10 @@ def test_ai_validation_correction_failing_deterministic_validation_falls_back_to
     assert result.status == "ready"
     # The committed payload is the ORIGINAL valid one, not the failed
     # correction attempt (which had a null persistent_identifier).
-    assert result.detail["payload"]["persistent_identifier"] == valid_citation_payload()["persistent_identifier"]
+    committed_pid, original_pid = result.detail["payload"]["persistent_identifier"], valid_citation_payload()["persistent_identifier"]
+    assert (committed_pid["value"], committed_pid["provenance_label"], committed_pid["source"]["locators"]) == (
+        original_pid["value"], original_pid["provenance_label"], original_pid["source"]["locators"])
+    assert committed_pid["source"]["page_number"] is None  # only difference: the pipeline, not the model, owns page_number
     # The original "suspicious" verdict is preserved for transparency --
     # this is a refusal of the bad correction, not a silent pretense that
     # nothing was ever flagged.
@@ -982,7 +985,7 @@ def test_extraction_all_empty_response_failures_tagged_provider_empty_response(e
         ("extractor", _empty_invocation()),
         ("extractor", _empty_invocation()),
         ("extractor", _empty_invocation()),
-    ])
+    ] + [("extractor", _empty_invocation())] * orchestrator.MAX_PROVIDER_FAILURE_ROUNDS)  # padded: a larger provider budget must still be exhaustible
     result = orchestrator.run_record(
         run_id="run1", paper_id=PAPER_ID, entity_type="Citation", record_id=PAPER_ID,
         model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=True,
@@ -998,7 +1001,7 @@ def test_extraction_mixed_failure_is_not_tagged_provider_empty_response(env):
         ("extractor", _empty_invocation()),
         ("extractor", _inv("extractor", {"paper_id": PAPER_ID, "entity_type": "Citation", "record_id": PAPER_ID, "facts": []})),  # empty facts array: real content failure
         ("extractor", _empty_invocation()),
-    ])
+    ] + [("extractor", _empty_invocation())] * orchestrator.MAX_PROVIDER_FAILURE_ROUNDS)  # padded: a larger provider budget must still be exhaustible
     result = orchestrator.run_record(
         run_id="run1", paper_id=PAPER_ID, entity_type="Citation", record_id=PAPER_ID,
         model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=True,
@@ -1122,7 +1125,7 @@ def test_extraction_all_malformed_tool_call_failures_tagged_provider_malformed_r
         ("extractor", _malformed_invocation()),
         ("extractor", _malformed_invocation()),
         ("extractor", _malformed_invocation()),
-    ])
+    ] + [("extractor", _malformed_invocation())] * orchestrator.MAX_PROVIDER_FAILURE_ROUNDS)  # padded: a larger provider budget must still be exhaustible
     result = orchestrator.run_record(
         run_id="run1", paper_id=PAPER_ID, entity_type="Citation", record_id=PAPER_ID,
         model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=True,
@@ -1136,7 +1139,7 @@ def test_extraction_malformed_takes_priority_over_empty_when_mixed(env):
         ("extractor", _empty_invocation()),
         ("extractor", _malformed_invocation()),
         ("extractor", _empty_invocation()),
-    ])
+    ] + [("extractor", _empty_invocation())] * orchestrator.MAX_PROVIDER_FAILURE_ROUNDS)  # padded: a larger provider budget must still be exhaustible
     result = orchestrator.run_record(
         run_id="run1", paper_id=PAPER_ID, entity_type="Citation", record_id=PAPER_ID,
         model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=True,
@@ -1150,7 +1153,7 @@ def test_extraction_malformed_mixed_with_genuine_content_failure_is_not_tagged(e
         ("extractor", _malformed_invocation()),
         ("extractor", _inv("extractor", {"paper_id": PAPER_ID, "entity_type": "Citation", "record_id": PAPER_ID, "facts": []})),
         ("extractor", _malformed_invocation()),
-    ])
+    ] + [("extractor", _malformed_invocation())] * orchestrator.MAX_PROVIDER_FAILURE_ROUNDS)  # padded: a larger provider budget must still be exhaustible
     result = orchestrator.run_record(
         run_id="run1", paper_id=PAPER_ID, entity_type="Citation", record_id=PAPER_ID,
         model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=True,
@@ -1211,21 +1214,19 @@ def test_extraction_fact_with_null_raw_value_is_valid(env):
     assert attempt1["validation_errors"] == []
 
 
-def test_null_fact_with_empty_anchors_is_rejected_same_as_a_valued_fact(env):
+def test_valued_fact_with_empty_anchors_is_still_rejected_and_retried(env):
     # Real failure (run 20260914T204018_d8c6ddb6, Citation/Oceologia-1998):
-    # a null-valued fact (journal/volume/pages/persistent_identifier all
-    # absent from the text) was submitted with "anchors": [] and rejected.
-    # RawFact.anchors' min_length=1 constraint must reject this exactly the
-    # same way for a null-valued fact as for a valued one -- there is no
-    # exemption for "I found nothing" facts, precisely to force the model
-    # to cite where it looked (see extractor.md's null-fact-anchoring rule).
-    extraction_with_ungrounded_null_fact = dict(RAW_EXTRACTION)
-    extraction_with_ungrounded_null_fact["facts"] = RAW_EXTRACTION["facts"] + [
-        {"field_name": "persistent_identifier", "raw_value": None, "raw_text_excerpt": "",
-         "anchors": [], "notes": "no DOI visible"}
+    # a fact was submitted with "anchors": [] and rejected. RawFact.anchors'
+    # min_length=1 constraint still rejects it for a fact that carries a VALUE
+    # (see extractor.md's anchoring rule): nothing here is relaxed, so a valued
+    # identity fact with no anchor costs the attempt and is retried.
+    extraction_with_anchorless_valued_fact = dict(RAW_EXTRACTION)
+    extraction_with_anchorless_valued_fact["facts"] = RAW_EXTRACTION["facts"] + [
+        {"field_name": "persistent_identifier", "raw_value": "10.1234/abcd", "raw_text_excerpt": "doi 10.1234/abcd",
+         "anchors": [], "notes": None}
     ]
     invoke = make_invoke_sequence([
-        ("extractor", _inv("extractor", extraction_with_ungrounded_null_fact)),
+        ("extractor", _inv("extractor", extraction_with_anchorless_valued_fact)),
         ("extractor", _inv("extractor", RAW_EXTRACTION)),  # corrected retry: fact omitted instead
         ("converter", _inv("converter", valid_citation_payload())),
         ("ir-validator", _inv("ir-validator", {"verdict": "plausible", "issues": []})),
@@ -1240,6 +1241,34 @@ def test_null_fact_with_empty_anchors_is_rejected_same_as_a_valued_fact(env):
     assert attempt1["validation_errors"] == [
         {"field": "facts.3.anchors", "message": "List should have at least 1 item after validation, not 0"}
     ]
+
+
+def test_null_fact_with_empty_anchors_is_recovered_by_dropping_it_not_retried(env):
+    # The same historical failure, for a fact that reports NO value (journal/volume/pages/persistent_identifier
+    # absent from the text). RawFact still requires anchors (unchanged), but such a fact carries nothing that could
+    # leak into the record, so the attempt is recovered by dropping it -- logged, never shown to Conversion -- instead
+    # of failing (Citation null-fact fix; see test_citation_null_facts.py for the real stored answers).
+    extraction_with_anchorless_null_fact = dict(RAW_EXTRACTION)
+    extraction_with_anchorless_null_fact["facts"] = RAW_EXTRACTION["facts"] + [
+        {"field_name": "persistent_identifier", "raw_value": None, "raw_text_excerpt": "",
+         "anchors": [], "notes": "no DOI visible"}
+    ]
+    with pytest.raises(Exception):
+        orchestrator.RawExtraction.model_validate(extraction_with_anchorless_null_fact)   # the schema is unchanged
+    invoke = make_invoke_sequence([
+        ("extractor", _inv("extractor", extraction_with_anchorless_null_fact)),
+        ("converter", _inv("converter", valid_citation_payload())),
+        ("ir-validator", _inv("ir-validator", {"verdict": "plausible", "issues": []})),
+    ])
+    result = orchestrator.run_record(
+        run_id="run1", paper_id=PAPER_ID, entity_type="Citation", record_id=PAPER_ID,
+        model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=True,
+    )
+    assert result.status == "ready"
+    record_key = "Citation__" + PAPER_ID
+    attempt1 = run_store.load_json(run_store.record_dir("run1", record_key) / "extraction" / "attempt1.json")
+    assert not attempt1.get("validation_errors")
+    assert [d["field_name"] for d in attempt1["dropped_ungrounded_facts"]] == ["persistent_identifier"]
 
 
 # --------------------------------------------------------------------- #
@@ -1669,7 +1698,8 @@ def test_entity_result_file_shapes_are_stable_across_statuses():
 
 # ---- end-to-end run_paper with mocked agents ---- #
 
-PAPER_RUN_ORDER = ["Citation", "Site", "Species", "Variable", "Coverage", "Crop", "Management", "Method", "Study", "Treatment", "Observation"]
+# Item 14: Management is extracted AFTER Treatment (it may link to Treatments, protocol Section 9.3)
+PAPER_RUN_ORDER = ["Citation", "Site", "Species", "Variable", "Coverage", "Crop", "Method", "Study", "Treatment", "Management", "Observation"]
 # TreatmentPair intentionally excluded: this fixture's multi-record entities
 # (Variable, Treatment) each enumerate exactly ONE candidate, so Treatment
 # still produces only 1 ready record here and TreatmentPair stays blocked
@@ -1699,7 +1729,7 @@ def _paper_payload(entity_type: str, record_id: str, refs: dict) -> dict:
     if entity_type == "Coverage":
         return {"id": record_id, "citation_id": refs["citation_id"], "site_id": refs["site_id"], "variable_id": refs.get("variable_id")}
     if entity_type == "Crop":
-        return {"id": record_id, "citation_id": refs["citation_id"], "species_id": refs["species_id"]}
+        return {"id": record_id, "citation_id": refs["citation_id"], "species_id": refs["species_id"], "cultivar": _p_ef("A Title", "b:0003")}
     if entity_type == "Management":
         return {
             "id": record_id, "citation_id": refs["citation_id"],
@@ -1722,7 +1752,7 @@ def _paper_payload(entity_type: str, record_id: str, refs: dict) -> dict:
             "citation_id": refs["citation_id"], "site_id": refs["site_id"],
             "treatment_id": refs["treatment_id"], "method_id": refs["method_id"],
             "variable_name": _p_ef("A Title", "b:0003"),
-            "value": _p_ef({"reported_text": "2012", "reported_numeric_value": 2012.0, "reported_units": "unit"}, "b:0002"),
+            "value": _p_ef({"reported_text": "2012", "reported_numeric_value": 2012.0, "reported_units": "unitless"}, "b:0002"),
             "reported_effect_scope": _p_ef("treatment_mean", "b:0004"),
             "aggregated_over_factors": _p_ef([], "b:0001"),
             "temporal_info": _p_ef({"reported_text": "2012", "earliest": None, "latest": None, "relative_timing": None, "relative_timing_days": None}, "b:0002"),
@@ -2103,7 +2133,7 @@ def _observation_payload(record_id, treatment_id, method_id, variable_id=None, s
         "citation_id": PAPER_ID, "site_id": site_id or f"{PAPER_ID}_site",
         "treatment_id": treatment_id, "method_id": method_id,
         "variable_name": _p_ef("A Title", "b:0003"),
-        "value": _p_ef({"reported_text": "A Title", "reported_numeric_value": 1.0, "reported_units": "unit"}, "b:0003"),
+        "value": _p_ef({"reported_text": "A Title", "reported_numeric_value": None, "reported_units": "unitless"}, "b:0003"),
         "reported_effect_scope": _p_ef("treatment_mean", "b:0004"),
         "aggregated_over_factors": _p_ef([], "b:0001"),
         "temporal_info": _p_ef(
@@ -2705,10 +2735,14 @@ def test_run_paper_writes_directory_with_all_twelve_files(env):
     from pipeline import results_store
 
     invoke = make_invoke_sequence(_build_run_paper_invoke_sequence())
-    orchestrator.run_paper(paper_id=PAPER_ID, model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=False)
+    outcome = orchestrator.run_paper(
+        paper_id=PAPER_ID, model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=False,
+    )
 
-    paper_dir = results_store.paper_dir(PAPER_ID)
-    single_record_files = sorted(p.name for p in paper_dir.glob("*.json"))
+    # Run isolation: per-entity results live under results/<paper>/<run_id>/
+    # (the only intentional layout change; see results_store's module doc).
+    paper_dir = results_store.run_results_dir(PAPER_ID, outcome["run_id"])
+    single_record_files = sorted(p.name for p in paper_dir.glob("*.json") if p.name != results_store.RUN_MARKER_FILENAME)
     single_record_types = [
         et for et in orchestrator.ENTITY_TYPE_TO_PLURAL if et not in results_store_module.MULTI_RECORD_ENTITY_TYPES
     ]

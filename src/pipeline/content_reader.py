@@ -234,6 +234,133 @@ def read_table_full(paper_id: str, table_anchor: str, papers_root: Path = DEFAUL
     }
 
 
+# A table caption/label as it appears at the START of a rendered block:
+# "Table 2 ...", "*Table 2. ...*", "#### Table 3", "Tab. 4". Real captions
+# reach content.md as a Caption block, as a SectionHeader ("#### Table 3") or
+# as a plain Text block, and Marker does not always keep the caption inside
+# the same TableGroup as its table -- so the label is recognized by TEXT, not
+# by Marker block type.
+_TABLE_LABEL_RE = re.compile(r"^\W*(table|tab\.)\s*[0-9IVX]+", re.IGNORECASE)
+# Blocks that never carry table content and may legitimately sit between the
+# two halves of a page-split table (a footnote, running header/footer).
+_PAGE_FURNITURE_BLOCK_TYPES = {"Footnote", "PageHeader", "PageFooter"}
+
+
+def _page_number(page_id: Optional[str]) -> Optional[int]:
+    m = re.search(r"(\d+)\s*$", page_id or "")
+    return int(m.group(1)) if m else None
+
+
+def physical_page(page_id: Optional[str]) -> Optional[int]:
+    """The 1-indexed PDF page of a provenance `page_id` ("page_0" is the first page) -- the same convention
+    `streamlit_app/provenance_adapter.py` uses to place a block on the PDF -- or None when the page id has no number."""
+    n = _page_number(page_id)
+    return None if n is None else n + 1
+
+
+def page_for_anchor(paper_id: str, anchor: str, papers_root: Path = DEFAULT_PAPERS_ROOT) -> Optional[int]:
+    """The 1-indexed PDF page a block anchor sits on, from provenance.json, or None (no provenance, unknown anchor, or
+    no page id). Never a guess."""
+    provenance = _load_provenance(paper_id, papers_root)
+    entry = (provenance or {}).get(_normalize_anchor(anchor)) if anchor else None
+    return physical_page((entry or {}).get("page_id"))
+
+
+def _rendered_table_columns(paper_id: str, anchor: str, papers_root: Path) -> Optional[int]:
+    """Column count of a table's rendered markdown (its header row's cell
+    count -- `marker_adapter.table_html_to_markdown` pads every row to the
+    widest row, so this is the table's real width), or None when the anchor
+    has no markdown table (e.g. a table Marker flattened to prose)."""
+    rendered = read_table(paper_id, anchor, papers_root)
+    if not rendered.get("found"):
+        return None
+    header = (rendered.get("markdown_table") or "").splitlines()[0:1]
+    return header[0].count("|") - 1 if header else None
+
+
+def table_continuation_map(paper_id: str, papers_root: Path = DEFAULT_PAPERS_ROOT) -> dict[str, str]:
+    """{table_anchor: previous_table_anchor} for every Table block that is,
+    with high confidence, the page-split CONTINUATION of the table right
+    before it -- and only those.
+
+    Real evidence this exists for: Daren-1997-Canopy's Table 2 is split
+    across a page break (content.md anchors b:0119 and b:0178); the model,
+    asked to judge continuation on its own, read `b:0178` as a separate LSD
+    table and Table 2 was reconstructed from 7 of its 18 rows.
+
+    The rule was verified against Marker's actual structure and every
+    consecutive table pair in the 9 distinct papers on disk (22 pairs) before
+    being adopted. A table T is a continuation of the previous table P only if
+    ALL of these hold:
+
+      1. no rendered block sits between P and T other than page furniture
+         (footnote / running header / footer) -- a continuation directly
+         FOLLOWS its first half in reading order;
+      2. none of the blocks between them is a table label ("Table N ...",
+         whether it is a Caption, a SectionHeader or plain Text) -- a new
+         caption means a NEW table;
+      3. T is on the same page as P or the immediately next page;
+      4. T and P have the same rendered column count.
+
+    Deliberately NOT used: "the Marker TableGroup has no Caption sibling".
+    Tested against real papers, that wrongly merges genuinely separate
+    tables (Berntson-1997 Table 2 follows Table 1 on the next page with the
+    same width but its caption lives OUTSIDE the table's Marker group, as do
+    Nutrient-cycling's `#### Table 3` headers).
+
+    Any doubt resolves to "not a continuation" -- the unsafe direction is
+    merging two real tables, so a missed continuation is left to the caller's
+    existing judgment, unchanged."""
+    provenance = _load_provenance(paper_id, papers_root)
+    if provenance is None:
+        return {}
+    try:
+        texts = _rendered_block_texts(paper_id, papers_root)
+    except OSError:
+        return {}
+
+    # "Rendered" = actually present in content.md (the provenance flag is not
+    # relied on: it is absent from older/minimal provenance files).
+    rendered = sorted((a for a in provenance if a in texts), key=_anchor_sort_key)
+    position = {a: i for i, a in enumerate(rendered)}
+    tables = [a for a in rendered if provenance[a].get("block_type") == "Table"]
+
+    continuation: dict[str, str] = {}
+    for prev, cur in zip(tables, tables[1:]):
+        between = rendered[position[prev] + 1: position[cur]]
+        if any(provenance[b].get("block_type") not in _PAGE_FURNITURE_BLOCK_TYPES for b in between):
+            continue
+        if any(_TABLE_LABEL_RE.match(texts.get(b, "")) for b in between):
+            continue
+        prev_page = _page_number(provenance[prev].get("page_id"))
+        cur_page = _page_number(provenance[cur].get("page_id"))
+        if prev_page is None or cur_page is None or cur_page - prev_page not in (0, 1):
+            continue
+        prev_cols = _rendered_table_columns(paper_id, prev, papers_root)
+        if prev_cols is None or prev_cols != _rendered_table_columns(paper_id, cur, papers_root):
+            continue
+        continuation[cur] = prev
+    return continuation
+
+
+def table_continuation_chains(paper_id: str, papers_root: Path = DEFAULT_PAPERS_ROOT) -> list[list[str]]:
+    """Every multi-block logical table, as document-ordered anchor lists
+    (`[["b:0119", "b:0178"], ...]`). Tables that are not split are not
+    listed. See `table_continuation_map` for the rule."""
+    continuation = table_continuation_map(paper_id, papers_root)
+    if not continuation:
+        return []
+    heads = {a for a in continuation.values() if a not in continuation}
+    chains: list[list[str]] = []
+    for head in sorted(heads, key=_anchor_sort_key):
+        chain = [head]
+        follower = {prev: cur for cur, prev in continuation.items()}
+        while chain[-1] in follower:
+            chain.append(follower[chain[-1]])
+        chains.append(chain)
+    return chains
+
+
 def list_tables(paper_id: str, papers_root: Path = DEFAULT_PAPERS_ROOT) -> dict:
     """Every Table block in this paper, straight from provenance.json's own
     `block_type` (computed once by marker_adapter.py during document
@@ -254,11 +381,15 @@ def list_tables(paper_id: str, papers_root: Path = DEFAULT_PAPERS_ROOT) -> dict:
         (a for a, e in provenance.items() if e.get("block_type") == "Table"),
         key=_anchor_sort_key,
     )
+    continuation = table_continuation_map(paper_id, papers_root)
     tables = [
         {
             "table_anchor": anchor,
             "page": provenance[anchor].get("page_id"),
             "section_path": provenance[anchor].get("section_path"),
+            # The previous table this block deterministically continues, or
+            # None (see table_continuation_map for the rule).
+            "continuation_of": continuation.get(anchor),
         }
         for anchor in ordered_anchors
     ]

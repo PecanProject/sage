@@ -38,7 +38,7 @@ from pipeline import store
 from pipeline import vocab
 from pipeline.fingerprint import schema_fingerprint
 from pipeline.ir_schema import ENTITY_MODELS, IRDataset
-from pipeline.validators import validate_dataset, validate_provenance
+from pipeline.validators import readiness_issues, validate_dataset, validate_provenance
 
 app = FastAPI(title="ir-service", version="0.1.0")
 _SERVICE_STARTED_AT = time.time()
@@ -63,11 +63,17 @@ _SERVICE_SCHEMA_FINGERPRINT = schema_fingerprint()
 # slightly different wording -- the key is (paper_id, entity_type, record_id)
 # so distinct records don't share a budget.
 MAX_PROPOSE_ATTEMPTS = 4
-_attempt_counts: dict[tuple[str, str, str], int] = {}
+# Run isolation: the key also carries the caller's run_id (None for a caller
+# that supplies none -- the pre-isolation behavior, unchanged), so two runs
+# proposing the same (paper, entity, record_id) never spend each other's
+# 4-attempt budget. The budget itself and its semantics are unchanged.
+_attempt_counts: dict[tuple[str, str, str, Optional[str]], int] = {}
 
 
-def _attempt_key(paper_id: str, entity_type: str, record_id: str) -> tuple[str, str, str]:
-    return (paper_id, entity_type, record_id)
+def _attempt_key(
+    paper_id: str, entity_type: str, record_id: str, run_id: Optional[str] = None,
+) -> tuple[str, str, str, Optional[str]]:
+    return (paper_id, entity_type, record_id, run_id)
 
 
 # ---------------------------------------------------------------------------
@@ -620,6 +626,7 @@ class ProposeRecordRequest(BaseModel):
     record_id: str
     payload: dict[str, Any]
     dataset_context: Optional[dict[str, Any]] = None
+    run_id: Optional[str] = None  # orchestrator run this proposal belongs to (attempt-counter isolation only)
 
     @field_validator("payload", mode="before")
     @classmethod
@@ -649,7 +656,7 @@ def _construction_errors(entity_type: str, payload: dict[str, Any]) -> list[dict
 
 @app.post("/propose_record")
 def propose_record(req: ProposeRecordRequest) -> dict:
-    key = _attempt_key(req.paper_id, req.entity_type, req.record_id)
+    key = _attempt_key(req.paper_id, req.entity_type, req.record_id, req.run_id)
     attempts_so_far = _attempt_counts.get(key, 0)
 
     if attempts_so_far >= MAX_PROPOSE_ATTEMPTS:
@@ -713,8 +720,14 @@ def propose_record(req: ProposeRecordRequest) -> dict:
     if not is_valid:
         _attempt_counts[key] = attempts_so_far + 1
 
+    # Readiness (Item 15) is separate from validity: a payload can be valid yet have no value / variable name. It costs
+    # no attempt and is not an error -- the caller commits such a record as `unresolved`, payload kept.
+    readiness = [issue.to_dict() for issue in readiness_issues(req.entity_type, req.payload, req.record_id)] if is_valid else []
+
     return {
         "valid": is_valid,
+        "ready": is_valid and not readiness,
+        "readiness_issues": readiness,
         "attempts_used": _attempt_counts.get(key, attempts_so_far),
         "attempts_remaining": max(0, MAX_PROPOSE_ATTEMPTS - _attempt_counts.get(key, attempts_so_far)),
         "errors": errors,
@@ -830,7 +843,9 @@ def flag_unresolved(req: FlagUnresolvedRequest) -> dict:
     )
     # Flagging unresolved resets the attempt counter for this record -- it's
     # the designed off-ramp from the turn cap, not another attempt.
-    _attempt_counts.pop(_attempt_key(req.paper_id, req.entity_type, req.record_id), None)
+    _attempt_counts.pop(
+        _attempt_key(req.paper_id, req.entity_type, req.record_id, (req.run_metadata or {}).get("run_id")), None,
+    )
     return {"recorded": True, "entry": entry}
 
 
@@ -884,6 +899,10 @@ def commit_record(req: CommitRecordRequest) -> dict:
     if not errors:
         errors.extend(issue.to_dict() for issue in validate_provenance(req.paper_id, req.payload))
 
+    if req.status == "ready":
+        # A record whose core fields are UNRESOLVED can only be committed as `unresolved` (Item 15).
+        errors.extend(issue.to_dict() for issue in readiness_issues(req.entity_type, req.payload, req.record_id))
+
     warnings: list[dict] = []
     if req.status == "ready" and not errors and req.dataset_context is not None:
         merged = _merge_into_dataset_context(req.entity_type, req.payload, req.dataset_context)
@@ -909,7 +928,9 @@ def commit_record(req: CommitRecordRequest) -> dict:
         payload=req.payload,
         extra=req.run_metadata,
     )
-    _attempt_counts.pop(_attempt_key(req.paper_id, req.entity_type, req.record_id), None)
+    _attempt_counts.pop(
+        _attempt_key(req.paper_id, req.entity_type, req.record_id, (req.run_metadata or {}).get("run_id")), None,
+    )
     return {"committed": True, "entry": entry}
 
 

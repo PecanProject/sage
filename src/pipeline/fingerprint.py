@@ -21,9 +21,11 @@ from pathlib import Path
 PIPELINE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = PIPELINE_DIR.parent
 
-# The files whose behavior actually determines whether a record is valid.
-# Deliberately narrow -- this is a staleness check, not a full source hash.
-_SCHEMA_FILES = ["ir_schema.py", "validators.py"]
+# The files whose behavior actually determines whether a record is valid, or what the running service does with
+# one. Deliberately narrow -- this is a staleness check, not a full source hash. `ir_service.py` (propose/commit, and
+# item 15's readiness gate) and `reconstruction.py` (the date/stat/factorial tools Conversion calls through the
+# service) are included because a service running an older copy of either behaves differently from the disk.
+_SCHEMA_FILES = ["ir_schema.py", "validators.py", "ir_service.py", "reconstruction.py"]
 
 
 def schema_fingerprint() -> str:

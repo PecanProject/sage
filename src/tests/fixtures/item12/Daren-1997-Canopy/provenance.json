@@ -1,0 +1,42 @@
+{
+ "b:0117": {
+  "block_type": "Text",
+  "page_id": "page_4",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0118": {
+  "block_type": "Caption",
+  "page_id": "page_4",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0119": {
+  "block_type": "Table",
+  "page_id": "page_4",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0178": {
+  "block_type": "Table",
+  "page_id": "page_5",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0289": {
+  "block_type": "Footnote",
+  "page_id": "page_5",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions"
+  ],
+  "rendered_in_content_md": true
+ }
+}

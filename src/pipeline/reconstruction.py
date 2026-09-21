@@ -15,6 +15,7 @@ payload the agent must then run through `propose_record`.
 
 from __future__ import annotations
 
+import calendar
 import re
 from datetime import date
 from typing import Any, Optional
@@ -23,6 +24,65 @@ _MONTH_RANGE_RE = re.compile(
     r"(?P<y1>\d{4})-(?P<m1>\d{2})(?:-(?P<d1>\d{2}))?\s*(?:to|-|–|—)\s*(?P<y2>\d{4})-(?P<m2>\d{2})(?:-(?P<d2>\d{2}))?"
 )
 _SINGLE_DATE_RE = re.compile(r"(?P<y>\d{4})-(?P<m>\d{2})-(?P<d>\d{2})")
+
+# Written dates ("9 June 1993", "June 9, 1993", "15-24 June 1981", "June 1993"). Every pattern
+# REQUIRES a four-digit year: a day and month with no year ("9 June") is never completed with a
+# guessed year -- the caller supplies the year from where the source states it.
+_MONTHS = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6, "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+_MONTH = r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?"
+_DAY = r"(?P<{n}>\d{{1,2}})(?:st|nd|rd|th)?"
+_WRITTEN_PATTERNS = [
+    ("range_months", re.compile(rf"\b{_DAY.format(n='d1')}\s+(?P<m1>{_MONTH})\s*(?:to|[-–—])\s*{_DAY.format(n='d2')}\s+(?P<m2>{_MONTH}),?\s+(?P<y>\d{{4}})\b", re.I)),
+    ("range_days", re.compile(rf"\b{_DAY.format(n='d1')}\s*[-–—]\s*{_DAY.format(n='d2')}\s+(?P<m1>{_MONTH}),?\s+(?P<y>\d{{4}})\b", re.I)),
+    ("day_month_year", re.compile(rf"\b{_DAY.format(n='d1')}\s+(?P<m1>{_MONTH}),?\s+(?P<y>\d{{4}})\b", re.I)),
+    ("month_day_year", re.compile(rf"\b(?P<m1>{_MONTH})\s+{_DAY.format(n='d1')},?\s+(?P<y>\d{{4}})\b", re.I)),
+    ("month_year", re.compile(rf"\b(?P<m1>{_MONTH}),?\s+(?P<y>\d{{4}})\b", re.I)),
+]
+
+
+def _month_number(name: str) -> int:
+    return _MONTHS[name.lower().rstrip(".")[:3]]
+
+
+def _month_end(year: int, month: int) -> int:
+    return calendar.monthrange(year, month)[1]
+
+
+def _parse_written_dates(text: str) -> Optional[tuple[date, date]]:
+    """(earliest, latest) for a text holding exactly ONE written date or date range with a year, else
+    None -- several separate dates ("9 June (vegetative), 19 July (elongating)") are ambiguous and are
+    never collapsed into one. A month with no day spans the whole month (protocol Section 10.1)."""
+    found = []
+    for name, pattern in _WRITTEN_PATTERNS:
+        for m in pattern.finditer(text):
+            found.append((m.start(), m.end(), name, m))
+    # a longer/earlier pattern swallows any shorter one inside its own span (e.g. "June 9, 1993" contains "June 9")
+    found.sort(key=lambda f: (f[0], -(f[1] - f[0])))
+    spans: list[tuple[int, int, str, Any]] = []
+    for f in found:
+        if not any(f[0] >= s[0] and f[1] <= s[1] for s in spans):
+            spans.append(f)
+    if len(spans) != 1:
+        return None
+    _, _, name, m = spans[0]
+    year = int(m.group("y"))
+    try:
+        if name == "range_months":
+            m1, m2 = _month_number(m.group("m1")), _month_number(m.group("m2"))
+            return date(year, m1, int(m.group("d1"))), date(year, m2, int(m.group("d2")))
+        if name == "range_days":
+            month = _month_number(m.group("m1"))
+            return date(year, month, int(m.group("d1"))), date(year, month, int(m.group("d2")))
+        if name in ("day_month_year", "month_day_year"):
+            d = date(year, _month_number(m.group("m1")), int(m.group("d1")))
+            return d, d
+        month = _month_number(m.group("m1"))
+        return date(year, month, 1), date(year, month, _month_end(year, month))
+    except ValueError:
+        return None
+
 
 _RELATIVE_TERMS = {
     "before planting": "before_planting",
@@ -57,8 +117,10 @@ def reconstruct_date_mapping(reported_text: str) -> dict[str, Any]:
     m = _MONTH_RANGE_RE.search(text)
     if m:
         d1 = int(m.group("d1")) if m.group("d1") else 1
-        d2 = int(m.group("d2")) if m.group("d2") else 28
         try:
+            # no end day given -> the LAST day of that month (this used to default to 28, which is wrong
+            # for every month but a non-leap February)
+            d2 = int(m.group("d2")) if m.group("d2") else _month_end(int(m.group("y2")), int(m.group("m2")))
             earliest = date(int(m.group("y1")), int(m.group("m1")), d1)
             latest = date(int(m.group("y2")), int(m.group("m2")), d2)
         except ValueError:
@@ -84,6 +146,16 @@ def reconstruct_date_mapping(reported_text: str) -> dict[str, Any]:
             }
         except ValueError:
             pass
+
+    written = _parse_written_dates(text)
+    if written is not None:
+        return {
+            "earliest": written[0].isoformat(),
+            "latest": written[1].isoformat(),
+            "reported_text": text,
+            "relative_timing": None,
+            "relative_timing_days": None,
+        }
 
     return {
         "earliest": None,

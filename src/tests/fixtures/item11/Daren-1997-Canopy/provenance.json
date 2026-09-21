@@ -1,0 +1,75 @@
+{
+ "b:0027": {
+  "block_type": "Text",
+  "page_id": "page_2",
+  "section_path": [
+   "ABSTRACT"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0028": {
+  "block_type": "Text",
+  "page_id": "page_2",
+  "section_path": [
+   "ABSTRACT"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0031": {
+  "block_type": "Text",
+  "page_id": "page_3",
+  "section_path": [
+   "ABSTRACT"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0046": {
+  "block_type": "Text",
+  "page_id": "page_4",
+  "section_path": [
+   "MATERIALS AND METHODS"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0047": {
+  "block_type": "Caption",
+  "page_id": "page_4",
+  "section_path": [
+   "MATERIALS AND METHODS"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0048": {
+  "block_type": "Table",
+  "page_id": "page_4",
+  "section_path": [
+   "MATERIALS AND METHODS"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0340": {
+  "block_type": "Footnote",
+  "page_id": "page_6",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0341": {
+  "block_type": "Text",
+  "page_id": "page_6",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0342": {
+  "block_type": "SectionHeader",
+  "page_id": "page_6",
+  "section_path": [
+   "RESULTS AND DISCUSSION Weather Conditions",
+   "Yield"
+  ],
+  "rendered_in_content_md": true
+ }
+}
