@@ -35,10 +35,11 @@ import sage_paths
 
 MARKER_BIN = str(sage_paths.SAGE_ROOT / ".venv" / "bin" / "marker")
 
-# Deliberately NOT orchestrator.DEFAULT_MODEL ("jetstream-scout/llama-4-scout"),
-# which earlier real-data runs in this project established is broken --
-# this is the model already used for the real, working extraction runs.
-_DEFAULT_EXTRACTION_MODEL = "jetstream-gpt/gpt-oss-120b"
+# There is no model default in this module any more (it used to hold its own
+# "jetstream-gpt/gpt-oss-120b", silently disagreeing with the orchestrator's).
+# A UI-launched run uses the SAME explicit run config as the CLI
+# (`pipeline.run_config`, `src/eval_config.json`); a caller may pass an
+# explicit `provider/model` override, which the manifest records.
 
 
 def run_marker(timeout: int = 1800) -> dict[str, Any]:
@@ -351,7 +352,7 @@ def _classify_run_outcome(records: dict[str, Any]) -> tuple[str, list[tuple[str,
     return outcome, error_records
 
 
-def _run_extraction_for_paper(paper_id: str, model: str) -> Iterator[dict[str, Any]]:
+def _run_extraction_for_paper(paper_id: str, model: Optional[str]) -> Iterator[dict[str, Any]]:
     """Run the real, existing full-paper extraction pipeline
     (pipeline.orchestrator.run_paper) for one paper -- never a second,
     parallel extraction implementation. Health-checks ir_service first
@@ -378,14 +379,41 @@ def _run_extraction_for_paper(paper_id: str, model: str) -> Iterator[dict[str, A
         yield {"ok": False, "step": "extraction", "error": msg}
         return
 
+    # Run isolation: one active run per paper. A second Extract click (or a
+    # second browser session) used to start a second thread on the same
+    # paper and interleave its outputs with the first run's. Refuse it here,
+    # up front and readably; run_paper itself enforces the same lock.
+    from pipeline import run_lock
+
+    holder = run_lock.active_holder(paper_id)
+    if holder:
+        yield {
+            "ok": False, "step": "extraction", "run_outcome": "failed",
+            "error": str(run_lock.RunAlreadyActive(paper_id, holder)),
+        }
+        return
+
+    from pipeline import run_config
+
+    try:
+        cfg, manifest_extra, invoke = orchestrator.prepare_run(model_override=model)
+    except (run_config.RunConfigError, run_config.ModelUnavailable) as exc:
+        yield {"ok": False, "step": "extraction", "run_outcome": "failed", "error": f"run configuration error: {exc}"}
+        return
+
     run_id = orchestrator._new_run_id()
     outcome: dict[str, Any] = {}
 
     def _worker():
         try:
-            with httpx.Client(base_url=orchestrator.DEFAULT_IR_SERVICE_URL, timeout=120.0) as http_client:
+            with httpx.Client(
+                base_url=orchestrator.DEFAULT_IR_SERVICE_URL, timeout=cfg.ir_service_timeout_seconds,
+            ) as http_client:
                 client = orchestrator.IRServiceClient(http_client)
-                outcome["result"] = orchestrator.run_paper(paper_id=paper_id, model=model, client=client, run_id=run_id)
+                outcome["result"] = orchestrator.run_paper(
+                    paper_id=paper_id, model=cfg.model_ref, client=client, invoke=invoke, run_id=run_id,
+                    manifest_extra=manifest_extra,
+                )
         except Exception as exc:  # real network/agent failures during a live run
             outcome["error"] = f"{type(exc).__name__}: {exc}"
 
@@ -422,7 +450,7 @@ def _run_extraction_for_paper(paper_id: str, model: str) -> Iterator[dict[str, A
     }
 
 
-def _run_extraction_with_ui_progress(paper_id: str, model: str) -> Iterator[dict[str, Any]]:
+def _run_extraction_with_ui_progress(paper_id: str, model: Optional[str]) -> Iterator[dict[str, Any]]:
     """Consumes _run_extraction_for_paper's progress-event generator and
     re-yields it as the same {"stage": "extraction", "status": ..., ...}
     shape process_single_paper_full/process_all_papers_full already yield
@@ -491,8 +519,6 @@ def process_all_papers_full(model: str | None = None, timeout: int = 1800) -> It
     Marker conversion was skipped for an already-converted PDF -- those
     are independent stages with independent staleness checks.
     """
-    model = model or _DEFAULT_EXTRACTION_MODEL
-
     yield {"stage": "marker", "status": "running", "message": "Processing PDF(s) with Marker..."}
     marker_result = run_marker(timeout=timeout)
     if not marker_result["ok"]:
@@ -550,8 +576,6 @@ def process_single_paper_full(paper_id: str, model: str | None = None, timeout: 
     silently skipped just because a PREVIOUS extraction already exists,
     unlike process_all_papers_full's "only if it still needs it" batch
     default."""
-    model = model or _DEFAULT_EXTRACTION_MODEL
-
     yield {"stage": "marker", "status": "running", "message": f"Processing {paper_id} with Marker..."}
     marker_result = run_marker_for_paper(paper_id, timeout=timeout)
     if not marker_result["ok"]:

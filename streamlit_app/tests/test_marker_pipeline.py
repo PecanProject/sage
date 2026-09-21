@@ -272,3 +272,45 @@ def test_run_extraction_with_ui_progress_still_maps_catastrophic_failure_to_erro
     assert len(events) == 1
     assert events[0]["status"] == "error"
     assert "ir_service unreachable" in events[0]["message"]
+
+
+# --------------------------------------------------------------------- #
+# Run isolation / explicit run config (infrastructure only)
+# --------------------------------------------------------------------- #
+
+
+def _healthy_orchestrator(monkeypatch):
+    from pipeline import orchestrator
+
+    monkeypatch.setattr(orchestrator, "check_health", lambda url: (True, "ir_service healthy"))
+    return orchestrator
+
+
+def test_extraction_is_refused_up_front_when_another_run_holds_the_paper_lock(monkeypatch, tmp_path):
+    from pipeline import run_lock
+
+    monkeypatch.setenv("IR_RUNS_ROOT", str(tmp_path))
+    _healthy_orchestrator(monkeypatch)
+    run_lock.acquire("SomePaper", "already_running")  # holder = this process (alive)
+    events = list(marker_pipeline._run_extraction_for_paper("SomePaper", None))
+    assert len(events) == 1 and events[0]["ok"] is False and events[0]["run_outcome"] == "failed"
+    assert "already active" in events[0]["error"] and "already_running" in events[0]["error"]
+
+
+def test_a_missing_or_invalid_run_config_stops_extraction_with_a_readable_error(monkeypatch, tmp_path):
+    from pipeline import run_config
+
+    monkeypatch.setenv("IR_RUNS_ROOT", str(tmp_path))
+    orchestrator = _healthy_orchestrator(monkeypatch)
+
+    def no_config(**kwargs):
+        raise run_config.RunConfigError("run config not found")
+
+    monkeypatch.setattr(orchestrator, "prepare_run", no_config)
+    events = list(marker_pipeline._run_extraction_for_paper("SomePaper", None))
+    assert len(events) == 1 and events[0]["ok"] is False
+    assert events[0]["error"].startswith("run configuration error:")
+
+
+def test_the_launcher_has_no_model_default_of_its_own():
+    assert not hasattr(marker_pipeline, "_DEFAULT_EXTRACTION_MODEL")
