@@ -300,15 +300,17 @@ def _correction_effect(latest: Optional[dict], record_level: Optional[dict], raw
     return {"effective_value": effective_value, "review_status": review_status, "latest_correction": latest}
 
 
-def _normalize_field(paper_id: str, entity_type: str, record_id: str, field_name: str, raw: Any) -> dict:
+def _normalize_field(
+    paper_id: str, entity_type: str, record_id: str, field_name: str, raw: Any, run_id: Optional[str] = None,
+) -> dict:
     """One entry of the record's `fields` dict. `raw` is either a bare
     reference value (str/int/bool -- ir_schema's ExtractedReference /
     dataset_id-style fields) or a full ExtractedField dict
     ({value, provenance_label, source, ...})."""
     is_extracted_field = isinstance(raw, dict) and "provenance_label" in raw
 
-    latest = corrections_store.latest_action_for_field(paper_id, entity_type, record_id, field_name)
-    record_level = corrections_store.latest_action_for_field(paper_id, entity_type, record_id, None)
+    latest = corrections_store.latest_action_for_field(paper_id, entity_type, record_id, field_name, run_id=run_id)
+    record_level = corrections_store.latest_action_for_field(paper_id, entity_type, record_id, None, run_id=run_id)
 
     if not is_extracted_field:
         effect = _correction_effect(latest, record_level, raw)
@@ -354,7 +356,9 @@ def get_review_data(paper_id: str) -> dict[str, list[dict]]:
             status = raw_result.get("status", "not_extracted")
             payload = raw_result.get("payload") or {}
             fields = {
-                field_name: _normalize_field(paper_id, entity_type, raw_result["record_id"], field_name, value)
+                field_name: _normalize_field(
+                    paper_id, entity_type, raw_result["record_id"], field_name, value, run_id=raw_result.get("run_id"),
+                )
                 for field_name, value in payload.items()
             } if payload else {}
 
@@ -370,10 +374,31 @@ def get_review_data(paper_id: str) -> dict[str, list[dict]]:
     return data
 
 
+def is_link_field(field_name: str) -> bool:
+    """`id`, `*_id` and `*_ids`: the record's own key and its references to other records (citation_id, site_id,
+    treatment_id, method_id, ...). They are pipeline-generated structure, not claims made by the paper, so the review
+    UI neither shows nor asks for approval of them, and they never count toward review progress."""
+    return field_name == "id" or field_name.endswith("_id") or field_name.endswith("_ids")
+
+
+def reviewable_fields(record: dict) -> dict[str, dict]:
+    """The fields of a record the reviewer is shown, in their original order: everything except link fields, and
+    except plain (no-provenance) fields that hold nothing -- an optional field the extractor left empty has nothing
+    to approve, correct or trace to a source."""
+    shown: dict[str, dict] = {}
+    for name, field in (record.get("fields") or {}).items():
+        if is_link_field(name):
+            continue
+        if field["kind"] != "extracted_field" and field["effective_value"] in (None, ""):
+            continue
+        shown[name] = field
+    return shown
+
+
 def review_summary(paper_id: str) -> dict:
     """Compact counts for the paper overview line -- e.g.
     '47 fields | 31 reviewed | 9 unresolved | 4 blocked | 3 remaining'.
-    Deliberately just counts, no charts."""
+    Deliberately just counts, no charts. Link fields are not counted (see `is_link_field`)."""
     data = get_review_data(paper_id)
     total_fields = 0
     reviewed = 0
@@ -385,8 +410,8 @@ def review_summary(paper_id: str) -> dict:
                 unresolved += 1
             elif record["status"] == "blocked":
                 blocked += 1
-            for field in record["fields"].values():
-                if field["kind"] != "extracted_field":
+            for field_name, field in record["fields"].items():
+                if field["kind"] != "extracted_field" or is_link_field(field_name):
                     continue
                 total_fields += 1
                 if field["review_status"] in ("approved", "corrected", "relinked", "confirmed_unresolved"):
@@ -457,14 +482,19 @@ def submit_correction(
         issues = _revalidate_locators(paper_id, payload.get("new_value"), locators)
         payload["revalidation_issues"] = issues
 
+    # The review UI shows the LATEST completed run, so a correction made
+    # here belongs to that run (run isolation; see corrections_store).
     return corrections_store.append_correction(
         paper_id=paper_id, entity_type=entity_type, record_id=record_id,
         action=action, field_name=field_name, payload=payload,
+        run_id=results_store.latest_run_id(paper_id),
     )
 
 
 def get_corrections(paper_id: str, entity_type: str, record_id: str, field_name: Optional[str] = None) -> list[dict]:
-    return corrections_store.read_for_record(paper_id, entity_type, record_id, field_name)
+    return corrections_store.read_for_record(
+        paper_id, entity_type, record_id, field_name, run_id=results_store.latest_run_id(paper_id),
+    )
 
 
 def get_block_text(paper_id: str, block_anchor: str) -> Optional[str]:

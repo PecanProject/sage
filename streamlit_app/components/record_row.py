@@ -4,6 +4,7 @@ import html
 
 import streamlit as st
 
+import api_client
 import state
 import styles
 from components import field_row
@@ -164,7 +165,7 @@ def render_record(paper_id: str, entity_type: str, record: dict, all_data: dict)
     else:
         summary = summarize(entity_type, record, all_data)
     summary_html = html.escape(summary)
-    status_html = styles.compact_badge(record["status"])
+    status_html = styles.plain_badge(record["status"])
 
     row_cols = st.columns([0.9, 0.1])
     with row_cols[0]:
@@ -189,9 +190,11 @@ def render_record(paper_id: str, entity_type: str, record: dict, all_data: dict)
         if record["status"] in ("blocked", "error"):
             st.caption(f"`{record_id}` — {record['status']}: {record.get('reason') or 'no reason recorded'}")
             return
-        if not record["fields"]:
-            st.caption(f"`{record_id}` — no fields recorded.")
+        fields = api_client.reviewable_fields(record)
+        if not fields:
+            st.caption(f"`{record_id}` — nothing to review in this record.")
             return
-        for field_name, field in record["fields"].items():
+        field_row.render_table_header()
+        for field_name, field in fields.items():
             field_row.render_field_detail(paper_id, entity_type, record_id, field_name, field)
             st.markdown('<hr style="margin:0.35rem 0;border-color:#f0f1f3;">', unsafe_allow_html=True)

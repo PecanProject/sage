@@ -239,6 +239,23 @@ def inject_base_css():
             margin: 0.15rem 0 0.1rem 0;
             line-height: 1.35;
         }
+        /* Review table (components/field_row.py): result | source | actions. The key and its value share one
+           font, size and line: the key is only a shade quieter, so "author: Smith" reads as one result. */
+        .table-head {
+            font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+            color: #6e7781; padding: 0.1rem 0 0.2rem 0; border-bottom: 1px solid #e3e6ea;
+        }
+        .result-cell { font-size: 0.9rem; line-height: 1.4; color: #1b1f23; overflow-wrap: anywhere; }
+        .result-key { color: #57606a; }
+        .result-value { color: #1b1f23; }
+        .result-empty { color: #8a95a1; }
+        .result-state { font-size: 0.74rem; color: #6e7781; margin-top: 0.1rem; }
+        .source-quote { font-size: 0.82rem; font-style: italic; color: #3a3f45; line-height: 1.35; overflow-wrap: anywhere; }
+        .source-where { font-size: 0.72rem; color: #8a95a1; margin-top: 0.1rem; }
+        /* Icon-only action buttons: small, flat, no full-width slab. Keyed containers get an st-key-* class. */
+        div[class*="st-key-fld_"] button {
+            min-height: 1.9rem !important; padding: 0 0.35rem !important; border-color: #d7dbe0 !important;
+        }
         .overview-line {
             font-family: "SFMono-Regular", Consolas, monospace;
             font-size: 0.92rem; color: #333; padding: 0.3rem 0;
@@ -348,6 +365,50 @@ def compact_badge(status: str) -> str:
         f'border-radius:3px;font-family:\'SFMono-Regular\',Consolas,monospace;'
         f'font-size:0.72rem;font-weight:700;letter-spacing:0.02em;">{label}</span>'
     )
+
+
+_PLAIN_RECORD_STATUS = {
+    "ready": "Extracted", "unresolved": "Unresolved", "blocked": "Blocked", "error": "Error", "not_extracted": "Not extracted",
+}
+
+
+def plain_status(status: str) -> str:
+    """A record's status in words a reviewer does not have to decode (the compact EXT/UNR/BLK/ERR codes are not used
+    in the review pane)."""
+    if not status:
+        return "?"
+    return _PLAIN_RECORD_STATUS.get(status, status.replace("_", " ").capitalize())
+
+
+def plain_badge(status: str) -> str:
+    fg, bg = STATUS_COLORS.get(status, ("#57606a", "#f0f1f3"))
+    return (
+        f'<span style="background:{bg};color:{fg};padding:1px 7px;border-radius:3px;'
+        f'font-size:0.74rem;font-weight:600;white-space:nowrap;">{plain_status(status)}</span>'
+    )
+
+
+_REVIEW_STATE_TEXT = {
+    "approved": "Approved", "confirmed_unresolved": "Approved", "corrected": "Edited", "relocated": "Evidence moved",
+}
+
+
+def field_state_parts(field: dict) -> list[str]:
+    """Plain-language state notes for one field, in order: what the extractor found, then what the reviewer did.
+    Nothing is said for the ordinary case (extracted, not yet reviewed)."""
+    parts: list[str] = []
+    label = field.get("provenance_label")
+    if label == "UNRESOLVED":
+        parts.append("Not found in paper")
+    elif label == "INFERRED":
+        parts.append("Inferred")
+    reviewed = _REVIEW_STATE_TEXT.get(field.get("review_status") or "")
+    if reviewed:
+        parts.append(reviewed)
+    confidence = field.get("confidence")
+    if confidence is not None:
+        parts.append(f"confidence {confidence}%")
+    return parts
 
 
 def anchor_tag(anchor: str) -> str:

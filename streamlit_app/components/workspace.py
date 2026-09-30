@@ -66,16 +66,28 @@ def _render_pdf_pane(paper_id: str):
         )
 
 
+# Bibliographic metadata is not what the review is about: it is auto-filled, low priority, and shown collapsed at the
+# bottom rather than as the first thing a reviewer sees. (Future: look it up from the DOI -- docs/feature-requests.)
+DEEMPHASIZED_ENTITY_TYPES = ("Citation",)
+
+
+def _render_entity(paper_id: str, entity_type: str, data: dict, heading: bool = True):
+    records = data.get(entity_type, [])
+    if heading:
+        st.markdown(f'<div class="entity-heading">{entity_type.upper()}</div>', unsafe_allow_html=True)
+    if not records:
+        st.caption("Not extracted yet.")
+        return
+    for record in records:
+        record_row.render_record(paper_id, entity_type, record, data)
+
+
 def _render_data_pane(paper_id: str):
     data = api_client.get_review_data(paper_id)
     with st.container(height=PANE_HEIGHT, key="data_pane", border=True):
         for entity_type in api_client.ENTITY_TYPES:
-            records = data.get(entity_type, [])
-            st.markdown(f'<div class="entity-heading">{entity_type.upper()}</div>', unsafe_allow_html=True)
-
-            if not records:
-                st.caption("Not extracted yet.")
-                continue
-
-            for record in records:
-                record_row.render_record(paper_id, entity_type, record, data)
+            if entity_type not in DEEMPHASIZED_ENTITY_TYPES:
+                _render_entity(paper_id, entity_type, data)
+        for entity_type in DEEMPHASIZED_ENTITY_TYPES:
+            with st.expander(f"Paper metadata ({entity_type.lower()}, auto-filled)", expanded=False):
+                _render_entity(paper_id, entity_type, data, heading=False)
