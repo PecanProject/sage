@@ -1,0 +1,39 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "jetstream/llama-4-scout",
+  "provider": {
+    "jetstream": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Jetstream Llama 4 Scout",
+      "options": {
+        "baseURL": "https://llm.jetstream-cloud.org/llama-4-scout/v1",
+        "apiKey": "x"
+      },
+      "models": {
+        "llama-4-scout": {
+          "name": "Llama 4 Scout"
+        }
+      }
+    }
+  },
+  "agent": {
+    "extractor": {
+      "description": "Primary extraction agent for one paper. Reads content.md via read_section/read_table, builds candidate IR records, iterates with propose_record, and either commit_record's or flag_unresolved's each one. Never touches the filesystem or shell directly.",
+      "prompt": "{file:./opencode-config/agents/extractor.md}",
+      "mode": "primary",
+      "tools": {
+        "edit": false,
+        "bash": false
+      }
+    },
+    "treatment-reasoner": {
+      "description": "Subagent delegated Treatment/Study scoping questions. Same tool restrictions as extractor.",
+      "mode": "subagent",
+      "tools": {
+        "edit": false,
+        "bash": false
+      }
+    }
+  },
+  "plugin": ["./opencode-config/plugin/ir-tools.ts"]
+}
