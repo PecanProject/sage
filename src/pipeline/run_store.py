@@ -92,4 +92,6 @@ def list_runs() -> list[str]:
     root = _runs_root()
     if not root.is_dir():
         return []
-    return sorted(p.name for p in root.iterdir() if p.is_dir())
+    # Dot-directories (e.g. `.locks/`, see pipeline/run_lock.py) are run
+    # bookkeeping, never a run.
+    return sorted(p.name for p in root.iterdir() if p.is_dir() and not p.name.startswith("."))

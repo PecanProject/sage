@@ -1,0 +1,50 @@
+{
+ "b:0034": {
+  "block_type": "Text",
+  "page_id": "page_3",
+  "section_path": [
+   "MATERIALS AND METHODS"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0035": {
+  "block_type": "Text",
+  "page_id": "page_3",
+  "section_path": [
+   "MATERIALS AND METHODS"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0038": {
+  "block_type": "Footnote",
+  "page_id": "page_3",
+  "section_path": [
+   "MATERIALS AND METHODS"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0045": {
+  "block_type": "Text",
+  "page_id": "page_4",
+  "section_path": [
+   "MATERIALS AND METHODS"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0046": {
+  "block_type": "Text",
+  "page_id": "page_4",
+  "section_path": [
+   "MATERIALS AND METHODS"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0047": {
+  "block_type": "Caption",
+  "page_id": "page_4",
+  "section_path": [
+   "MATERIALS AND METHODS"
+  ],
+  "rendered_in_content_md": true
+ }
+}

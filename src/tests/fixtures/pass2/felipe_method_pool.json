@@ -1,0 +1,92 @@
+[
+ {
+  "slug": "canopy_par_interception",
+  "record_id": "Felipe-2010-Cultivar_method_canopy_par_interception",
+  "name": "Canopy light interception",
+  "description": "Canopy light interception was measured at 35, 69, and 95 DAP using a portable‑tube solarimeter with sensors for photosynthetically active radiation (PAR; AccuPAR-80, v. 4.5, Decagon Devices, Inc. Pullman, Washington)."
+ },
+ {
+  "slug": "cover_crop_biomass",
+  "record_id": "Felipe-2010-Cultivar_method_cover_crop_biomass",
+  "name": "Cover crop aboveground biomass was sampled",
+  "description": "Cover crop aboveground biomass was sampled in both MCC and fallow treatments at -32 DAP. Three subplots of 60 by 50 cm were sampled in each main plot (MCC or fallow)."
+ },
+ {
+  "slug": "disease_scoring",
+  "record_id": "Felipe-2010-Cultivar_method_disease_scoring",
+  "name": null,
+  "description": "Disease evaluation for Sclerotium rolfsii Sacc. (Southern blight), a major problem in the entire field, consisted of individual assessment of plants in relation to disease symptoms at 74 DAP and harvest (111 DAP). Plants were scored on a scale from 1 to 5, where 1 was 0% of the individual plant affected, 2 (25%), 3 (50%), 4 (75%), and 5 (100% or dead)."
+ },
+ {
+  "slug": "fruit_color",
+  "record_id": "Felipe-2010-Cultivar_method_fruit_color",
+  "name": "Fruit color",
+  "description": "Fruit color was determined as $L^*a^*b^*$ color values with a reflectance colorimeter (Minolta CR300 color meter) and expressed as hue angle (hue decreases as fruit develops red color)."
+ },
+ {
+  "slug": "fruit_firmness",
+  "record_id": "Felipe-2010-Cultivar_method_fruit_firmness",
+  "name": "Firmness was tested with a nondestructive tomato firmness device (Qualitest durometer)",
+  "description": "Firmness was tested with a nondestructive tomato firmness device (Qualitest durometer) with values expressed as percent of maximum force (13 Newtons)."
+ },
+ {
+  "slug": "fruit_ph",
+  "record_id": "Felipe-2010-Cultivar_method_fruit_ph",
+  "name": "pH meter",
+  "description": "pH was read directly on a pH meter."
+ },
+ {
+  "slug": "fruit_soluble_solids",
+  "record_id": "Felipe-2010-Cultivar_method_fruit_soluble_solids",
+  "name": "soluble solids (SS)",
+  "description": "SS were determined from samples frozen at -20°C, which were partially thawed, blended, filtered and measured on a digital refractometer"
+ },
+ {
+  "slug": "fruit_titratable_acidity",
+  "record_id": "Felipe-2010-Cultivar_method_fruit_titratable_acidity",
+  "name": "Titratable acidity (TA)",
+  "description": "Titratable acidity (TA) was determined from 10‑mL juice, titrated with 0.1 N NaOH, and pH was read directly on a pH meter."
+ },
+ {
+  "slug": "microbial_biomass_c",
+  "record_id": "Felipe-2010-Cultivar_method_microbial_biomass_c",
+  "name": "fumigation extraction",
+  "description": "Microbial biomass carbon (MBC) was analyzed for the 0-15- and 15-30-cm depths using the fumigation extraction method, and total MBC was calculated by multiplying the flush of C by 2.64 (Vance et al. 1987)."
+ },
+ {
+  "slug": "potentially_mineralizable_n",
+  "record_id": "Felipe-2010-Cultivar_method_potentially_mineralizable_n",
+  "name": "Potentially mineralizable N (PMN)",
+  "description": "under anaerobic conditions"
+ },
+ {
+  "slug": "soil_gas_emissions",
+  "record_id": "Felipe-2010-Cultivar_method_soil_gas_emissions",
+  "name": "gas emissions were sampled",
+  "description": "using closed, capped chambers for 30 min (Rolston 1986)"
+ },
+ {
+  "slug": "soil_gravimetric_moisture",
+  "record_id": "Felipe-2010-Cultivar_method_soil_gravimetric_moisture",
+  "name": "Gravimetric soil moisture",
+  "description": "Gravimetric soil moisture was determined at every sampling event."
+ },
+ {
+  "slug": "soil_inorganic_n",
+  "record_id": "Felipe-2010-Cultivar_method_soil_inorganic_n",
+  "name": "colorimetric determination",
+  "description": "Wellmixed soil subsamples were measured for KClextractable nitrate (NO 3 - ) and ammonium (NH 4 + ) with colorimetric determination using modifications of Miranda et al. (2001) and Foster (1995)."
+ },
+ {
+  "slug": "tomato_potassium_phosphorus",
+  "record_id": "Felipe-2010-Cultivar_method_tomato_potassium_phosphorus",
+  "name": "2% acetic acid extraction",
+  "description": "atomic absorption spectrometry or inductively coupled plasma-atomic emission spectrometry"
+ },
+ {
+  "slug": "tomato_total_nitrogen",
+  "record_id": "Felipe-2010-Cultivar_method_tomato_total_nitrogen",
+  "name": "total N",
+  "description": "All plant samples were processed at the DANR Analytical Laboratory, UC Davis, for total N using a Nitrogen Gas Analyzer (LECO FP-528, St. Joseph, MI)"
+ }
+]

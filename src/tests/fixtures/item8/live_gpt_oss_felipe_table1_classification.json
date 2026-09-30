@@ -1,0 +1,182 @@
+{
+ "table_role": "treatment_response",
+ "applicable": true,
+ "aggregation_scope": "cell_level",
+ "factors": [
+  {
+   "name": "DAP",
+   "dimension": "time",
+   "encoding": "rows"
+  },
+  {
+   "name": "Variable",
+   "dimension": "variable",
+   "encoding": "rows"
+  },
+  {
+   "name": "Cover crop treatment",
+   "dimension": "treatment",
+   "encoding": "columns"
+  }
+ ],
+ "context_levels": {},
+ "pooled_factors": [],
+ "reason": null,
+ "table_anchors": [
+  "b:0069"
+ ],
+ "value_columns": [
+  {
+   "value_column_id": "fallow",
+   "variable_name_hint": "measurement",
+   "units_hint": "",
+   "site_hint": "",
+   "method_hint": "",
+   "factor_levels": {},
+   "treatment_level_hint": "Fallow"
+  },
+  {
+   "value_column_id": "mustard",
+   "variable_name_hint": "measurement",
+   "units_hint": "",
+   "site_hint": "",
+   "method_hint": "",
+   "factor_levels": {},
+   "treatment_level_hint": "Mustard"
+  }
+ ],
+ "row_groups": [
+  {
+   "row_group_id": "row1",
+   "factor_values": {
+    "DAP": "35",
+    "Variable": "PAR intercepted (%)"
+   },
+   "source_table_anchor": "b:0069",
+   "cells": {
+    "fallow": "20\u00b11.0 a",
+    "mustard": "15\u00b10.9 b"
+   }
+  },
+  {
+   "row_group_id": "row2",
+   "factor_values": {
+    "DAP": "69",
+    "Variable": "PAR intercepted (%)"
+   },
+   "source_table_anchor": "b:0069",
+   "cells": {
+    "fallow": "46\u00b11.0 a",
+    "mustard": "39\u00b11.3 b"
+   }
+  },
+  {
+   "row_group_id": "row3",
+   "factor_values": {
+    "DAP": "95",
+    "Variable": "PAR intercepted (%)"
+   },
+   "source_table_anchor": "b:0069",
+   "cells": {
+    "fallow": "47\u00b11.2 a",
+    "mustard": "43\u00b11.3 b"
+   }
+  },
+  {
+   "row_group_id": "row4",
+   "factor_values": {
+    "DAP": "39",
+    "Variable": "Shoot biomass (g m -2 )"
+   },
+   "source_table_anchor": "b:0069",
+   "cells": {
+    "fallow": "$70 \\pm 6.8$",
+    "mustard": "54\u00b14.7"
+   }
+  },
+  {
+   "row_group_id": "row5",
+   "factor_values": {
+    "DAP": "75",
+    "Variable": "Shoot biomass (g m -2 )"
+   },
+   "source_table_anchor": "b:0069",
+   "cells": {
+    "fallow": "$246 \\pm 17.4$",
+    "mustard": "$275 \\pm 19.7$"
+   }
+  },
+  {
+   "row_group_id": "row6",
+   "factor_values": {
+    "DAP": "111",
+    "Variable": "Shoot biomass (g m -2 )"
+   },
+   "source_table_anchor": "b:0069",
+   "cells": {
+    "fallow": "294\u00b19.3",
+    "mustard": "$274 \\pm 13.2$"
+   }
+  },
+  {
+   "row_group_id": "row7",
+   "factor_values": {
+    "DAP": "75",
+    "Variable": "Total fruit (g m -2 )"
+   },
+   "source_table_anchor": "b:0069",
+   "cells": {
+    "fallow": "122\u00b112.5",
+    "mustard": "$126 \\pm 13.8$"
+   }
+  },
+  {
+   "row_group_id": "row8",
+   "factor_values": {
+    "DAP": "111",
+    "Variable": "Total fruit (g m -2 )"
+   },
+   "source_table_anchor": "b:0069",
+   "cells": {
+    "fallow": "352\u00b115.4 a",
+    "mustard": "252\u00b115.1 b"
+   }
+  },
+  {
+   "row_group_id": "row9",
+   "factor_values": {
+    "DAP": "111",
+    "Variable": "Harvestable fruit (g m -2 )"
+   },
+   "source_table_anchor": "b:0069",
+   "cells": {
+    "fallow": "234\u00b114.7 a",
+    "mustard": "162\u00b115.6 b"
+   }
+  },
+  {
+   "row_group_id": "row10",
+   "factor_values": {
+    "DAP": "111",
+    "Variable": "Aboveground N (g N m -2 )"
+   },
+   "source_table_anchor": "b:0069",
+   "cells": {
+    "fallow": "12\u00b10.4",
+    "mustard": "$10 {\\pm} 0.4$"
+   }
+  },
+  {
+   "row_group_id": "row11",
+   "factor_values": {
+    "DAP": "111",
+    "Variable": "Harvest index"
+   },
+   "source_table_anchor": "b:0069",
+   "cells": {
+    "fallow": "$0.36 {\\pm} 0.02$ a",
+    "mustard": "0.30\u00b10.01 b"
+   }
+  }
+ ]
+}

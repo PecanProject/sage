@@ -503,7 +503,7 @@ def test_apply_reconstruction_date_mapping(client):
     r = c.post("/apply_reconstruction", json={"kind": "date_mapping", "payload": {"reported_text": "2007-06 to 2007-08"}})
     body = r.json()["result"]
     assert body["earliest"] == "2007-06-01"
-    assert body["latest"] == "2007-08-28"
+    assert body["latest"] == "2007-08-31"  # the last day of August (this used to default to day 28)
 
 
 def test_apply_reconstruction_relative_timing(client):

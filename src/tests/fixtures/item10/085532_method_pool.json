@@ -1,0 +1,37 @@
+[
+ {
+  "slug": "hand_clipping_quadrat_harvest",
+  "name": "hand-clipping",
+  "description": "from a randomly placed 0.1-m 2 quadrat"
+ },
+ {
+  "slug": "leaf_dimensions_measurement",
+  "name": "leaf blade length and width",
+  "description": "All measurements were made on only one leaf blade and internode per tiller."
+ },
+ {
+  "slug": "li_cor_lai_mta",
+  "name": "LAI and leaf MTA",
+  "description": "Prior to harvest at each sward maturity, LAI and leaf MTA were determined for each plot, using a LI-COR LAI-2000 leaf area analyzer (LI-COR, Lincoln, NE) for an indirect measure of canopy architecture as described by Welles and Norman"
+ },
+ {
+  "slug": "morphological_staging_msc",
+  "name": "growth staging system",
+  "description": "Plant materials were harvested by hand-clipping all tillers to ground level from a randomly placed 0.1-m 2 quadrat. Harvested tillers were classified morphologically using the growth staging system for perennial forage grasses described by Moore et al. (1991) to estimate sward maturity on a mean stage by count (MSC) basis."
+ },
+ {
+  "slug": "oven_drying_dm_weight",
+  "name": "forced-draft oven",
+  "description": "Tillers separated by growth stage were dried in a forced-draft oven at 55\u00b0C and weighed to estimate sward maturity on a mean stage by weight (MSW) basis (Moore et al., 1991) and to determine total yield and dry matter (DM) partitioning into leaf blade, leaf sheath, and stem components. Inflorescences were included with the stem fraction."
+ },
+ {
+  "slug": "sas_glm_analysis",
+  "name": "General Linear Model (GLM) procedures",
+  "description": "Data were analyzed using the General Linear Model (GLM) procedures of SAS (1985)."
+ },
+ {
+  "slug": "sas_stepwise_regression",
+  "name": "Stepwise regression",
+  "description": "Stepwise regression (SAS, 1985) was used to predict yield, LAI, and leaf MTA. Terms included in the stepwise regression equations were significant at the 0.15 level of probability."
+ }
+]

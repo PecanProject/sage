@@ -1,0 +1,69 @@
+{
+ "parsed_json": {
+  "entity_type": "Treatment",
+  "candidates": [
+   {
+    "candidate_id": "1-cv_mixture",
+    "description": "The 1‑cv treatment is the monoculture of the choice cultivar (AB‑2) grown alone in each subplot.",
+    "anchors": [
+     "b:0030",
+     "b:0060"
+    ],
+    "linked_candidates": {},
+    "dimensions": [
+     {
+      "name": "Cultivar mixture",
+      "dimension": "treatment",
+      "level": "1-cv (choice cultivar only)"
+     }
+    ]
+   },
+   {
+    "candidate_id": "3-cv_mixture",
+    "description": "The 3‑cv treatment combines the choice cultivar AB‑2 with two additional cultivars (CXD‑179 and H‑8892) in each subplot.",
+    "anchors": [
+     "b:0030",
+     "b:0060"
+    ],
+    "linked_candidates": {},
+    "dimensions": [
+     {
+      "name": "Cultivar mixture",
+      "dimension": "treatment",
+      "level": "3-cv (choice cultivar + CXD‑179 + H‑8892)"
+     }
+    ]
+   },
+   {
+    "candidate_id": "5-cv_mixture",
+    "description": "The 5‑cv treatment includes all five cultivars (AB‑2, CXD‑179, H‑8892, H‑2601, Red Spring) together in each subplot.",
+    "anchors": [
+     "b:0030",
+     "b:0060"
+    ],
+    "linked_candidates": {},
+    "dimensions": [
+     {
+      "name": "Cultivar mixture",
+      "dimension": "treatment",
+      "level": "5-cv (all five cultivars)"
+     }
+    ]
+   }
+  ]
+ },
+ "validation_errors": [
+  {
+   "field": "dimensions",
+   "message": "candidate '1-cv_mixture' declares Cultivar mixture='1-cv (choice cultivar only)', which appears neither in its description nor in the blocks it cites."
+  },
+  {
+   "field": "dimensions",
+   "message": "candidate '3-cv_mixture' declares Cultivar mixture='3-cv (choice cultivar + CXD‑179 + H‑8892)', which appears neither in its description nor in the blocks it cites."
+  },
+  {
+   "field": "dimensions",
+   "message": "candidate '5-cv_mixture' declares Cultivar mixture='5-cv (all five cultivars)', which appears neither in its description nor in the blocks it cites."
+  }
+ ]
+}

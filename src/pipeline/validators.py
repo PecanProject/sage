@@ -726,16 +726,40 @@ _TYPOGRAPHIC_EQUIVALENTS: list[tuple[str, str]] = [
 ]
 
 
+# Inline LaTeX math and unicode super/subscripts as Marker renders them, canonicalised so the same quantity compares
+# equal however it is spelled. Real cases (Felipe-2010-Cultivar, correction pass Fix 4): a block reads
+# "$4.6\pm0.4~\mathrm{Mg~ha^{-1}}$" while the model writes "Mg ha⁻¹" (false rejection of the units), and "$CO_2$" while
+# the model writes "CO2" (false rejection of a `notes` sentence, which sank the whole mustard-CO2 Observation). Only
+# NOTATION is normalised -- \pm -> ±, ^{-1} -> -1, ⁻¹ -> -1, CO_2 -> CO2, \mathrm{..}/$/~/braces dropped -- never a
+# number, a unit symbol or a word, so no scientific meaning changes.
+_SUPERSCRIPTS = str.maketrans({"⁻": "-", "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9"})
+_MATH_TEXT_COMMAND_RE = re.compile(r"\\(?:mathrm|mathit|mathbf|textrm|textit|text)\s*\{([^{}]*)\}")
+_MATH_BRACED_SCRIPT_RE = re.compile(r"[\^_]\s*\{([^{}]*)\}")
+_MATH_SIMPLE_SCRIPT_RE = re.compile(r"(?<=[A-Za-z0-9\)])[\^_]\s*(-?\d+)")
+
+
+def _normalize_math(text: str) -> str:
+    if "\\" not in text and "$" not in text and "~" not in text and "^" not in text and "_" not in text:
+        return text.translate(_SUPERSCRIPTS)
+    text = text.replace("\\pm", "±").replace("\\cdot", "·")
+    text = _MATH_BRACED_SCRIPT_RE.sub(lambda m: m.group(1).replace(" ", ""), text)
+    text = _MATH_SIMPLE_SCRIPT_RE.sub(r"\1", text)
+    text = _MATH_TEXT_COMMAND_RE.sub(r"\1", text)
+    text = text.replace("$", "").replace("~", " ").replace("{", "").replace("}", "")
+    return " ".join(text.translate(_SUPERSCRIPTS).split())
+
+
 def _normalize_typography(text: str) -> str:
     """Canonicalize the small, deterministic set of typographic variants in
     _TYPOGRAPHIC_EQUIVALENTS -- see that list's own comment for the real
-    cases this fixes. Applied to both sides of every comparison in
-    _value_supported_by_text, so it can only ever ADD a match an exact
-    check already missed, never remove one (both the value and the block
-    text collapse onto the same canonical spelling)."""
+    cases this fixes -- and inline LaTeX math notation (`_normalize_math`).
+    Applied to both sides of every comparison in _value_supported_by_text,
+    so it can only ever ADD a match an exact check already missed, never
+    remove one (both the value and the block text collapse onto the same
+    canonical spelling)."""
     for variant, canonical in _TYPOGRAPHIC_EQUIVALENTS:
         text = text.replace(variant, canonical)
-    return text
+    return _normalize_math(text)
 
 
 def _value_supported_by_text(value: Any, text: str, field_name: Optional[str] = None) -> bool:
@@ -820,6 +844,126 @@ def _iter_extracted_fields(node: Any, path: str = ""):
     elif isinstance(node, list):
         for index, value in enumerate(node):
             yield from _iter_extracted_fields(value, f"{path}[{index}]")
+
+
+# --- Nested value-bearing fields (correction pass, Fix 4) -----------------------------------------------------------
+#
+# `_value_supported_by_text` returns True for any dict, so a QuantityValue / DateRange nested inside an ExtractedField was
+# only ever checked for being a dict: its `reported_text`, `reported_units` and date text could contradict the cited
+# block and still be committed as EXTRACTED. Real cases (Felipe-2010-Cultivar, run felipe_smoke_20260920T132343):
+#   - `reported_text` "39.8 degrees hue angle" / `reported_units` "degrees" where the block says "39.8 hue";
+#   - a Management date `reported_text` "May 18-19 2006" / earliest 2006-05-18 where the block says "May 18 and 19"
+#     and never gives the year (the protocol forbids supplying one).
+# These fields carry the reported value, its units and its date, so each must be supported by what the field cites.
+_DIMENSIONLESS_UNITS = frozenset({"", "unitless", "dimensionless", "none", "n/a", "na", "-", "1", "index", "ratio", "fraction"})
+_NUMBER_RE = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?")
+
+
+def _canon(text: str) -> str:
+    return _normalize_typography(" ".join(str(text).split()).casefold())
+
+
+def _units_key(text: str) -> str:
+    """Comparison key for a units string: canonicalised notation, lowercase, spaces and separators dropped
+    ('g N m -2' == 'g N m-2' == 'g N m^{-2}' == 'g N m⁻²')."""
+    return re.sub(r"[\s.^()\[\]|*,;:_]+", "", _canon(text))
+
+
+def _unit_supported(units: str, texts: list[str]) -> bool:
+    key = _units_key(units)
+    if key in _DIMENSIONLESS_UNITS:
+        return True
+    canon_units = _canon(units)
+    for text in texts:
+        if key not in _units_key(text):
+            continue
+        # a very short unit ('g', 'm', 'mm', '%') must stand as a whole token, never a stray letter of a word
+        if len(key) >= 3 or re.search(rf"(?<![a-z0-9]){re.escape(canon_units)}(?![a-z0-9])", _canon(text)):
+            return True
+    return False
+
+
+def _numbers_in(text: str) -> list[float]:
+    return [float(m.replace(",", "")) for m in _NUMBER_RE.findall(_canon(text))]
+
+
+def _year_of(value: Any) -> Optional[int]:
+    match = re.match(r"\s*(\d{4})", str(value or ""))
+    return int(match.group(1)) if match else None
+
+
+def _max_two_literal_stretches(text: str, texts: list[str]) -> bool:
+    """Can `text` (as words/numbers, in order) be covered by at most two contiguous stretches, each of which occurs
+    contiguously, word for word, in one of the cited blocks?"""
+    words = re.findall(r"[a-z0-9]+", _canon(text))
+    if not words:
+        return False
+    padded = [" " + " ".join(re.findall(r"[a-z0-9]+", _canon(t))) + " " for t in texts]
+    n = len(words)
+    best = [0] + [n + 1] * n                     # best[i]: fewest stretches covering words[:i]
+    for i in range(1, n + 1):
+        for j in range(i):
+            if best[j] + 1 < best[i] and any(" " + " ".join(words[j:i]) + " " in block for block in padded):
+                best[i] = best[j] + 1
+    return best[n] <= 2
+
+
+def _nested_value_issues(field_path: str, value: dict[str, Any], cited: list[tuple[str, str]]) -> list[ValidationIssue]:
+    """Grounding of the value-bearing parts of a QuantityValue or DateRange against the blocks its field cites (any one
+    cited block may carry each part). Works on the raw payload dict; ignores dicts that are neither."""
+    if not cited or not isinstance(value, dict):
+        return []
+    is_quantity = "reported_units" in value and "reported_text" in value
+    is_date = "reported_text" in value and not is_quantity and any(k in value for k in ("earliest", "latest", "relative_timing"))
+    if not (is_quantity or is_date):
+        return []
+    texts = [text for _, text in cited]
+    anchors = ", ".join(anchor for anchor, _ in cited)
+    issues: list[ValidationIssue] = []
+
+    def issue(code: str, message: str) -> None:
+        issues.append(ValidationIssue("error", code, f"{field_path}: {message}"))
+
+    reported_text = value.get("reported_text")
+    if isinstance(reported_text, str) and reported_text.strip():
+        supported = any(_value_supported_by_text(reported_text, text) for text in texts)
+        if not supported and is_date:
+            # A date the pipeline assembled from two cited stretches ("9 June" in one block + "1993" in another, the
+            # Item 11 temporal-context flow: date_text + year_text) is not one contiguous quote. It is accepted only
+            # when it splits into at most TWO stretches, each a literal contiguous quote of some cited block --
+            # words merely present somewhere in the citations never assemble a date ("June 18 2006" from "mid-June"
+            # and "May 18" and "2006" is three stretches, so it is not).
+            supported = _max_two_literal_stretches(reported_text, texts)
+        if not supported:
+            what = "date text" if is_date else "reported_text"
+            issue(
+                "provenance_date_text_mismatch" if is_date else "provenance_reported_text_mismatch",
+                f"{what} {reported_text!r} is not found in the cited block(s) {anchors} -- quote the source's own words, "
+                f"never a reformatted, completed or paraphrased version.",
+            )
+    if is_quantity:
+        numeric = value.get("reported_numeric_value")
+        if numeric is not None and isinstance(reported_text, str) and not any(abs(n - float(numeric)) < 1e-9 for n in _numbers_in(reported_text)):
+            issue("provenance_numeric_mismatch", f"reported_numeric_value={numeric!r} does not appear in reported_text {reported_text!r}.")
+        units = value.get("reported_units")
+        if isinstance(units, str) and not _unit_supported(units, texts):
+            issue(
+                "provenance_units_mismatch",
+                f"reported_units {units!r} is not found in the cited block(s) {anchors} -- report the units as the source "
+                f"writes them; if the source states none, do not supply any.",
+            )
+    if is_date:
+        block_text = " ".join(_canon(t) for t in texts)
+        for bound in ("earliest", "latest"):
+            year = _year_of(value.get(bound))
+            if year is not None and not re.search(rf"(?<!\d){year}(?!\d)", block_text):
+                issue(
+                    "provenance_date_year_unsupported",
+                    f"{bound}={value.get(bound)!r} supplies the year {year}, which the cited block(s) {anchors} do not state "
+                    f"-- never supply a year the source does not give (leave the dates null and keep the reported text).",
+                )
+                break
+    return issues
 
 
 def validate_provenance(paper_id: str, payload: dict[str, Any]) -> list[ValidationIssue]:
@@ -910,6 +1054,14 @@ def validate_provenance(paper_id: str, payload: dict[str, Any]) -> list[Validati
                     )
                 )
 
+        if isinstance(value, dict):
+            cited = [
+                (a, blocks[a]) for a in (
+                    (loc.get("block_anchor") or "").strip("[]") for loc in locators if isinstance(loc, dict)
+                ) if a in blocks
+            ]
+            issues.extend(_nested_value_issues(field_path, value, cited))
+
     return issues
 
 
@@ -941,4 +1093,79 @@ def validate_dataset(ds: IRDataset) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     for check in ALL_WHOLE_GRAPH_CHECKS:
         issues.extend(check(ds))
+    return issues
+
+
+# ---------------------------------------------------------------------------
+# Readiness (Item 15)
+# ---------------------------------------------------------------------------
+
+# A record can be structurally valid -- every field has a provenance label, an UNRESOLVED one carries a real
+# reason -- and still not be READY: its core has no content. Real evidence: 81 of the 206 Observations stored as
+# `ready` across the stored runs had an UNRESOLVED `value` (36 of 108 in one run) and 8 an UNRESOLVED
+# `variable_name`, i.e. a "ready" measurement with no measurement. Which fields must be resolved is per entity type.
+# `temporal_info` is deliberately NOT here: protocol Section 10.1 says that when no reliable date window can be
+# recovered the date fields are left blank with the reason explained -- an undated Observation is still usable.
+READINESS_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
+    "Observation": ("value", "variable_name"),
+    # Correction pass, Fix 7 -- CORE IDENTITY. A record that does not say what it is cannot be used, whatever else it
+    # carries. Real hollow "ready" records (Daren run 20260919T211137_77879c98 and Felipe run felipe_smoke_20260920T132343):
+    # a Variable whose name, description, units and notes were ALL UNRESOLVED (Daren leaf-blade dry weight; the reason it
+    # gave, "page number not available", was itself spurious); a Variable with a null name (Felipe plant nitrogen
+    # content); a Method with a null name (Felipe disease scoring). Deliberately the same principle as Observation, not
+    # "every optional field": identity is required; descriptive metadata (description, units, notes) never is.
+    "Variable": ("name",),
+    "Method": ("name",),
+}
+
+# Identity that can be given in either of two fields. A Crop is the paper-specific cultivar/variety (ir_schema.Crop): its
+# taxonomy lives in the referenced Species, so with neither `cultivar` nor `common_name` resolved it names nothing that the
+# Species record does not (real case: Daren Crop Trailblazer, `cultivar` UNRESOLVED and no common name).
+READINESS_ANY_OF_FIELDS: dict[str, tuple[tuple[str, ...], ...]] = {
+    "Crop": (("cultivar", "common_name"),),
+}
+
+
+def _unresolved_entry(entry: Any) -> bool:
+    return (
+        not isinstance(entry, dict)
+        or entry.get("provenance_label") == "UNRESOLVED"
+        or entry.get("value") is None
+    )
+
+
+def readiness_issues(entity_type: str, payload: dict[str, Any], record_id: Optional[str] = None) -> list[ValidationIssue]:
+    """Why a (structurally valid) payload is NOT ready to be committed as `ready`, or [] when it is. Works on the raw
+    payload dict, so it can run before or without model construction. A required field that is absent, null, or
+    labelled UNRESOLVED (or carries no value) makes the record not ready; the reason the extraction gave is quoted.
+    An any-of identity group (Crop: cultivar or common_name) needs at least one member resolved."""
+    issues: list[ValidationIssue] = []
+    for field in READINESS_REQUIRED_FIELDS.get(entity_type, ()):
+        entry = (payload or {}).get(field)
+        if not _unresolved_entry(entry):
+            continue
+        reason = entry.get("unresolved_reason") if isinstance(entry, dict) else None
+        issues.append(ValidationIssue(
+            severity="error",
+            code=f"{entity_type.lower()}_{field}_unresolved",
+            message=f"{entity_type} is not ready: `{field}` is UNRESOLVED"
+                    + (f" ({reason})" if reason else "") + " -- a record with no " + field.replace("_", " ")
+                    + " is kept as unresolved, never committed as ready.",
+            entity_type=entity_type, entity_id=record_id,
+        ))
+    for group in READINESS_ANY_OF_FIELDS.get(entity_type, ()):
+        entries = [(payload or {}).get(field) for field in group]
+        if all(_unresolved_entry(entry) for entry in entries):
+            reasons = "; ".join(
+                f"{field}: {entry.get('unresolved_reason')}" for field, entry in zip(group, entries)
+                if isinstance(entry, dict) and entry.get("unresolved_reason")
+            )
+            issues.append(ValidationIssue(
+                severity="error",
+                code=f"{entity_type.lower()}_identity_unresolved",
+                message=f"{entity_type} is not ready: none of {' / '.join(f'`{f}`' for f in group)} is resolved"
+                        + (f" ({reasons})" if reasons else "") + " -- a record that does not say what it is "
+                        "is kept as unresolved, never committed as ready.",
+                entity_type=entity_type, entity_id=record_id,
+            ))
     return issues

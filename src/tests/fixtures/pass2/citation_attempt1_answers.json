@@ -1,0 +1,205 @@
+{
+ "final": {
+  "paper_id": "Felipe-2010-Cultivar",
+  "entity_type": "Citation",
+  "record_id": "Felipe-2010-Cultivar",
+  "facts": [
+   {
+    "field_name": "title",
+    "raw_value": "Cultivar mixtures of processing tomato in an organic agroecosystem",
+    "raw_text_excerpt": "# Cultivar mixtures of processing tomato in an organic agroecosystem",
+    "anchors": [
+     "b:0002"
+    ],
+    "notes": "Title appears as the first heading of the article."
+   },
+   {
+    "field_name": "author",
+    "raw_value": "Felipe H. Barrios‑Masias & Marita I. Cantwell & Louise E. Jackson",
+    "raw_text_excerpt": "Felipe H. Barrios-Masias & Marita I. Cantwell & Louise E. Jackson",
+    "anchors": [
+     "b:0003"
+    ],
+    "notes": "Authors listed immediately below the title."
+   },
+   {
+    "field_name": "year",
+    "raw_value": "2010",
+    "raw_text_excerpt": "Published online: 15 December 2010",
+    "anchors": [
+     "b:0004"
+    ],
+    "notes": "Publication year inferred from the online publication date."
+   },
+   {
+    "field_name": "journal",
+    "raw_value": null,
+    "raw_text_excerpt": "No journal name visible in the rendered content.",
+    "anchors": [
+     "b:0005"
+    ],
+    "notes": "The article header mentions open‑access at Springerlink.com but does not provide a journal title."
+   },
+   {
+    "field_name": "persistent_identifier",
+    "raw_value": null,
+    "raw_text_excerpt": "No DOI or other persistent identifier found in the visible content.",
+    "anchors": [
+     "b:0005"
+    ],
+    "notes": "Search of the opening sections (title, author block, publication line) did not reveal a DOI or other PID."
+   }
+  ],
+  "extraction_notes": "All locators point to the exact block anchors that directly precede the extracted text. Unresolved fields (journal, DOI) are marked with null values and include the anchor where the search was performed."
+ },
+ "methodfix3": {
+  "paper_id": "Felipe-2010-Cultivar",
+  "entity_type": "Citation",
+  "record_id": "Felipe-2010-Cultivar",
+  "facts": [
+   {
+    "field_name": "title",
+    "raw_value": "Cultivar mixtures of processing tomato in an organic agroecosystem",
+    "raw_text_excerpt": "Cultivar mixtures of processing tomato in an organic agroecosystem",
+    "anchors": [
+     "b:0002"
+    ],
+    "notes": "Title extracted from top-level heading."
+   },
+   {
+    "field_name": "authors",
+    "raw_value": "Felipe H. Barrios-Masias; Marita I. Cantwell; Louise E. Jackson",
+    "raw_text_excerpt": "Felipe H. Barrios-Masias & Marita I. Cantwell & Louise E. Jackson",
+    "anchors": [
+     "b:0003"
+    ],
+    "notes": "Authors list as shown on the title page."
+   },
+   {
+    "field_name": "year",
+    "raw_value": "2010",
+    "raw_text_excerpt": "Published online: 15 December 2010",
+    "anchors": [
+     "b:0004"
+    ],
+    "notes": "Year taken from the 'Published online' line."
+   },
+   {
+    "field_name": "journal",
+    "raw_value": null,
+    "raw_text_excerpt": "",
+    "anchors": [
+     "b:0005"
+    ],
+    "notes": "Journal name not present in the visible content."
+   },
+   {
+    "field_name": "persistent_identifier",
+    "raw_value": null,
+    "raw_text_excerpt": "",
+    "anchors": [
+     "b:0005"
+    ],
+    "notes": "No DOI or other persistent identifier found in the visible content."
+   },
+   {
+    "field_name": "volume",
+    "raw_value": null,
+    "raw_text_excerpt": "",
+    "anchors": [
+     "b:0005"
+    ],
+    "notes": "Volume information not present in the visible content."
+   },
+   {
+    "field_name": "issue",
+    "raw_value": null,
+    "raw_text_excerpt": "",
+    "anchors": [
+     "b:0005"
+    ],
+    "notes": "Issue number not present in the visible content."
+   },
+   {
+    "field_name": "pages",
+    "raw_value": null,
+    "raw_text_excerpt": "",
+    "anchors": [
+     "b:0005"
+    ],
+    "notes": "Page range not present in the visible content."
+   }
+  ],
+  "extraction_notes": "All extracted fields are directly quoted from the document with the corresponding block anchors. Fields not found (journal, DOI, volume, issue, pages) are marked UNRESOLVED with a note indicating the absence of the information in the examined sections."
+ },
+ "smoke": {
+  "paper_id": "Felipe-2010-Cultivar",
+  "entity_type": "Citation",
+  "record_id": "Felipe-2010-Cultivar",
+  "facts": [
+   {
+    "field_name": "title",
+    "raw_value": "Cultivar mixtures of processing tomato in an organic agroecosystem",
+    "raw_text_excerpt": "# Cultivar mixtures of processing tomato in an organic agroecosystem",
+    "anchors": [
+     "b:0002"
+    ],
+    "notes": "Title taken directly from the top‑level section header."
+   },
+   {
+    "field_name": "author",
+    "raw_value": "Felipe H. Barrios-Masias; Marita I. Cantwell; Louise E. Jackson",
+    "raw_text_excerpt": "Felipe H. Barrios-Masias & Marita I. Cantwell & Louise E. Jackson",
+    "anchors": [
+     "b:0003"
+    ],
+    "notes": "Authors listed on the line immediately below the title."
+   },
+   {
+    "field_name": "year",
+    "raw_value": "2010",
+    "raw_text_excerpt": "Published online: 15 December 2010",
+    "anchors": [
+     "b:0004"
+    ],
+    "notes": "Year extracted from the published‑online date."
+   },
+   {
+    "field_name": "journal",
+    "raw_value": "",
+    "raw_text_excerpt": "",
+    "anchors": [],
+    "notes": "Journal name not present in any visible front‑matter block."
+   },
+   {
+    "field_name": "volume",
+    "raw_value": "",
+    "raw_text_excerpt": "",
+    "anchors": [],
+    "notes": "Volume information not found in the visible content."
+   },
+   {
+    "field_name": "issue",
+    "raw_value": "",
+    "raw_text_excerpt": "",
+    "anchors": [],
+    "notes": "Issue number not found in the visible content."
+   },
+   {
+    "field_name": "pages",
+    "raw_value": "",
+    "raw_text_excerpt": "",
+    "anchors": [],
+    "notes": "Page range not provided in the visible content."
+   },
+   {
+    "field_name": "persistent_identifier",
+    "raw_value": "",
+    "raw_text_excerpt": "",
+    "anchors": [],
+    "notes": "DOI or other persistent identifier not found in the extracted text."
+   }
+  ],
+  "extraction_notes": "All extracted fields are directly quoted from the document blocks indicated. Journal, volume, issue, pages, and DOI could not be located in the rendered front‑matter; they are marked as unresolved with explanatory notes."
+ }
+}

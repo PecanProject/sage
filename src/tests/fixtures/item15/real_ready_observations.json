@@ -1,0 +1,1369 @@
+{
+ "value_unresolved": [
+  {
+   "run": "20260919T040723_06df825d",
+   "record": "Observation__Daren-1997-Canopy_observation_elong_weight_row_12",
+   "payload": {
+    "id": "Daren-1997-Canopy_observation_elong_weight_row_12",
+    "dataset_id": "Daren-1997-Canopy_dataset",
+    "citation_id": "Daren-1997-Canopy",
+    "site_id": "Daren-1997-Canopy_site_mead_ne",
+    "treatment_id": "Daren-1997-Canopy_treatment_mead_ne_pathfinder_hydmdc2",
+    "method_id": "Daren-1997-Canopy_method_oven_drying_weighing",
+    "species_id": "Daren-1997-Canopy_species_panicum_virgatum",
+    "crop_id": "Daren-1997-Canopy_crop_pathfinder",
+    "variable_name": {
+     "value": "tiller weight",
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 1,
+      "section_path": [],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0349"
+       }
+      ],
+      "raw_excerpt": "*Table 4. Average tiller weight at the vegetative, elongating, reproductive, and seed ripening growth stages for six switchgrass populations grown at Ames, IA, and Mead, NE, during 1993.*",
+      "notes": null
+     }
+    },
+    "value": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "Units for tiller weight are not provided in the table, so a complete QuantityValue cannot be constructed.",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 1,
+      "section_path": [],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0367"
+       }
+      ],
+      "raw_excerpt": "| Pathfinder HYDMDC2 | 0.05 | 0.58 | 1.78 | 0.44 |  |",
+      "notes": null
+     }
+    },
+    "reported_effect_scope": {
+     "value": "treatment_mean",
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 1,
+      "section_path": [],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0367"
+       }
+      ],
+      "raw_excerpt": "| Pathfinder HYDMDC2 | 0.05 | 0.58 | 1.78 | 0.44 |  |",
+      "notes": null
+     }
+    },
+    "aggregated_over_factors": {
+     "value": [],
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 1,
+      "section_path": [],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0367"
+       }
+      ],
+      "raw_excerpt": "| Pathfinder HYDMDC2 | 0.05 | 0.58 | 1.78 | 0.44 |  |",
+      "notes": null
+     }
+    },
+    "temporal_info": {
+     "value": {
+      "reported_text": "1993",
+      "earliest": null,
+      "latest": null,
+      "relative_timing": null,
+      "relative_timing_days": null
+     },
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 1,
+      "section_path": [],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0349"
+       }
+      ],
+      "raw_excerpt": "*Table 4. Average tiller weight at the vegetative, elongating, reproductive, and seed ripening growth stages for six switchgrass populations grown at Ames, IA, and Mead, NE, during 1993.*",
+      "notes": null
+     }
+    },
+    "is_raw_replicate_level": {
+     "value": false,
+     "provenance_label": "INFERRED",
+     "unresolved_reason": "The observation reports a treatment mean (average tiller weight for the population), not an individual replicate measurement.",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 1,
+      "section_path": [],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0367"
+       }
+      ],
+      "raw_excerpt": "| Pathfinder HYDMDC2 | 0.05 | 0.58 | 1.78 | 0.44 |  |",
+      "notes": null
+     }
+    }
+   }
+  },
+  {
+   "run": "20260919T040723_06df825d",
+   "record": "Observation__Daren-1997-Canopy_observation_leaf_blade_ames_pathfinder_elongating",
+   "payload": {
+    "id": "Daren-1997-Canopy_observation_leaf_blade_ames_pathfinder_elongating",
+    "dataset_id": "Daren-1997-Canopy_dataset",
+    "citation_id": "Daren-1997-Canopy",
+    "site_id": "Daren-1997-Canopy_site_ames_ia",
+    "treatment_id": "Daren-1997-Canopy_treatment_elongating_pathfinder_ames",
+    "method_id": "Daren-1997-Canopy_method_oven_drying_weighing",
+    "species_id": "Daren-1997-Canopy_species_panicum_virgatum",
+    "crop_id": "Daren-1997-Canopy_crop_pathfinder",
+    "variable_name": {
+     "value": "Leaf blade dry wt.",
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0119",
+        "table_id": "b:0119"
+       }
+      ]
+     }
+    },
+    "value": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "Units are not reported for the leaf blade dry weight; only the numeric value 0.34 appears in the table.",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0119",
+        "table_id": "b:0119"
+       }
+      ]
+     }
+    },
+    "reported_effect_scope": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "The table does not state whether the reported leaf blade dry weight represents a treatment mean or an aggregated mean.",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0119",
+        "table_id": "b:0119"
+       }
+      ]
+     }
+    },
+    "aggregated_over_factors": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "Aggregation factors cannot be identified without a defined reported_effect_scope.",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0119",
+        "table_id": "b:0119"
+       }
+      ]
+     }
+    },
+    "temporal_info": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "No sampling date or temporal information is provided near the reported value.",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0119",
+        "table_id": "b:0119"
+       }
+      ]
+     }
+    },
+    "is_raw_replicate_level": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "Insufficient information to determine whether the measurement is at the raw replicate level.",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0119",
+        "table_id": "b:0119"
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "run": "20260919T040723_06df825d",
+   "record": "Observation__Daren-1997-Canopy_observation_leaf_blade_ames_pathfinder_vegetative",
+   "payload": {
+    "id": "Daren-1997-Canopy_observation_leaf_blade_ames_pathfinder_vegetative",
+    "dataset_id": "Daren-1997-Canopy_dataset",
+    "citation_id": "Daren-1997-Canopy",
+    "site_id": "Daren-1997-Canopy_site_ames_ia",
+    "treatment_id": "Daren-1997-Canopy_treatment_vegetative_pathfinder_ames",
+    "method_id": "Daren-1997-Canopy_method_oven_drying_weighing",
+    "species_id": "Daren-1997-Canopy_species_panicum_virgatum",
+    "crop_id": "Daren-1997-Canopy_crop_pathfinder",
+    "variable_name": {
+     "value": "Leaf blade dry wt.",
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 1,
+      "section_path": [
+       "Results and Discussion",
+       "Weather Conditions"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0119"
+       }
+      ],
+      "raw_excerpt": "Leaf blade dry wt.",
+      "notes": null,
+      "source_priority_tier": null
+     }
+    },
+    "value": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "Numeric value 0.15 is reported without units; QuantityValue requires reported_units.",
+     "confidence": null,
+     "inference_source": null,
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 1,
+      "section_path": [
+       "Results and Discussion",
+       "Weather Conditions"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0119"
+       }
+      ],
+      "raw_excerpt": "0.15",
+      "notes": null,
+      "source_priority_tier": null
+     }
+    },
+    "reported_effect_scope": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "Cannot determine from the extracted row whether the value represents a treatment mean or an individual replicate measurement.",
+     "confidence": null,
+     "inference_source": null,
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 1,
+      "section_path": [
+       "Results and Discussion",
+       "Weather Conditions"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0119"
+       }
+      ],
+      "raw_excerpt": "0.15",
+      "notes": null,
+      "source_priority_tier": null
+     }
+    },
+    "aggregated_over_factors": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "Effect scope is unresolved, so aggregation factors cannot be determined.",
+     "confidence": null,
+     "inference_source": null,
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 1,
+      "section_path": [
+       "Results and Discussion",
+       "Weather Conditions"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0119"
+       }
+      ],
+      "raw_excerpt": null,
+      "notes": null,
+      "source_priority_tier": null
+     }
+    },
+    "temporal_info": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "No sampling date or temporal reference is provided in the extracted evidence.",
+     "confidence": null,
+     "inference_source": null,
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 1,
+      "section_path": [
+       "Results and Discussion",
+       "Weather Conditions"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0119"
+       }
+      ],
+      "raw_excerpt": null,
+      "notes": null,
+      "source_priority_tier": null
+     }
+    },
+    "is_raw_replicate_level": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "Cannot infer whether the observation is at the raw replicate level without additional context.",
+     "confidence": null,
+     "inference_source": null,
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 1,
+      "section_path": [
+       "Results and Discussion",
+       "Weather Conditions"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0119"
+       }
+      ],
+      "raw_excerpt": null,
+      "notes": null,
+      "source_priority_tier": null
+     }
+    },
+    "notes": null,
+    "statistical_encoding": null
+   }
+  },
+  {
+   "run": "20260919T040723_06df825d",
+   "record": "Observation__Daren-1997-Canopy_observation_leaf_blade_ames_trailblazer_elongating",
+   "payload": {
+    "id": "Daren-1997-Canopy_observation_leaf_blade_ames_trailblazer_elongating",
+    "dataset_id": "Daren-1997-Canopy_dataset",
+    "citation_id": "Daren-1997-Canopy",
+    "site_id": "Daren-1997-Canopy_site_ames_ia",
+    "treatment_id": "Daren-1997-Canopy_treatment_elongating_trailblazer_ames",
+    "method_id": "Daren-1997-Canopy_method_oven_drying_weighing",
+    "species_id": "Daren-1997-Canopy_species_panicum_virgatum",
+    "crop_id": "Daren-1997-Canopy_crop_trailblazer",
+    "variable_name": {
+     "value": "leaf blade dry weight",
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "section_path": [
+       "Results",
+       "Discussion"
+      ],
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0119",
+        "table_id": "b:0119"
+       }
+      ]
+     }
+    },
+    "value": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "Units not reported for the leaf blade dry weight value.",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "section_path": [
+       "Results",
+       "Discussion"
+      ],
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0119",
+        "table_id": "b:0119"
+       }
+      ]
+     }
+    },
+    "reported_effect_scope": {
+     "value": "treatment_mean",
+     "provenance_label": "INFERRED",
+     "unresolved_reason": "Table presents mean values per treatment; no explicit statement of aggregation level, so inferred as treatment mean.",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "section_path": [
+       "Results",
+       "Discussion"
+      ],
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0119",
+        "table_id": "b:0119"
+       }
+      ]
+     }
+    },
+    "aggregated_over_factors": {
+     "value": [],
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "section_path": [
+       "Results",
+       "Discussion"
+      ],
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0119",
+        "table_id": "b:0119"
+       }
+      ]
+     }
+    },
+    "temporal_info": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "No sampling date is provided in the surrounding text or table.",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "section_path": [
+       "Results",
+       "Discussion"
+      ],
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0119",
+        "table_id": "b:0119"
+       }
+      ]
+     }
+    },
+    "is_raw_replicate_level": {
+     "value": false,
+     "provenance_label": "INFERRED",
+     "unresolved_reason": "Since reported_effect_scope is treatment_mean, the observation is not at raw replicate level.",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "section_path": [
+       "Results",
+       "Discussion"
+      ],
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0119",
+        "table_id": "b:0119"
+       }
+      ]
+     }
+    }
+   }
+  }
+ ],
+ "variable_name_unresolved": [
+  {
+   "run": "20260915T015347_2f251088",
+   "record": "Observation__Oceologia-1998_observation",
+   "payload": {
+    "id": "Oceologia-1998_observation",
+    "dataset_id": "Oceologia-1998_dataset",
+    "citation_id": "Oceologia-1998",
+    "site_id": "Oceologia-1998_site",
+    "treatment_id": "Oceologia-1998_treatment",
+    "method_id": "Oceologia-1998_method",
+    "variable_name": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "Variable name not explicitly stated in the source block.",
+     "source": {
+      "source_document_id": "Oceologia-1998",
+      "page_number": 0,
+      "section_path": [
+       "Results"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0058"
+       }
+      ]
+     }
+    },
+    "value": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "Numeric values could not be linked to a specific variable due to ambiguity.",
+     "source": {
+      "source_document_id": "Oceologia-1998",
+      "page_number": 0,
+      "section_path": [
+       "Results"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0058"
+       }
+      ]
+     }
+    },
+    "reported_effect_scope": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "Effect scope not explicit in source.",
+     "source": {
+      "source_document_id": "Oceologia-1998",
+      "page_number": 0,
+      "section_path": [
+       "Results"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0058"
+       }
+      ]
+     }
+    },
+    "temporal_info": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "No sampling date provided.",
+     "source": {
+      "source_document_id": "Oceologia-1998",
+      "page_number": 0,
+      "section_path": [
+       "Results"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0058"
+       }
+      ]
+     }
+    },
+    "is_raw_replicate_level": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "Replication level not indicated.",
+     "source": {
+      "source_document_id": "Oceologia-1998",
+      "page_number": 0,
+      "section_path": [
+       "Results"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0058"
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "run": "20260916T050510_41f112a0",
+   "record": "Observation__Winter cover_observation_pox_c_stock_year8",
+   "payload": {
+    "id": "Winter cover_observation_pox_c_stock_year8",
+    "dataset_id": "Winter cover_dataset",
+    "citation_id": "Winter cover",
+    "site_id": "Winter cover_site_salinas_ars",
+    "treatment_id": "Winter cover_treatment_legume_rye_annual",
+    "method_id": "Winter cover_method_permanganate_oxidizable_carbon",
+    "variable_name": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "The full name 'Permanganate oxidizable carbon (POX‑C) stock' does not appear verbatim in the source text; only the abbreviation POX-C is used.",
+     "source": {
+      "source_document_id": "Winter cover",
+      "page_number": 1,
+      "section_path": [
+       "Results"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0230"
+       }
+      ]
+     }
+    },
+    "value": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "Absolute POX‑C stock values (Mg ha⁻¹) at 0‑30 cm depth after eight years are not reported; only percentage differences are provided.",
+     "source": {
+      "source_document_id": "Winter cover",
+      "page_number": 1,
+      "section_path": [
+       "Results"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0230"
+       }
+      ]
+     }
+    },
+    "reported_effect_scope": {
+     "value": "treatment_mean",
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Winter cover",
+      "page_number": 1,
+      "section_path": [
+       "Results"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0231"
+       }
+      ]
+     }
+    },
+    "aggregated_over_factors": {
+     "value": [],
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Winter cover",
+      "page_number": 1,
+      "section_path": [
+       "Results"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0231"
+       }
+      ]
+     }
+    },
+    "temporal_info": {
+     "value": {
+      "reported_text": "year 8",
+      "earliest": null,
+      "latest": null,
+      "relative_timing": null,
+      "relative_timing_days": null
+     },
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Winter cover",
+      "page_number": 1,
+      "section_path": [
+       "Results"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0230"
+       }
+      ]
+     }
+    },
+    "is_raw_replicate_level": {
+     "value": false,
+     "provenance_label": "INFERRED",
+     "unresolved_reason": "The percentages reported are treatment means across systems, not individual replicate measurements.",
+     "source": {
+      "source_document_id": "Winter cover",
+      "page_number": 1,
+      "section_path": [
+       "Results"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0231"
+       }
+      ]
+     }
+    }
+   }
+  }
+ ],
+ "only_temporal_unresolved": [
+  {
+   "run": "20260919T040723_06df825d",
+   "record": "Observation__Daren-1997-Canopy_observation_elong_weight_row_10",
+   "payload": {
+    "id": "Daren-1997-Canopy_observation_elong_weight_row_10",
+    "dataset_id": "Daren-1997-Canopy_dataset",
+    "citation_id": "Daren-1997-Canopy",
+    "site_id": "Daren-1997-Canopy_site_mead_ne",
+    "treatment_id": "Daren-1997-Canopy_treatment_mead_ne_ev_ff_ldmdc1",
+    "method_id": "Daren-1997-Canopy_method_oven_drying_weighing",
+    "variable_name": {
+     "value": "Tüler weight",
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 1,
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0350",
+        "table_id": "b:0350"
+       }
+      ],
+      "notes": null,
+      "raw_excerpt": null,
+      "section_path": []
+     },
+     "unresolved_reason": null,
+     "confidence": null,
+     "inference_source": null
+    },
+    "value": {
+     "value": {
+      "reported_text": "0.38 g",
+      "reported_numeric_value": 0.38,
+      "reported_units": "g",
+      "unit_basis_notes": null,
+      "converted_value": null,
+      "converted_units": null,
+      "conversion_formula": null,
+      "conversion_rationale": null
+     },
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 1,
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0367",
+        "table_id": "b:0367"
+       }
+      ],
+      "notes": null,
+      "raw_excerpt": null,
+      "section_path": []
+     },
+     "unresolved_reason": null,
+     "confidence": null,
+     "inference_source": null
+    },
+    "reported_effect_scope": {
+     "value": "treatment_mean",
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 1,
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0367",
+        "table_id": "b:0367"
+       }
+      ],
+      "notes": null,
+      "raw_excerpt": null,
+      "section_path": []
+     },
+     "unresolved_reason": null,
+     "confidence": null,
+     "inference_source": null
+    },
+    "aggregated_over_factors": {
+     "value": [],
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 1,
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0367",
+        "table_id": "b:0367"
+       }
+      ],
+      "notes": null,
+      "raw_excerpt": null,
+      "section_path": []
+     },
+     "unresolved_reason": null,
+     "confidence": null,
+     "inference_source": null
+    },
+    "temporal_info": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "No sampling date provided in the table.",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 1,
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0367",
+        "table_id": "b:0367"
+       }
+      ],
+      "notes": null,
+      "raw_excerpt": null,
+      "section_path": []
+     },
+     "confidence": null,
+     "inference_source": null
+    },
+    "is_raw_replicate_level": {
+     "value": false,
+     "provenance_label": "INFERRED",
+     "unresolved_reason": "The observation reports a treatment mean rather than a raw replicate measurement.",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 1,
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0367",
+        "table_id": "b:0367"
+       }
+      ],
+      "notes": null,
+      "raw_excerpt": null,
+      "section_path": []
+     },
+     "confidence": null,
+     "inference_source": "curator"
+    }
+   }
+  },
+  {
+   "run": "20260919T040723_06df825d",
+   "record": "Observation__Daren-1997-Canopy_observation_elong_weight_row_11",
+   "payload": {
+    "id": "Daren-1997-Canopy_observation_elong_weight_row_11",
+    "dataset_id": "Daren-1997-Canopy_dataset",
+    "citation_id": "Daren-1997-Canopy",
+    "site_id": "Daren-1997-Canopy_site_mead_ne",
+    "treatment_id": "Daren-1997-Canopy_treatment_mead_ne_ey_ff_hdmdc3",
+    "method_id": "Daren-1997-Canopy_method_oven_drying_weighing",
+    "variable_name": {
+     "value": "tiller weight",
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "section_path": [
+       "Yield Prediction"
+      ],
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0367",
+        "table_id": "b:0367"
+       }
+      ]
+     }
+    },
+    "value": {
+     "value": {
+      "reported_text": "0.31 g per tiller−1",
+      "reported_numeric_value": 0.31,
+      "reported_units": "g per tiller−1"
+     },
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "section_path": [
+       "Yield Prediction"
+      ],
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0367",
+        "table_id": "b:0367"
+       }
+      ]
+     }
+    },
+    "reported_effect_scope": {
+     "value": "treatment_mean",
+     "provenance_label": "INFERRED",
+     "unresolved_reason": "Table provides an average tiller weight for the population under the specified treatment, which indicates a treatment-level mean rather than individual replicate measurements.",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "section_path": [
+       "Yield Prediction"
+      ],
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0367",
+        "table_id": "b:0367"
+       }
+      ]
+     }
+    },
+    "aggregated_over_factors": {
+     "value": [],
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "section_path": [
+       "Yield Prediction"
+      ],
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0367",
+        "table_id": "b:0367"
+       }
+      ]
+     }
+    },
+    "temporal_info": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "No explicit sampling date is given near the reported weight value.",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "section_path": [
+       "Yield Prediction"
+      ],
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0367",
+        "table_id": "b:0367"
+       }
+      ]
+     }
+    },
+    "is_raw_replicate_level": {
+     "value": false,
+     "provenance_label": "INFERRED",
+     "unresolved_reason": "The reported value is a treatment mean across replicates (see reported_effect_scope=treatment_mean).",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "section_path": [
+       "Yield Prediction"
+      ],
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0367",
+        "table_id": "b:0367"
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "run": "20260919T040723_06df825d",
+   "record": "Observation__Daren-1997-Canopy_observation_elong_weight_row_4",
+   "payload": {
+    "id": "Daren-1997-Canopy_observation_elong_weight_row_4",
+    "dataset_id": "Daren-1997-Canopy_dataset",
+    "citation_id": "Daren-1997-Canopy",
+    "site_id": "Daren-1997-Canopy_site_ames_ia",
+    "treatment_id": "Daren-1997-Canopy_treatment_ames_ia_ev_ff_ldmdc1",
+    "method_id": "Daren-1997-Canopy_method_oven_drying_weighing",
+    "species_id": "Daren-1997-Canopy_species_panicum_virgatum",
+    "variable_name": {
+     "value": "Tüler weight",
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0350",
+        "table_id": "b:0350"
+       }
+      ]
+     }
+    },
+    "value": {
+     "value": {
+      "reported_text": "0.53 g",
+      "reported_numeric_value": 0.53,
+      "reported_units": "g"
+     },
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0367",
+        "table_id": "b:0367"
+       }
+      ]
+     }
+    },
+    "reported_effect_scope": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "The source does not indicate whether the reported weight is a treatment mean or an aggregated mean.",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0367",
+        "table_id": "b:0367"
+       }
+      ]
+     }
+    },
+    "temporal_info": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "No explicit sampling date is provided near the reported value.",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0367",
+        "table_id": "b:0367"
+       }
+      ]
+     }
+    },
+    "is_raw_replicate_level": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "It is unclear whether the weight measurement represents an individual replicate or a treatment aggregate.",
+     "source": {
+      "source_document_id": "Daren-1997-Canopy",
+      "page_number": 0,
+      "locators": [
+       {
+        "kind": "table",
+        "block_anchor": "b:0367",
+        "table_id": "b:0367"
+       }
+      ]
+     }
+    }
+   }
+  }
+ ],
+ "fully_resolved": [
+  {
+   "run": "20260916T024500_353d8bed",
+   "record": "Observation__Oceologia-1998_observation_plant_nh4_uptake_rate_time_decrease",
+   "payload": {
+    "id": "Oceologia-1998_observation_plant_nh4_uptake_rate_time_decrease",
+    "dataset_id": "Oceologia-1998_dataset",
+    "citation_id": "Oceologia-1998",
+    "site_id": "Oceologia-1998_site_cambridge_growth_facility",
+    "treatment_id": "Oceologia-1998_treatment_co2_level",
+    "method_id": "Oceologia-1998_method_15n_nh4_tracer_injection",
+    "variable_name": {
+     "value": "Plant NH4 uptake rate",
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Oceologia-1998",
+      "page_number": 1,
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0514"
+       }
+      ]
+     }
+    },
+    "value": {
+     "value": {
+      "reported_text": "107.5 mg N m-2 day-1",
+      "reported_numeric_value": 107.5,
+      "reported_units": "mg N m-2 day-1"
+     },
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Oceologia-1998",
+      "page_number": 1,
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0514"
+       }
+      ]
+     }
+    },
+    "statistical_encoding": {
+     "value": {
+      "statistic_name": "p_value",
+      "statistic_value": 0.04
+     },
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Oceologia-1998",
+      "page_number": 1,
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0514"
+       }
+      ]
+     }
+    },
+    "reported_effect_scope": {
+     "value": "treatment_mean",
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Oceologia-1998",
+      "page_number": 1,
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0514"
+       }
+      ]
+     }
+    },
+    "aggregated_over_factors": {
+     "value": [],
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Oceologia-1998",
+      "page_number": 1,
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0514"
+       }
+      ]
+     }
+    },
+    "temporal_info": {
+     "value": {
+      "reported_text": "0-48 h"
+     },
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Oceologia-1998",
+      "page_number": 1,
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0514"
+       }
+      ]
+     }
+    },
+    "is_raw_replicate_level": {
+     "value": false,
+     "provenance_label": "INFERRED",
+     "unresolved_reason": "Table reports this value as a treatment mean across replicate plots (see reported_effect_scope=treatment_mean).",
+     "source": {
+      "source_document_id": "Oceologia-1998",
+      "page_number": 1,
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0514"
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "run": "20260918T192235_fb6030ba",
+   "record": "Observation__Felipe-2010-Cultivar_observation_soil_co2_28dap_fallow",
+   "payload": {
+    "id": "Felipe-2010-Cultivar_observation_soil_co2_28dap_fallow",
+    "dataset_id": "Felipe-2010-Cultivar_dataset",
+    "citation_id": "Felipe-2010-Cultivar",
+    "site_id": "Felipe-2010-Cultivar_site_rominger_brothers_farm",
+    "treatment_id": "Felipe-2010-Cultivar_treatment_fallow",
+    "method_id": "Felipe-2010-Cultivar_method_soil_co2_emissions_flux",
+    "variable_name": {
+     "value": "CO2 emissions",
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Felipe-2010-Cultivar",
+      "page_number": 1,
+      "section_path": [
+       "Results"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0055"
+       }
+      ]
+     }
+    },
+    "value": {
+     "value": {
+      "reported_text": "139.9 mg CO2-C m-2 h-1",
+      "reported_numeric_value": 139.9,
+      "reported_units": "mg CO2-C m-2 h-1"
+     },
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Felipe-2010-Cultivar",
+      "page_number": 1,
+      "section_path": [
+       "Results"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0055"
+       }
+      ]
+     }
+    },
+    "reported_effect_scope": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "The excerpt does not state whether the reported CO2 value is a mean across replicates or plots.",
+     "source": {
+      "source_document_id": "Felipe-2010-Cultivar",
+      "page_number": 1,
+      "section_path": [
+       "Results"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0055"
+       }
+      ]
+     }
+    },
+    "aggregated_over_factors": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "Cannot determine which factors the value is aggregated over.",
+     "source": {
+      "source_document_id": "Felipe-2010-Cultivar",
+      "page_number": 1,
+      "section_path": [
+       "Results"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0055"
+       }
+      ]
+     }
+    },
+    "temporal_info": {
+     "value": {
+      "reported_text": "28 DAP"
+     },
+     "provenance_label": "EXTRACTED",
+     "source": {
+      "source_document_id": "Felipe-2010-Cultivar",
+      "page_number": 1,
+      "section_path": [
+       "Results"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0055"
+       }
+      ]
+     }
+    },
+    "is_raw_replicate_level": {
+     "value": null,
+     "provenance_label": "UNRESOLVED",
+     "unresolved_reason": "The excerpt does not indicate whether the measurement is at the raw replicate level.",
+     "source": {
+      "source_document_id": "Felipe-2010-Cultivar",
+      "page_number": 1,
+      "section_path": [
+       "Results"
+      ],
+      "locators": [
+       {
+        "kind": "text",
+        "block_anchor": "b:0055"
+       }
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,98 @@
+[
+ {
+  "candidate_id": "compost-application",
+  "description": "Compost applied at a rate of 17 Mg ha⁻¹ before the tomato season.",
+  "anchors": [
+   "b:0028"
+  ],
+  "linked_candidates": {}
+ },
+ {
+  "candidate_id": "mustard-cover-crop-planting",
+  "description": "Mustard cover crop (MCC) planted on 3 Nov 2005 with three planting lines per bed.",
+  "anchors": [
+   "b:0028"
+  ],
+  "linked_candidates": {}
+ },
+ {
+  "candidate_id": "laser-leveling",
+  "description": "Laser leveling of the entire 0.8‑ha field during summer/fall 2005.",
+  "anchors": [
+   "b:0028"
+  ],
+  "linked_candidates": {}
+ },
+ {
+  "candidate_id": "cover-crop-mowing",
+  "description": "Mowing of the mustard cover crop on 26 Apr 2006.",
+  "anchors": [
+   "b:0029"
+  ],
+  "linked_candidates": {}
+ },
+ {
+  "candidate_id": "mustard-residue-incorporation",
+  "description": "Light incorporation of mustard residues into the top 10 cm of soil after 19 days.",
+  "anchors": [
+   "b:0029"
+  ],
+  "linked_candidates": {}
+ },
+ {
+  "candidate_id": "mechanical-weeding",
+  "description": "Mechanical weeding/cultivation performed during the tomato growing season.",
+  "anchors": [
+   "b:0030"
+  ],
+  "linked_candidates": {}
+ },
+ {
+  "candidate_id": "manual-weeding",
+  "description": "Manual weeding performed during the tomato growing season.",
+  "anchors": [
+   "b:0030"
+  ],
+  "linked_candidates": {}
+ },
+ {
+  "candidate_id": "sulfur-application",
+  "description": "Sulfur applied as a mite and disease preventive measure during the tomato season.",
+  "anchors": [
+   "b:0030"
+  ],
+  "linked_candidates": {}
+ },
+ {
+  "candidate_id": "furrow-irrigation",
+  "description": "Nine furrow irrigation events spaced ≈11 days apart, each delivering 88 ± 22 mm.",
+  "anchors": [
+   "b:0030"
+  ],
+  "linked_candidates": {}
+ },
+ {
+  "candidate_id": "seedling-transplanting",
+  "description": "Transplanting of 5 760 seedlings on 18–19 May 2006.",
+  "anchors": [
+   "b:0030"
+  ],
+  "linked_candidates": {}
+ },
+ {
+  "candidate_id": "winter-fallow",
+  "description": "Winter fallow treatment (no cover crop) applied to half of the main plots.",
+  "anchors": [
+   "b:0028"
+  ],
+  "linked_candidates": {}
+ },
+ {
+  "candidate_id": "mustard-cover-crop-treatment",
+  "description": "Winter mustard cover crop (MCC) treatment applied to the other half of the main plots.",
+  "anchors": [
+   "b:0028"
+  ],
+  "linked_candidates": {}
+ }
+]

@@ -1,0 +1,383 @@
+{
+ "b:0040": {
+  "block_type": "Picture",
+  "page_id": "page_3",
+  "section_path": [
+   "Field site and management"
+  ]
+ },
+ "b:0041": {
+  "block_type": "Text",
+  "page_id": "page_3",
+  "section_path": [
+   "Field site and management"
+  ]
+ },
+ "b:0042": {
+  "block_type": "Text",
+  "page_id": "page_3",
+  "section_path": [
+   "Field site and management"
+  ]
+ },
+ "b:0043": {
+  "block_type": "Caption",
+  "page_id": "page_3",
+  "section_path": [
+   "Field site and management"
+  ]
+ },
+ "b:0044": {
+  "block_type": "Table",
+  "page_id": "page_3",
+  "section_path": [
+   "Field site and management"
+  ]
+ },
+ "b:0071": {
+  "block_type": "Text",
+  "page_id": "page_3",
+  "section_path": [
+   "Field site and management"
+  ]
+ },
+ "b:0075": {
+  "block_type": "Picture",
+  "page_id": "page_4",
+  "section_path": [
+   "Field site and management"
+  ]
+ },
+ "b:0076": {
+  "block_type": "Text",
+  "page_id": "page_4",
+  "section_path": [
+   "Field site and management"
+  ]
+ },
+ "b:0077": {
+  "block_type": "SectionHeader",
+  "page_id": "page_4",
+  "section_path": [
+   "Carbon inputs"
+  ]
+ },
+ "b:0078": {
+  "block_type": "Text",
+  "page_id": "page_4",
+  "section_path": [
+   "Carbon inputs"
+  ]
+ },
+ "b:0082": {
+  "block_type": "Picture",
+  "page_id": "page_5",
+  "section_path": [
+   "Carbon inputs"
+  ]
+ },
+ "b:0083": {
+  "block_type": "Text",
+  "page_id": "page_5",
+  "section_path": [
+   "Carbon inputs"
+  ]
+ },
+ "b:0084": {
+  "block_type": "SectionHeader",
+  "page_id": "page_5",
+  "section_path": [
+   "Soil sampling and carbon analysis"
+  ]
+ },
+ "b:0085": {
+  "block_type": "Text",
+  "page_id": "page_5",
+  "section_path": [
+   "Soil sampling and carbon analysis"
+  ]
+ },
+ "b:0086": {
+  "block_type": "Text",
+  "page_id": "page_5",
+  "section_path": [
+   "Soil sampling and carbon analysis"
+  ]
+ },
+ "b:0090": {
+  "block_type": "Picture",
+  "page_id": "page_6",
+  "section_path": [
+   "Soil sampling and carbon analysis"
+  ]
+ },
+ "b:0091": {
+  "block_type": "Text",
+  "page_id": "page_6",
+  "section_path": [
+   "Soil sampling and carbon analysis"
+  ]
+ },
+ "b:0092": {
+  "block_type": "SectionHeader",
+  "page_id": "page_6",
+  "section_path": [
+   "Statistical analysis"
+  ]
+ },
+ "b:0093": {
+  "block_type": "Text",
+  "page_id": "page_6",
+  "section_path": [
+   "Statistical analysis"
+  ]
+ },
+ "b:0094": {
+  "block_type": "Text",
+  "page_id": "page_6",
+  "section_path": [
+   "Statistical analysis"
+  ]
+ },
+ "b:0095": {
+  "block_type": "Text",
+  "page_id": "page_6",
+  "section_path": [
+   "Statistical analysis"
+  ]
+ },
+ "b:0099": {
+  "block_type": "Picture",
+  "page_id": "page_7",
+  "section_path": [
+   "Statistical analysis"
+  ]
+ },
+ "b:0101": {
+  "block_type": "Table",
+  "page_id": "page_7",
+  "section_path": [
+   "Statistical analysis"
+  ]
+ },
+ "b:0130": {
+  "block_type": "Footnote",
+  "page_id": "page_7",
+  "section_path": [
+   "Statistical analysis"
+  ]
+ },
+ "b:0131": {
+  "block_type": "Text",
+  "page_id": "page_7",
+  "section_path": [
+   "Statistical analysis"
+  ]
+ },
+ "b:0132": {
+  "block_type": "SectionHeader",
+  "page_id": "page_7",
+  "section_path": [
+   "Results and discussion"
+  ]
+ },
+ "b:0133": {
+  "block_type": "SectionHeader",
+  "page_id": "page_7",
+  "section_path": [
+   "Organic carbon inputs"
+  ]
+ },
+ "b:0134": {
+  "block_type": "Text",
+  "page_id": "page_7",
+  "section_path": [
+   "Organic carbon inputs"
+  ]
+ },
+ "b:0135": {
+  "block_type": "Text",
+  "page_id": "page_7",
+  "section_path": [
+   "Organic carbon inputs"
+  ]
+ },
+ "b:0139": {
+  "block_type": "Picture",
+  "page_id": "page_8",
+  "section_path": [
+   "Organic carbon inputs"
+  ]
+ },
+ "b:0140": {
+  "block_type": "SectionHeader",
+  "page_id": "page_8",
+  "section_path": [
+   "Organic carbon inputs",
+   "Cumulative Carbon Inputs Over Eight Years of Vegetable Production"
+  ]
+ },
+ "b:0141": {
+  "block_type": "Caption",
+  "page_id": "page_8",
+  "section_path": [
+   "Organic carbon inputs",
+   "Cumulative Carbon Inputs Over Eight Years of Vegetable Production"
+  ]
+ },
+ "b:0142": {
+  "block_type": "Text",
+  "page_id": "page_8",
+  "section_path": [
+   "Organic carbon inputs",
+   "Cumulative Carbon Inputs Over Eight Years of Vegetable Production"
+  ]
+ },
+ "b:0143": {
+  "block_type": "Text",
+  "page_id": "page_8",
+  "section_path": [
+   "Organic carbon inputs",
+   "Cumulative Carbon Inputs Over Eight Years of Vegetable Production"
+  ]
+ },
+ "b:0144": {
+  "block_type": "Text",
+  "page_id": "page_8",
+  "section_path": [
+   "Organic carbon inputs",
+   "Cumulative Carbon Inputs Over Eight Years of Vegetable Production"
+  ]
+ },
+ "b:0145": {
+  "block_type": "Text",
+  "page_id": "page_8",
+  "section_path": [
+   "Organic carbon inputs",
+   "Cumulative Carbon Inputs Over Eight Years of Vegetable Production"
+  ]
+ },
+ "b:0150": {
+  "block_type": "SectionHeader",
+  "page_id": "page_9",
+  "section_path": [
+   "Organic carbon inputs",
+   "Fig 2. Cover crop shoot carbon inputs over eight years of vegetable production. Measurements were taken in five organic vegetable systems in Salinas, CA. Systems differed by annual compost additions (0 vs. 7.6 Mg ha-1 before each vegetable crop), cover crop type (legume-rye, mustard, or cereal rye alone) and cover cropping frequency (quadrennially vs. annually planted). Error bars are 95% confidence limits. Individual data points for reps 1 through 4 of each system are clustered in order from left to right around the mean, which is represented by the horizontal lines. Different lower case letters above the x-axis indicate that the shoot carbon means are significantly different based on the Tukey-Kramer adjusted family-wise error rate of (P\ufffd0.05). Mean cover crop shoot carbon inputs (Mg ha-1) were 6.3 (System 1), 6.6 (System 2), 26.4 (System 3), 18.6 (System 4) and 25.2 (System 5)."
+  ]
+ },
+ "b:0151": {
+  "block_type": "Text",
+  "page_id": "page_9",
+  "section_path": [
+   "Organic carbon inputs",
+   "Fig 2. Cover crop shoot carbon inputs over eight years of vegetable production. Measurements were taken in five organic vegetable systems in Salinas, CA. Systems differed by annual compost additions (0 vs. 7.6 Mg ha-1 before each vegetable crop), cover crop type (legume-rye, mustard, or cereal rye alone) and cover cropping frequency (quadrennially vs. annually planted). Error bars are 95% confidence limits. Individual data points for reps 1 through 4 of each system are clustered in order from left to right around the mean, which is represented by the horizontal lines. Different lower case letters above the x-axis indicate that the shoot carbon means are significantly different based on the Tukey-Kramer adjusted family-wise error rate of (P\ufffd0.05). Mean cover crop shoot carbon inputs (Mg ha-1) were 6.3 (System 1), 6.6 (System 2), 26.4 (System 3), 18.6 (System 4) and 25.2 (System 5)."
+  ]
+ },
+ "b:0152": {
+  "block_type": "Text",
+  "page_id": "page_9",
+  "section_path": [
+   "Organic carbon inputs",
+   "Fig 2. Cover crop shoot carbon inputs over eight years of vegetable production. Measurements were taken in five organic vegetable systems in Salinas, CA. Systems differed by annual compost additions (0 vs. 7.6 Mg ha-1 before each vegetable crop), cover crop type (legume-rye, mustard, or cereal rye alone) and cover cropping frequency (quadrennially vs. annually planted). Error bars are 95% confidence limits. Individual data points for reps 1 through 4 of each system are clustered in order from left to right around the mean, which is represented by the horizontal lines. Different lower case letters above the x-axis indicate that the shoot carbon means are significantly different based on the Tukey-Kramer adjusted family-wise error rate of (P\ufffd0.05). Mean cover crop shoot carbon inputs (Mg ha-1) were 6.3 (System 1), 6.6 (System 2), 26.4 (System 3), 18.6 (System 4) and 25.2 (System 5)."
+  ]
+ },
+ "b:0153": {
+  "block_type": "Text",
+  "page_id": "page_9",
+  "section_path": [
+   "Organic carbon inputs",
+   "Fig 2. Cover crop shoot carbon inputs over eight years of vegetable production. Measurements were taken in five organic vegetable systems in Salinas, CA. Systems differed by annual compost additions (0 vs. 7.6 Mg ha-1 before each vegetable crop), cover crop type (legume-rye, mustard, or cereal rye alone) and cover cropping frequency (quadrennially vs. annually planted). Error bars are 95% confidence limits. Individual data points for reps 1 through 4 of each system are clustered in order from left to right around the mean, which is represented by the horizontal lines. Different lower case letters above the x-axis indicate that the shoot carbon means are significantly different based on the Tukey-Kramer adjusted family-wise error rate of (P\ufffd0.05). Mean cover crop shoot carbon inputs (Mg ha-1) were 6.3 (System 1), 6.6 (System 2), 26.4 (System 3), 18.6 (System 4) and 25.2 (System 5)."
+  ]
+ },
+ "b:0154": {
+  "block_type": "SectionHeader",
+  "page_id": "page_9",
+  "section_path": [
+   "Soil organic carbon"
+  ]
+ },
+ "b:0155": {
+  "block_type": "Text",
+  "page_id": "page_9",
+  "section_path": [
+   "Soil organic carbon"
+  ]
+ },
+ "b:0159": {
+  "block_type": "Picture",
+  "page_id": "page_10",
+  "section_path": [
+   "Soil organic carbon"
+  ]
+ },
+ "b:0160": {
+  "block_type": "Caption",
+  "page_id": "page_10",
+  "section_path": [
+   ""
+  ]
+ },
+ "b:0161": {
+  "block_type": "Text",
+  "page_id": "page_10",
+  "section_path": [
+   ""
+  ]
+ },
+ "b:0162": {
+  "block_type": "Text",
+  "page_id": "page_10",
+  "section_path": [
+   ""
+  ]
+ },
+ "b:0166": {
+  "block_type": "Picture",
+  "page_id": "page_11",
+  "section_path": [
+   ""
+  ]
+ },
+ "b:0167": {
+  "block_type": "Figure",
+  "page_id": "page_11",
+  "section_path": [
+   ""
+  ]
+ },
+ "b:0172": {
+  "block_type": "Picture",
+  "page_id": "page_12",
+  "section_path": [
+   ""
+  ]
+ },
+ "b:0173": {
+  "block_type": "Figure",
+  "page_id": "page_12",
+  "section_path": [
+   ""
+  ]
+ },
+ "b:0175": {
+  "block_type": "Text",
+  "page_id": "page_12",
+  "section_path": [
+   ""
+  ]
+ },
+ "b:0176": {
+  "block_type": "Caption",
+  "page_id": "page_12",
+  "section_path": [
+   ""
+  ]
+ },
+ "b:0177": {
+  "block_type": "Table",
+  "page_id": "page_12",
+  "section_path": [
+   ""
+  ]
+ }
+}

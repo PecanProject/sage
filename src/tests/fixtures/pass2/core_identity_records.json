@@ -1,0 +1,395 @@
+{
+ "daren_variable_leaf_blade_dry_weight": {
+  "id": "Daren-1997-Canopy_variable_leaf_blade_dry_weight",
+  "name": {
+   "value": null,
+   "provenance_label": "UNRESOLVED",
+   "unresolved_reason": "Variable name extracted from column header but page number not available",
+   "source": {
+    "source_document_id": "Daren-1997-Canopy",
+    "page_number": 1,
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0119"
+     }
+    ]
+   }
+  },
+  "description": {
+   "value": null,
+   "provenance_label": "UNRESOLVED",
+   "unresolved_reason": "Table caption provides description but page number not available",
+   "source": {
+    "source_document_id": "Daren-1997-Canopy",
+    "page_number": 1,
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0118"
+     }
+    ]
+   }
+  },
+  "units": {
+   "value": null,
+   "provenance_label": "UNRESOLVED",
+   "unresolved_reason": "Unit extracted from column header but page number not available",
+   "source": {
+    "source_document_id": "Daren-1997-Canopy",
+    "page_number": 1,
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0119"
+     }
+    ]
+   }
+  },
+  "notes": {
+   "value": null,
+   "provenance_label": "UNRESOLVED",
+   "unresolved_reason": "Extraction notes present but page number not available",
+   "source": {
+    "source_document_id": "Daren-1997-Canopy",
+    "page_number": 1,
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0119"
+     }
+    ]
+   }
+  }
+ },
+ "daren_variable_leaf_mean_tilt_angle": {
+  "id": "Daren-1997-Canopy_variable_leaf_mean_tilt_angle",
+  "name": {
+   "value": "leaf mean tilt angle (MTA",
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Daren-1997-Canopy",
+    "page_number": 1,
+    "section_path": [
+     "Abstract"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0013"
+     }
+    ]
+   }
+  },
+  "description": {
+   "value": null,
+   "provenance_label": "UNRESOLVED",
+   "unresolved_reason": "The paper does not provide an explicit definition of the variable; the abstract only implies that it is the angle of inclination, but the exact wording 'average angle of leaf inclination relative to horizontal' is not present in any block.",
+   "source": {
+    "source_document_id": "Daren-1997-Canopy",
+    "page_number": 1,
+    "section_path": [
+     "Abstract"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0013"
+     }
+    ]
+   }
+  },
+  "notes": {
+   "value": "MTA, mean tilt angle",
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Daren-1997-Canopy",
+    "page_number": 1,
+    "section_path": [
+     "Abstract"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0014"
+     }
+    ]
+   }
+  }
+ },
+ "daren_variable_leaf_blade_width": {
+  "id": "Daren-1997-Canopy_variable_leaf_blade_width",
+  "name": {
+   "value": "leaf blade width",
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Daren-1997-Canopy",
+    "page_number": 1,
+    "section_path": [
+     "Materials and Methods"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0045"
+     }
+    ]
+   }
+  },
+  "description": {
+   "value": "Leaf blade width was measured at the widest portion of the leaf blade.",
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Daren-1997-Canopy",
+    "page_number": 1,
+    "section_path": [
+     "Materials and Methods"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0045"
+     }
+    ]
+   }
+  },
+  "units": {
+   "value": null,
+   "provenance_label": "UNRESOLVED",
+   "unresolved_reason": "No explicit measurement units (e.g., mm or cm) are stated in the source text.",
+   "source": {
+    "source_document_id": "Daren-1997-Canopy",
+    "page_number": 1,
+    "section_path": [
+     "Materials and Methods"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0045"
+     }
+    ]
+   }
+  },
+  "notes": {
+   "value": "Measurements of leaf blade length and width were taken from freshly harvested leaves of 10 randomly chosen tillers within the V2 secondary stage from vegetative swards.",
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Daren-1997-Canopy",
+    "page_number": 1,
+    "section_path": [
+     "Materials and Methods"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0045"
+     }
+    ]
+   }
+  }
+ },
+ "daren_crop_trailblazer": {
+  "id": "Daren-1997-Canopy_crop_trailblazer",
+  "citation_id": "Daren-1997-Canopy",
+  "species_id": "Daren-1997-Canopy_species_panicum_virgatum",
+  "cultivar": {
+   "value": null,
+   "provenance_label": "UNRESOLVED",
+   "unresolved_reason": "Page number not provided in extraction for anchor b:0119; cannot construct complete source metadata despite having the cultivar name.",
+   "source": {
+    "source_document_id": "Daren-1997-Canopy",
+    "page_number": 0,
+    "section_path": [],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0119"
+     }
+    ],
+    "raw_excerpt": null,
+    "notes": null,
+    "source_priority_tier": null
+   }
+  }
+ },
+ "daren_crop_cave_in_rock": {
+  "id": "Daren-1997-Canopy_crop_cave_in_rock",
+  "citation_id": "Daren-1997-Canopy",
+  "species_id": "Daren-1997-Canopy_species_panicum_virgatum",
+  "cultivar": {
+   "value": "Cave-in-Rock",
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Daren-1997-Canopy",
+    "page_number": 1,
+    "section_path": [
+     "Results and Discussion"
+    ],
+    "locators": [
+     {
+      "kind": "table",
+      "block_anchor": "b:0119",
+      "table_id": "b:0119"
+     }
+    ]
+   }
+  },
+  "common_name": {
+   "value": "switchgrass",
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Daren-1997-Canopy",
+    "page_number": 1,
+    "section_path": [
+     "Results and Discussion"
+    ],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0118"
+     }
+    ]
+   }
+  }
+ },
+ "felipe_variable_plant_nitrogen_content": {
+  "id": "Felipe-2010-Cultivar_variable_plant_nitrogen_content",
+  "name": {
+   "value": null,
+   "provenance_label": "UNRESOLVED",
+   "unresolved_reason": "Variable name inferred as 'Plant tissue nitrogen concentration' from context; the exact phrase is not present in source block b:0057.",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 0,
+    "section_path": [],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0057"
+     }
+    ],
+    "raw_excerpt": null,
+    "notes": null
+   }
+  },
+  "units": {
+   "value": "g N m-2",
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 0,
+    "section_path": [],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0057"
+     }
+    ],
+    "raw_excerpt": "(P -2 and MCC, 9.6 g N m -2 )",
+    "notes": null
+   }
+  }
+ },
+ "felipe_variable_canopy_light": {
+  "id": "Felipe-2010-Cultivar_variable_canopy_light_interception_par",
+  "name": {
+   "value": "Canopy light interception",
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 1,
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0041"
+     }
+    ]
+   }
+  }
+ },
+ "felipe_method_disease_scoring": {
+  "id": "Felipe-2010-Cultivar_method_disease_scoring",
+  "citation_id": "Felipe-2010-Cultivar",
+  "name": {
+   "provenance_label": "UNRESOLVED",
+   "unresolved_reason": "The source text at anchor b:0042 does not provide a concise method name; it only describes the disease evaluation procedure.",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 1,
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0042"
+     }
+    ],
+    "raw_excerpt": null,
+    "notes": null,
+    "source_priority_tier": null
+   }
+  },
+  "description": {
+   "value": "Disease evaluation for Sclerotium rolfsii Sacc. (Southern blight), a major problem in the entire field, consisted of individual assessment of plants in relation to disease symptoms at 74 DAP and harvest (111 DAP). Plants were scored on a scale from 1 to 5, where 1 was 0% of the individual plant affected, 2 (25%), 3 (50%), 4 (75%), and 5 (100% or dead).",
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 1,
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0042"
+     }
+    ],
+    "raw_excerpt": "Disease evaluation for Sclerotium rolfsii Sacc. (Southern blight), a major problem in the entire field, consisted of individual assessment of plants in relation to disease symptoms at 74 DAP and harvest (111 DAP). Plants were scored on a scale from 1 to 5, where 1 was 0% of the individual plant affected, 2 (25%), 3 (50%), 4 (75%), and 5 (100% or dead).",
+    "notes": null,
+    "source_priority_tier": null
+   }
+  }
+ },
+ "felipe_method_canopy_par": {
+  "id": "Felipe-2010-Cultivar_method_canopy_par_interception",
+  "citation_id": "Felipe-2010-Cultivar",
+  "name": {
+   "value": "Canopy light interception",
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 1,
+    "section_path": [],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0041"
+     }
+    ],
+    "raw_excerpt": null,
+    "notes": null,
+    "source_priority_tier": null
+   },
+   "unresolved_reason": null,
+   "confidence": null,
+   "inference_source": null
+  },
+  "description": {
+   "value": "Canopy light interception was measured at 35, 69, and 95 DAP using a portable‑tube solarimeter with sensors for photosynthetically active radiation (PAR; AccuPAR-80, v. 4.5, Decagon Devices, Inc. Pullman, Washington).",
+   "provenance_label": "EXTRACTED",
+   "source": {
+    "source_document_id": "Felipe-2010-Cultivar",
+    "page_number": 1,
+    "section_path": [],
+    "locators": [
+     {
+      "kind": "text",
+      "block_anchor": "b:0041"
+     }
+    ],
+    "raw_excerpt": null,
+    "notes": null,
+    "source_priority_tier": null
+   },
+   "unresolved_reason": null,
+   "confidence": null,
+   "inference_source": null
+  }
+ }
+}

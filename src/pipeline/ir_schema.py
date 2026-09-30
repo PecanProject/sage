@@ -100,7 +100,11 @@ class ExtractionSource(BaseModel):
     """IR spec Section 6.2 + Playbook `source_priority_tier` amendment."""
 
     source_document_id: str
-    page_number: int
+    # The 1-indexed PDF page of the FIRST cited block, filled deterministically from provenance.json by the orchestrator
+    # (`_apply_source_pages`) -- never by a model. Optional because the honest value is "unknown" when provenance does
+    # not give one; a required int made the models invent one (real runs: 160 of 160 values were 1 or 0, the true pages
+    # were 2-6) or mark real fields UNRESOLVED for want of it ("page number not available").
+    page_number: Optional[int] = None
     section_path: list[str] = Field(default_factory=list)
     locators: list[SourceLocator] = Field(min_length=1)
     raw_excerpt: Optional[str] = None

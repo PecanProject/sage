@@ -1,0 +1,47 @@
+{
+ "b:0010": {
+  "block_type": "Text",
+  "page_id": "page_0",
+  "section_path": [
+   "Cultivar mixtures of processing tomato in an organic agroecosystem"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0025": {
+  "block_type": "SectionHeader",
+  "page_id": "page_2",
+  "section_path": [
+   "Cultivar mixtures of processing tomato in an organic agroecosystem",
+   "Field description"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0029": {
+  "block_type": "Text",
+  "page_id": "page_2",
+  "section_path": [
+   "Cultivar mixtures of processing tomato in an organic agroecosystem",
+   "Cover crop and cultivar mixtures"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0030": {
+  "block_type": "Text",
+  "page_id": "page_2",
+  "section_path": [
+   "Cultivar mixtures of processing tomato in an organic agroecosystem",
+   "Cover crop and cultivar mixtures"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0041": {
+  "block_type": "Text",
+  "page_id": "page_4",
+  "section_path": [
+   "Cultivar mixtures of processing tomato in an organic agroecosystem",
+   "Cover crop and cultivar mixtures",
+   "Plant sampling and measurements"
+  ],
+  "rendered_in_content_md": true
+ }
+}
