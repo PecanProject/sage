@@ -40,3 +40,6 @@ src/debug_captures/
 # Stray one-off debug droppings at the src/ root.
 /src/*.log
 /src/*.jsonl
+
+# Run logs written by scripts/*.sh and scripts/ablation.py.
+scripts/overnight_logs/
