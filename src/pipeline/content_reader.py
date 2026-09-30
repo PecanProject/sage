@@ -194,6 +194,99 @@ def read_table(paper_id: str, table_id: str, papers_root: Path = DEFAULT_PAPERS_
     }
 
 
+def read_table_full(paper_id: str, table_anchor: str, papers_root: Path = DEFAULT_PAPERS_ROOT) -> dict:
+    """`read_table`'s rendered markdown PLUS every row's structured cells
+    (same provenance-derived `row_index`/`col_index`/`cell_text` data
+    `read_table_row` returns one row at a time), all in one call -- built
+    for the table-classification reconstruction stage (orchestrator.py's
+    Step B), which needs the whole table's real structure in front of it
+    at once, not one row lookup per call. `rows` is ordered by row_index;
+    each row's cells are ordered by col_index, exactly like `read_table_row`."""
+    rendered = read_table(paper_id, table_anchor, papers_root)
+    if not rendered.get("found"):
+        return rendered
+
+    provenance = _load_provenance(paper_id, papers_root)
+    if provenance is None:
+        return {"found": False, "error": f"no provenance.json for paper_id '{paper_id}'"}
+
+    normalized = rendered["table_id"]
+    by_row: dict[int, list[tuple]] = {}
+    for entry in provenance.values():
+        if entry.get("parent_table_anchor") != normalized:
+            continue
+        row_idx = entry.get("row_index")
+        col_idx = entry.get("col_index") if entry.get("col_index") is not None else -1
+        if row_idx is None:
+            continue
+        by_row.setdefault(row_idx, []).append((col_idx, entry.get("cell_text", "")))
+
+    rows = [
+        [text for _, text in sorted(by_row[r])]
+        for r in sorted(by_row)
+    ]
+    return {
+        "found": True,
+        "paper_id": paper_id,
+        "table_anchor": normalized,
+        "markdown_table": rendered["markdown_table"],
+        "rows": rows,
+    }
+
+
+def list_tables(paper_id: str, papers_root: Path = DEFAULT_PAPERS_ROOT) -> dict:
+    """Every Table block in this paper, straight from provenance.json's own
+    `block_type` (computed once by marker_adapter.py during document
+    preparation) -- never re-detected by scanning content.md markdown, so
+    it agrees exactly with what `read_table`/`read_table_row` already
+    resolve for the same anchor. One entry per Table block; a table that
+    spans a page break (e.g. a real confirmed case, Daren-1997-Canopy's
+    Table 2: content.md anchors b:0119 and b:0178) appears as TWO separate
+    entries here -- grouping continuation blocks into one logical table is
+    the table-enumeration classification stage's job (orchestrator.py's
+    Step B), not this one's, since it needs the same cross-referencing
+    judgment the row/column reconstruction itself needs."""
+    provenance = _load_provenance(paper_id, papers_root)
+    if provenance is None:
+        return {"found": False, "error": f"no provenance.json for paper_id '{paper_id}'"}
+
+    ordered_anchors = sorted(
+        (a for a, e in provenance.items() if e.get("block_type") == "Table"),
+        key=_anchor_sort_key,
+    )
+    tables = [
+        {
+            "table_anchor": anchor,
+            "page": provenance[anchor].get("page_id"),
+            "section_path": provenance[anchor].get("section_path"),
+        }
+        for anchor in ordered_anchors
+    ]
+    if not tables:
+        return {"found": False, "error": f"no Table blocks found for paper_id '{paper_id}'"}
+    return {"found": True, "paper_id": paper_id, "tables": tables}
+
+
+def raw_table_cells(paper_id: str, table_anchors: list[str], papers_root: Path = DEFAULT_PAPERS_ROOT) -> list[str]:
+    """Every non-empty raw `cell_text` value (provenance-only TableCell
+    entries, never rendered inline in content.md) whose `parent_table_anchor`
+    is one of `table_anchors` -- deliberately flat text, not row/col
+    structured, since the one real caller (the table-classification
+    reconstruction sanity check in orchestrator.py) compares total numeric
+    content, not cell positions: raw geometric cells are NOT reliably
+    1:1 with logical data rows on every page (see `list_tables`'s own
+    docstring for the confirmed case), so position-based comparison would
+    itself be unreliable."""
+    provenance = _load_provenance(paper_id, papers_root)
+    if provenance is None:
+        return []
+    wanted = set(table_anchors)
+    return [
+        text for e in provenance.values()
+        if e.get("parent_table_anchor") in wanted and (text := (e.get("cell_text") or "").strip())
+    ]
+
+
 def list_sections(paper_id: str, papers_root: Path = DEFAULT_PAPERS_ROOT) -> dict:
     """The paper's real section outline, straight from provenance.json's
     already-resolved `section_path` (computed once, per block, by

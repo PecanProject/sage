@@ -126,6 +126,26 @@ def test_empty_enumeration_is_valid():
     assert result.candidates == []
 
 
+def test_candidate_known_value_defaults_to_none_for_free_form_enumeration():
+    # Phase 1.3 (extraction-vs-known-table-value cross-check): known_value
+    # is set ONLY by table-enumeration Step C's own deterministic
+    # construction, never by the model -- a free-form-authored candidate
+    # (which never mentions this field) must default to None, not error or
+    # silently coerce to something else.
+    result = EnumerationResult.model_validate({
+        "entity_type": "Variable",
+        "candidates": [{"candidate_id": "lai", "description": "Leaf area index.", "anchors": ["b:0010"]}],
+    })
+    assert result.candidates[0].known_value is None
+
+
+def test_candidate_known_value_round_trips_when_explicitly_set():
+    candidate = EnumerationCandidate.model_validate({
+        "candidate_id": "lai", "description": "Leaf area index.", "anchors": ["b:0010"], "known_value": "3.2",
+    })
+    assert candidate.known_value == "3.2"
+
+
 # --------------------------------------------------------------------- #
 # _enumeration_prompt -- must actually carry the real paper_id
 # --------------------------------------------------------------------- #

@@ -251,3 +251,70 @@ def test_nearby_preserves_metadata_for_every_returned_block(tmp_path):
         assert block["page"] in ("page_0", "page_1")
         assert block["block_type"]
         assert isinstance(block["section_path"], list)
+
+
+# --------------------------------------------------------------------- #
+# 8. list_tables / raw_table_cells / read_table_full (table-enumeration
+#    design review, Step A -- see orchestrator.py's run_table_enumeration)
+# --------------------------------------------------------------------- #
+
+def test_list_tables_finds_every_table_block(tmp_path):
+    root = write_paper(tmp_path)
+    result = cr.list_tables(PAPER_ID, papers_root=root)
+    assert result["found"] is True
+    assert [t["table_anchor"] for t in result["tables"]] == ["b:0006"]
+    assert result["tables"][0]["page"] == "page_0"
+    assert result["tables"][0]["section_path"] == ["Materials and methods", "Site description"]
+
+
+def test_list_tables_missing_provenance_returns_not_found(tmp_path):
+    (tmp_path / "no_provenance_paper").mkdir()
+    result = cr.list_tables("no_provenance_paper", papers_root=tmp_path)
+    assert result["found"] is False
+
+
+def test_list_tables_no_table_blocks_returns_not_found(tmp_path):
+    pdir = tmp_path / "no_tables_paper"
+    pdir.mkdir()
+    (pdir / "content.md").write_text("Text only.\n⟦b:0001⟧\n", encoding="utf-8")
+    (pdir / "provenance.json").write_text(
+        json.dumps({"b:0001": {"block_type": "Text", "page_id": "page_0", "section_path": []}}),
+        encoding="utf-8",
+    )
+    result = cr.list_tables("no_tables_paper", papers_root=tmp_path)
+    assert result["found"] is False
+
+
+def test_raw_table_cells_returns_every_nonblank_cell_text(tmp_path):
+    root = write_paper(tmp_path)
+    cells = cr.raw_table_cells(PAPER_ID, ["b:0006"], papers_root=root)
+    assert sorted(cells) == sorted(["Treatment", "Yield", "control", "3.2", "n_fert", "4.1"])
+
+
+def test_raw_table_cells_filters_by_requested_anchors(tmp_path):
+    root = write_paper(tmp_path)
+    assert cr.raw_table_cells(PAPER_ID, ["b:9999"], papers_root=root) == []
+
+
+def test_raw_table_cells_missing_provenance_returns_empty(tmp_path):
+    (tmp_path / "no_provenance_paper").mkdir()
+    assert cr.raw_table_cells("no_provenance_paper", ["b:0006"], papers_root=tmp_path) == []
+
+
+def test_read_table_full_combines_markdown_and_structured_rows(tmp_path):
+    root = write_paper(tmp_path)
+    result = cr.read_table_full(PAPER_ID, "b:0006", papers_root=root)
+    assert result["found"] is True
+    assert result["table_anchor"] == "b:0006"
+    assert "Treatment" in result["markdown_table"]
+    assert result["rows"] == [
+        ["Treatment", "Yield"],
+        ["control", "3.2"],
+        ["n_fert", "4.1"],
+    ]
+
+
+def test_read_table_full_missing_anchor_returns_not_found(tmp_path):
+    root = write_paper(tmp_path)
+    result = cr.read_table_full(PAPER_ID, "b:9999", papers_root=root)
+    assert result["found"] is False

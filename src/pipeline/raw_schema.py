@@ -72,6 +72,16 @@ class EnumerationCandidate(BaseModel):
         description="Reserved for later phases (e.g. an Observation candidate linking to a Treatment/Variable "
                     "candidate_id) -- always empty for Variable in Phase A.",
     )
+    known_value: Optional[str] = Field(
+        default=None,
+        description="Deterministically known expected reported value for this candidate -- set ONLY by "
+                    "table-enumeration Step C (_table_classification_to_candidates), which already knows the "
+                    "exact source cell text a candidate was cross-producted from. Never set by free-form LLM "
+                    "enumeration (the enumeration prompt never mentions this field). Used solely for the "
+                    "orchestrator's own post-Extraction cross-check (see _extraction_matches_known_value) that "
+                    "Extraction actually read THIS candidate's own cell rather than a different row/column's "
+                    "value -- never surfaced to a model as an instruction to copy verbatim.",
+    )
 
 
 class EnumerationResult(BaseModel):
@@ -88,6 +98,98 @@ class EnumerationResult(BaseModel):
                     f"unique within one enumeration"
                 )
             seen.add(candidate.candidate_id)
+        return self
+
+
+class TableValueColumn(BaseModel):
+    """Table enumeration (Step B, "table classification"): one column of a
+    reconstructed table that reports an actual measured value, as opposed
+    to a factor/label column (Population, Maturity, ...). The hint fields
+    are free text for Step C's templated candidate descriptions and for
+    the Extraction stage that later re-reads this candidate's own anchor --
+    never trusted as IR-shaped values themselves, same as everything else
+    in this module."""
+
+    value_column_id: str = Field(min_length=1, description="Short, stable slug, unique within this table classification.")
+    variable_name_hint: str = Field(min_length=1, description="e.g. 'leaf sheath dry weight' -- combines multi-level headers if the source table has them.")
+    units_hint: Optional[str] = None
+    site_hint: Optional[str] = Field(default=None, description="Set when the column ITSELF encodes a site/location, e.g. a table with separate 'Ames'/'Mead' sub-columns.")
+    method_hint: Optional[str] = Field(
+        default=None,
+        description="The real name/description of the measurement method this column's values were produced by, as "
+                    "actually stated in the paper's Methods section (e.g. 'hand-clipping harvest', 'LI-COR LAI-2000 "
+                    "leaf area analyzer') -- required for Observation.method_id linking (a required field) to ever "
+                    "resolve deterministically; Step C has no other source of method information for a table row.",
+    )
+
+
+class TableRowGroup(BaseModel):
+    """Table enumeration (Step B): one logical data row of the
+    reconstructed table. May correspond to a SPLIT of a single raw
+    geometric table cell -- real confirmed case (Daren-1997-Canopy Table 2,
+    content.md anchor b:0119): the raw cell for one population's
+    Total-yield-at-Ames column is the single string '0.19 0.90 1.16',
+    which is really three logical rows, one per maturity stage. Splitting
+    a packed cell like this into the correct number of logical rows is
+    exactly the reconstruction judgment this stage asks of the model,
+    rather than trusting raw row/col indices uncritically (Marker's own
+    geometric row clustering is not reliable on every page -- see this
+    same real paper's Table 2 continuation block, b:0178, where a footnote
+    row breaks up the visual layout and several unrelated rows get
+    clustered into one row_index)."""
+
+    row_group_id: str = Field(min_length=1, description="Short, stable slug, unique within this table classification.")
+    factor_values: dict[str, str] = Field(default_factory=dict, description="e.g. {'Population': 'Trailblazer', 'Maturity': 'Vegetative'}.")
+    source_table_anchor: str = Field(min_length=1, description="Which ONE physical table block this row's cells actually come from -- must be a member of table_anchors.")
+    cells: dict[str, Optional[str]] = Field(default_factory=dict, description="{value_column_id: raw cell text, or null/absent if genuinely not reported for this row.}")
+
+
+class TableClassification(BaseModel):
+    """Table enumeration (Step B): reconstructs ONE logical table -- which
+    may span more than one raw content.md block, e.g. a page-split
+    continuation -- into a flat, long-format structure Step C can
+    mechanically cross-product into EnumerationCandidates. Sealed evidence,
+    not yet the final IR contract, same philosophy as RawExtraction above:
+    this stage's job is "what does this table actually contain, row by
+    row", not "shape it into the exact IR payload."."""
+
+    applicable: bool = Field(description="False when this table does not report per-instance values for the target entity_type at all (e.g. a regression-equation table).")
+    reason: Optional[str] = Field(default=None, description="Required when applicable=False, or when applicable=True but row_groups is empty (reconstruction was not confident enough to trust).")
+    table_anchors: list[str] = Field(min_length=1, description="Every content.md block anchor that is part of THIS one logical table -- more than one only for a page-split continuation.")
+    value_columns: list[TableValueColumn] = Field(default_factory=list)
+    row_groups: list[TableRowGroup] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _consistency(self) -> "TableClassification":
+        if not self.applicable and not (self.reason or "").strip():
+            raise ValueError("applicable=False requires a real, non-empty reason")
+        if self.applicable and not self.row_groups and not (self.reason or "").strip():
+            raise ValueError(
+                "applicable=True with an empty row_groups requires a real, non-empty reason "
+                "explaining why reconstruction was not confident enough to trust"
+            )
+
+        value_ids = [c.value_column_id for c in self.value_columns]
+        if len(value_ids) != len(set(value_ids)):
+            raise ValueError("value_column_id must be unique within one table classification")
+
+        row_ids = [r.row_group_id for r in self.row_groups]
+        if len(row_ids) != len(set(row_ids)):
+            raise ValueError("row_group_id must be unique within one table classification")
+
+        known_value_ids = set(value_ids)
+        for row in self.row_groups:
+            if row.source_table_anchor not in self.table_anchors:
+                raise ValueError(
+                    f"row_group '{row.row_group_id}' cites source_table_anchor "
+                    f"'{row.source_table_anchor}' which is not in table_anchors {self.table_anchors}"
+                )
+            unknown_cells = set(row.cells) - known_value_ids
+            if unknown_cells:
+                raise ValueError(
+                    f"row_group '{row.row_group_id}' has cells for unknown value_column_id(s) "
+                    f"{sorted(unknown_cells)}"
+                )
         return self
 
 

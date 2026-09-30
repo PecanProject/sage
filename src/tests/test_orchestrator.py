@@ -16,6 +16,7 @@ depends on, so it must be exercised for real, not mocked.
 """
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -806,6 +807,68 @@ def test_parse_json_block_reports_error_on_garbage():
 
 
 # --------------------------------------------------------------------- #
+# _invoke_agent_once -- TimeoutExpired can hand back raw bytes for
+# stdout/stderr even though subprocess.run() was called with text=True (a
+# real, reproduced CPython behavior: the internal post-kill partial-output
+# capture after a timeout bypasses the normal text-decoding step). Real
+# live crash (TypeError: a bytes-like object is required, not 'str'),
+# surfaced only once table-enumeration's much higher per-run call volume
+# made an actual 300s timeout statistically likely for the first time --
+# _has_malformed_harmony_tool_call's own substring check crashed outright
+# on a bytes stdout.
+# --------------------------------------------------------------------- #
+
+
+def test_decode_if_bytes_normalizes_bytes_leaves_str_and_none_untouched():
+    assert orchestrator._decode_if_bytes(b"hello") == "hello"
+    assert orchestrator._decode_if_bytes("hello") == "hello"
+    assert orchestrator._decode_if_bytes(None) is None
+
+
+def test_invoke_agent_once_survives_timeout_with_bytes_stdout(monkeypatch):
+    # Reproduces the real subprocess shape: TimeoutExpired.stdout is bytes
+    # (some real output was captured before the kill), .stderr is None.
+    def fake_run(cmd, cwd, capture_output, text, timeout):
+        raise subprocess.TimeoutExpired(cmd=cmd, timeout=timeout, output=b"partial output before timeout", stderr=None)
+
+    monkeypatch.setattr(orchestrator.subprocess, "run", fake_run)
+
+    result = orchestrator._invoke_agent_once("extractor", "test-model", "p", timeout=5)
+
+    assert result.returncode == -1
+    assert isinstance(result.stdout, str)
+    assert result.stdout == "partial output before timeout"
+    assert "timed out after 5s" in result.stderr
+    assert result.had_malformed_tool_call is False  # must not raise reaching this check
+
+
+def test_invoke_agent_once_survives_timeout_with_bytes_stdout_and_stderr(monkeypatch):
+    def fake_run(cmd, cwd, capture_output, text, timeout):
+        raise subprocess.TimeoutExpired(cmd=cmd, timeout=timeout, output=b"some stdout", stderr=b"some stderr")
+
+    monkeypatch.setattr(orchestrator.subprocess, "run", fake_run)
+
+    result = orchestrator._invoke_agent_once("extractor", "test-model", "p", timeout=5)
+    assert result.stdout == "some stdout"
+    assert result.stderr.startswith("some stderr")
+
+
+def test_invoke_agent_once_timeout_with_malformed_tool_call_in_bytes_stdout_still_detected(monkeypatch):
+    # The exact real signature must still be detected correctly even when
+    # it arrived via the bytes-producing TimeoutExpired path, not just the
+    # normal str-producing success path.
+    malformed_bytes = _MALFORMED_TOOL_CALL_STDOUT.encode("utf-8")
+
+    def fake_run(cmd, cwd, capture_output, text, timeout):
+        raise subprocess.TimeoutExpired(cmd=cmd, timeout=timeout, output=malformed_bytes, stderr=None)
+
+    monkeypatch.setattr(orchestrator.subprocess, "run", fake_run)
+
+    result = orchestrator._invoke_agent_once("extractor", "test-model", "p", timeout=5)
+    assert result.had_malformed_tool_call is True
+
+
+# --------------------------------------------------------------------- #
 # invoke_agent -- internal empty-response retry (Phase: provider-glitch
 # resilience). Real runs (20260916T050510_41f112a0, Winter cover) confirmed
 # a recurring provider/decode-level failure distinct from a genuine
@@ -945,6 +1008,158 @@ def test_extraction_mixed_failure_is_not_tagged_provider_empty_response(env):
 
 
 # --------------------------------------------------------------------- #
+# Malformed harmony-format tool-call retry (real confirmed provider
+# defect: a gpt-oss-120b/vLLM channel-separator token leaks into a tool
+# NAME, e.g. read_section<|channel|>commentary -- see
+# _has_malformed_harmony_tool_call's own docstring for the real captured
+# case, run final_check_observation_daren).
+# --------------------------------------------------------------------- #
+
+
+_MALFORMED_TOOL_CALL_STDOUT = json.dumps({
+    "type": "tool_use",
+    "part": {
+        "type": "tool",
+        "tool": "invalid",
+        "state": {
+            "status": "completed",
+            "input": {
+                "tool": "read_section<|channel|>commentary",
+                "error": "Model tried to call unavailable tool 'read_section<|channel|>commentary'. "
+                         "Available tools: read_document_start, read_section, read_table, ...",
+            },
+            "output": "The arguments provided to the tool are invalid: unavailable tool",
+        },
+    },
+})
+
+
+def test_has_malformed_harmony_tool_call_detects_the_real_captured_signature():
+    assert orchestrator._has_malformed_harmony_tool_call(_MALFORMED_TOOL_CALL_STDOUT) is True
+
+
+def test_has_malformed_harmony_tool_call_false_for_a_clean_response():
+    assert orchestrator._has_malformed_harmony_tool_call('{"part": {"type": "text", "text": "hello"}}') is False
+
+
+def test_has_malformed_harmony_tool_call_requires_both_parts_of_the_signature():
+    assert orchestrator._has_malformed_harmony_tool_call("<|channel|> present but no unavailable-tool text") is False
+    assert orchestrator._has_malformed_harmony_tool_call("unavailable tool mentioned but no channel token") is False
+
+
+def _malformed_invocation(agent="extractor") -> orchestrator.AgentInvocation:
+    return orchestrator.AgentInvocation(
+        agent=agent, model="test-model", prompt="p", returncode=0, stdout=_MALFORMED_TOOL_CALL_STDOUT, stderr="",
+        final_text=None, parsed_json=None,
+        parse_error="provider_malformed_response: harmony-format tool-call name leak detected",
+        had_malformed_tool_call=True,
+    )
+
+
+def _malformed_but_valid_looking_invocation(agent="extractor") -> orchestrator.AgentInvocation:
+    # A real confirmed case: the malformed-tool-call signature appears in
+    # stdout ALONGSIDE what looks like a valid final answer elsewhere in
+    # the stream -- _invoke_agent_once must never trust that answer.
+    return orchestrator.AgentInvocation(
+        agent=agent, model="test-model", prompt="p", returncode=0, stdout=_MALFORMED_TOOL_CALL_STDOUT, stderr="",
+        final_text='{"a": 1}', parsed_json={"a": 1}, parse_error=None,
+        had_malformed_tool_call=True,
+    )
+
+
+def test_invoke_agent_retries_internally_on_malformed_tool_call_then_succeeds(monkeypatch):
+    calls = []
+    responses = [_malformed_invocation(), _malformed_invocation(), _real_invocation()]
+
+    def fake_once(agent, model, prompt, timeout):
+        calls.append(1)
+        return responses[len(calls) - 1]
+
+    monkeypatch.setattr(orchestrator, "_invoke_agent_once", fake_once)
+    monkeypatch.setattr(orchestrator.time, "sleep", lambda s: None)
+
+    result = orchestrator.invoke_agent("extractor", "test-model", "p")
+    assert len(calls) == 3
+    assert result.final_text == '{"a": 1}'
+    assert result.had_malformed_tool_call is False
+
+
+def test_invoke_agent_retries_even_when_malformed_response_has_valid_looking_output(monkeypatch):
+    calls = []
+    responses = [_malformed_but_valid_looking_invocation(), _real_invocation()]
+
+    def fake_once(agent, model, prompt, timeout):
+        calls.append(1)
+        return responses[len(calls) - 1]
+
+    monkeypatch.setattr(orchestrator, "_invoke_agent_once", fake_once)
+    monkeypatch.setattr(orchestrator.time, "sleep", lambda s: None)
+
+    result = orchestrator.invoke_agent("extractor", "test-model", "p")
+    # Must NOT stop on attempt 1 just because final_text/parsed_json looked
+    # valid -- had_malformed_tool_call=True forces a retry regardless.
+    assert len(calls) == 2
+    assert result.had_malformed_tool_call is False
+
+
+def test_invoke_agent_gives_up_after_exhausting_malformed_tool_call_retries(monkeypatch):
+    calls = []
+
+    def fake_once(agent, model, prompt, timeout):
+        calls.append(1)
+        return _malformed_invocation()
+
+    monkeypatch.setattr(orchestrator, "_invoke_agent_once", fake_once)
+    monkeypatch.setattr(orchestrator.time, "sleep", lambda s: None)
+
+    result = orchestrator.invoke_agent("extractor", "test-model", "p")
+    assert len(calls) == orchestrator.MAX_EMPTY_RESPONSE_RETRIES + 1
+    assert result.had_malformed_tool_call is True
+
+
+def test_extraction_all_malformed_tool_call_failures_tagged_provider_malformed_response(env):
+    invoke = make_invoke_sequence([
+        ("extractor", _malformed_invocation()),
+        ("extractor", _malformed_invocation()),
+        ("extractor", _malformed_invocation()),
+    ])
+    result = orchestrator.run_record(
+        run_id="run1", paper_id=PAPER_ID, entity_type="Citation", record_id=PAPER_ID,
+        model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=True,
+    )
+    assert result.status == "error"
+    assert result.detail["failure_class"] == "provider_malformed_response"
+
+
+def test_extraction_malformed_takes_priority_over_empty_when_mixed(env):
+    invoke = make_invoke_sequence([
+        ("extractor", _empty_invocation()),
+        ("extractor", _malformed_invocation()),
+        ("extractor", _empty_invocation()),
+    ])
+    result = orchestrator.run_record(
+        run_id="run1", paper_id=PAPER_ID, entity_type="Citation", record_id=PAPER_ID,
+        model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=True,
+    )
+    assert result.status == "error"
+    assert result.detail["failure_class"] == "provider_malformed_response"
+
+
+def test_extraction_malformed_mixed_with_genuine_content_failure_is_not_tagged(env):
+    invoke = make_invoke_sequence([
+        ("extractor", _malformed_invocation()),
+        ("extractor", _inv("extractor", {"paper_id": PAPER_ID, "entity_type": "Citation", "record_id": PAPER_ID, "facts": []})),
+        ("extractor", _malformed_invocation()),
+    ])
+    result = orchestrator.run_record(
+        run_id="run1", paper_id=PAPER_ID, entity_type="Citation", record_id=PAPER_ID,
+        model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=True,
+    )
+    assert result.status == "error"
+    assert "failure_class" not in result.detail
+
+
+# --------------------------------------------------------------------- #
 # Health / staleness guard
 # --------------------------------------------------------------------- #
 
@@ -1025,6 +1240,176 @@ def test_null_fact_with_empty_anchors_is_rejected_same_as_a_valued_fact(env):
     assert attempt1["validation_errors"] == [
         {"field": "facts.3.anchors", "message": "List should have at least 1 item after validation, not 0"}
     ]
+
+
+# --------------------------------------------------------------------- #
+# Phase 1.1: raw evidence grounding gate -- RawFact.raw_text_excerpt is
+# never previously re-verified against the paper's own content.md before
+# this evidence was handed to the sealed Conversion stage. See
+# orchestrator._raw_extraction_grounding_errors's own docstring.
+# --------------------------------------------------------------------- #
+
+
+def test_raw_extraction_grounding_errors_empty_when_all_facts_grounded(env):
+    extraction = orchestrator.RawExtraction.model_validate(RAW_EXTRACTION)
+    assert orchestrator._raw_extraction_grounding_errors(PAPER_ID, extraction) == []
+
+
+def test_raw_extraction_grounding_errors_flags_fabricated_excerpt(env):
+    bad = dict(RAW_EXTRACTION)
+    bad["facts"] = RAW_EXTRACTION["facts"] + [
+        {"field_name": "extra", "raw_value": "x",
+         "raw_text_excerpt": "an invented sentence that never appears anywhere in this paper",
+         "anchors": ["b:0004"]},
+    ]
+    extraction = orchestrator.RawExtraction.model_validate(bad)
+    errors = orchestrator._raw_extraction_grounding_errors(PAPER_ID, extraction)
+    assert len(errors) == 1
+    assert errors[0]["field"] == "facts[3].raw_text_excerpt"
+
+
+def test_raw_extraction_grounding_errors_flags_nonexistent_anchor(env):
+    bad = {
+        "paper_id": PAPER_ID, "entity_type": "Citation", "record_id": PAPER_ID,
+        "facts": [{"field_name": "x", "raw_value": "y", "raw_text_excerpt": "y", "anchors": ["b:9999"]}],
+    }
+    extraction = orchestrator.RawExtraction.model_validate(bad)
+    errors = orchestrator._raw_extraction_grounding_errors(PAPER_ID, extraction)
+    assert len(errors) == 1
+    assert "do not exist in content.md" in errors[0]["message"]
+
+
+def test_raw_extraction_grounding_errors_tolerant_of_whitespace_and_typography(env):
+    # Reuses validate_provenance's own typographic-equivalence/whitespace-
+    # collapse primitives (_value_supported_by_text) -- a real confirmed
+    # false-rejection class (extra rendered whitespace, non-breaking
+    # hyphens, etc.) must not newly reject a genuinely grounded excerpt
+    # here either, exactly as it doesn't for the final IR value.
+    extraction = orchestrator.RawExtraction.model_validate({
+        "paper_id": PAPER_ID, "entity_type": "Citation", "record_id": PAPER_ID,
+        "facts": [{"field_name": "year", "raw_value": "2012",
+                   "raw_text_excerpt": "Published    in   2012.",  # extra whitespace only
+                   "anchors": ["b:0002"]}],
+    })
+    assert orchestrator._raw_extraction_grounding_errors(PAPER_ID, extraction) == []
+
+
+def test_extraction_with_ungrounded_raw_text_excerpt_is_rejected_and_retried(env):
+    bad_extraction = dict(RAW_EXTRACTION)
+    bad_extraction["facts"] = [
+        RAW_EXTRACTION["facts"][0],
+        {"field_name": "year", "raw_value": "2012",
+         "raw_text_excerpt": "This paper was clearly published sometime around the year 2012 or so.",
+         "anchors": ["b:0002"]},
+        RAW_EXTRACTION["facts"][2],
+    ]
+    invoke = make_invoke_sequence([
+        ("extractor", _inv("extractor", bad_extraction)),
+        ("extractor", _inv("extractor", RAW_EXTRACTION)),  # corrected retry: real, literal excerpt
+        ("converter", _inv("converter", valid_citation_payload())),
+        ("ir-validator", _inv("ir-validator", {"verdict": "plausible", "issues": []})),
+    ])
+    result = orchestrator.run_record(
+        run_id="run1", paper_id=PAPER_ID, entity_type="Citation", record_id=PAPER_ID,
+        model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=True,
+    )
+    assert result.status == "ready"
+    record_key = "Citation__" + PAPER_ID
+    attempt1 = run_store.load_json(run_store.record_dir("run1", record_key) / "extraction" / "attempt1.json")
+    assert attempt1["validation_errors"]
+    assert "raw_text_excerpt" in attempt1["validation_errors"][0]["field"]
+
+
+def test_extraction_with_persistently_ungrounded_excerpt_exhausts_attempts_and_errors(env):
+    bad_extraction = {
+        "paper_id": PAPER_ID, "entity_type": "Citation", "record_id": PAPER_ID,
+        "facts": [{"field_name": "title", "raw_value": "A Title",
+                   "raw_text_excerpt": "This text does not appear anywhere in content.md.",
+                   "anchors": ["b:0003"]}],
+    }
+    invoke = make_invoke_sequence([
+        ("extractor", _inv("extractor", bad_extraction)),
+        ("extractor", _inv("extractor", bad_extraction)),
+        ("extractor", _inv("extractor", bad_extraction)),
+    ])
+    result = orchestrator.run_record(
+        run_id="run1", paper_id=PAPER_ID, entity_type="Citation", record_id=PAPER_ID,
+        model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=True,
+    )
+    assert result.status == "error"
+    record_key = "Citation__" + PAPER_ID
+    final = run_store.load_json(run_store.record_dir("run1", record_key) / "final.json")
+    assert "raw evidence grounding failed" in final["message"]
+    # No propose_record/commit_record call should ever have been made.
+    store_file = env["store_root"] / f"{PAPER_ID}.jsonl"
+    assert not store_file.exists()
+
+
+# --------------------------------------------------------------------- #
+# Phase 1.3: extraction-vs-known-table-value cross-check -- catches
+# Extraction attributing a DIFFERENT table cell's value to a candidate
+# that Step C already knows the correct reported value for. See
+# orchestrator._extraction_matches_known_value's own docstring.
+# --------------------------------------------------------------------- #
+
+
+def test_extraction_matches_known_value_true_when_raw_value_contains_it():
+    extraction = orchestrator.RawExtraction.model_validate(RAW_EXTRACTION)
+    assert orchestrator._extraction_matches_known_value("2012", extraction) is True
+
+
+def test_extraction_matches_known_value_true_when_only_excerpt_contains_it():
+    extraction = orchestrator.RawExtraction.model_validate({
+        "paper_id": PAPER_ID, "entity_type": "Observation", "record_id": "o1",
+        "facts": [{"field_name": "value", "raw_value": "see excerpt",
+                   "raw_text_excerpt": "the reported yield was 12.3 kg/ha", "anchors": ["b:0004"]}],
+    })
+    assert orchestrator._extraction_matches_known_value("12.3 kg/ha", extraction) is True
+
+
+def test_extraction_matches_known_value_false_when_absent_everywhere():
+    extraction = orchestrator.RawExtraction.model_validate(RAW_EXTRACTION)
+    assert orchestrator._extraction_matches_known_value("99.9", extraction) is False
+
+
+def test_run_record_rejects_extraction_that_contradicts_known_table_value(env):
+    extraction_with_known_value = dict(RAW_EXTRACTION)
+    extraction_with_known_value["facts"] = RAW_EXTRACTION["facts"] + [
+        {"field_name": "value", "raw_value": "1997", "raw_text_excerpt": "A Title", "anchors": ["b:0003"]},
+    ]
+    invoke = make_invoke_sequence([
+        ("extractor", _inv("extractor", RAW_EXTRACTION)),  # attempt 1: known_value never reported anywhere
+        ("extractor", _inv("extractor", extraction_with_known_value)),  # attempt 2: now present
+        ("converter", _inv("converter", valid_citation_payload())),
+        ("ir-validator", _inv("ir-validator", {"verdict": "plausible", "issues": []})),
+    ])
+    result = orchestrator.run_record(
+        run_id="run1", paper_id=PAPER_ID, entity_type="Citation", record_id=PAPER_ID,
+        model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=True,
+        known_value="1997",
+    )
+    assert result.status == "ready"
+    record_key = "Citation__" + PAPER_ID
+    attempt1 = run_store.load_json(run_store.record_dir("run1", record_key) / "extraction" / "attempt1.json")
+    assert attempt1["validation_errors"]
+    assert "already known to be" in attempt1["validation_errors"][0]["message"]
+    attempt2 = run_store.load_json(run_store.record_dir("run1", record_key) / "extraction" / "attempt2.json")
+    assert attempt2["validation_errors"] == []
+
+
+def test_run_record_known_value_is_a_noop_when_not_a_table_candidate(env):
+    # known_value defaults to None for every non-table-derived candidate --
+    # must never gate anything when absent.
+    invoke = make_invoke_sequence([
+        ("extractor", _inv("extractor", RAW_EXTRACTION)),
+        ("converter", _inv("converter", valid_citation_payload())),
+        ("ir-validator", _inv("ir-validator", {"verdict": "plausible", "issues": []})),
+    ])
+    result = orchestrator.run_record(
+        run_id="run1", paper_id=PAPER_ID, entity_type="Citation", record_id=PAPER_ID,
+        model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=True,
+    )
+    assert result.status == "ready"
 
 
 # --------------------------------------------------------------------- #
@@ -1823,6 +2208,30 @@ def test_ref_mismatch_allowed_set_membership():
     assert orchestrator._ref_mismatch(["id_a"], ["id_a", "id_b"]) is False
 
 
+def test_ref_mismatch_never_crashes_on_an_unhashable_candidate_value():
+    # Real Daren-1997-Canopy crash (run 20260916T132735_dd8d7c47): Conversion
+    # returned `treatment_id` as an UNRESOLVED `{value, provenance_label,
+    # source}` dict instead of the bare string converter.md requires, and
+    # the allowed-set membership check (`candidate_value not in allowed`)
+    # raised an unhandled `TypeError: unhashable type: 'dict'`, crashing the
+    # whole run instead of reporting a deterministic ref-mismatch error. A
+    # dict can never legitimately be a known reference id, so this must
+    # report a mismatch, not raise.
+    malformed = {"value": None, "provenance_label": "UNRESOLVED", "unresolved_reason": "..."}
+    assert orchestrator._ref_mismatch(malformed, ["id_a", "id_b"]) is True
+    assert orchestrator._ref_mismatch(malformed, "id_a") is True
+    # A malformed entry alongside a genuinely valid one still matches --
+    # the valid id ("id_a") is a real member, the unhashable dict is simply
+    # never a candidate for matching, not a reason to hide a real match.
+    assert orchestrator._ref_mismatch([malformed, "id_a"], ["id_a", "id_b"]) is False
+    assert orchestrator._ref_mismatch([malformed], ["id_a", "id_b"]) is True
+
+    # `_ref_expectation_message` (the other half of the same call site) must
+    # also render an unhashable actual value without raising.
+    message = orchestrator._ref_expectation_message("treatment_id", ["id_a", "id_b"], malformed)
+    assert repr(malformed) in message
+
+
 def test_run_enumeration_rejects_linked_candidate_slug_not_in_pool(env):
     invoke = make_invoke_sequence([
         ("extractor", _inv("extractor", {
@@ -1846,6 +2255,91 @@ def test_run_enumeration_rejects_linked_candidate_slug_not_in_pool(env):
     )
     assert error is None
     assert candidates[0].linked_candidates == {"treatment_id": "ambient_co2"}
+
+
+# --------------------------------------------------------------------- #
+# _unsplit_required_dimensions / run_enumeration's retry-then-accept
+# (real confirmed cascade: Daren-1997-Canopy Treatment enumeration, run
+# 20260916T200235_5fae474d -- see _unsplit_required_dimensions's own
+# docstring for the full real-evidence explanation).
+# --------------------------------------------------------------------- #
+
+_TWO_SITE_DEPS = [("citation_id", "Citation", True), ("site_id", "Site", True)]
+_TWO_SITE_POOL = {"site_id": [
+    {"slug": "ames_ia", "record_id": "x", "name": "Ames Station"},
+    {"slug": "mead_ne", "record_id": "y", "name": "Mead Station"},
+]}
+
+
+def test_unsplit_required_dimensions_flags_a_required_pool_nothing_links_to(monkeypatch):
+    monkeypatch.setitem(orchestrator.ENTITY_DEPENDENCIES, "Treatment", _TWO_SITE_DEPS)
+    from pipeline.raw_schema import EnumerationCandidate
+    candidates = [EnumerationCandidate(candidate_id="trailblazer", description="x", anchors=["b:1"], linked_candidates={})]
+    flagged = orchestrator._unsplit_required_dimensions("Treatment", candidates, _TWO_SITE_POOL)
+    assert flagged == [("site_id", "Site")]
+
+
+def test_unsplit_required_dimensions_not_flagged_when_one_candidate_links_it(monkeypatch):
+    monkeypatch.setitem(orchestrator.ENTITY_DEPENDENCIES, "Treatment", _TWO_SITE_DEPS)
+    from pipeline.raw_schema import EnumerationCandidate
+    candidates = [
+        EnumerationCandidate(candidate_id="a", description="x", anchors=["b:1"], linked_candidates={}),
+        EnumerationCandidate(candidate_id="b", description="x", anchors=["b:1"], linked_candidates={"site_id": "ames_ia"}),
+    ]
+    assert orchestrator._unsplit_required_dimensions("Treatment", candidates, _TWO_SITE_POOL) == []
+
+
+def test_unsplit_required_dimensions_ignores_optional_fields(monkeypatch):
+    optional_variable_deps = [("citation_id", "Citation", True), ("variable_id", "Variable", False)]
+    monkeypatch.setitem(orchestrator.ENTITY_DEPENDENCIES, "Coverage", optional_variable_deps)
+    from pipeline.raw_schema import EnumerationCandidate
+    candidates = [EnumerationCandidate(candidate_id="a", description="x", anchors=["b:1"], linked_candidates={})]
+    pool = {"variable_id": [{"slug": "v1", "record_id": "x", "name": "V1"}, {"slug": "v2", "record_id": "y", "name": "V2"}]}
+    assert orchestrator._unsplit_required_dimensions("Coverage", candidates, pool) == []
+
+
+def test_run_enumeration_retries_when_required_dimension_never_linked_then_succeeds(env, monkeypatch):
+    monkeypatch.setitem(orchestrator.ENTITY_DEPENDENCIES, "Treatment", _TWO_SITE_DEPS)
+    invoke = make_invoke_sequence([
+        ("extractor", _inv("extractor", {
+            "entity_type": "Treatment",
+            "candidates": [{"candidate_id": "trailblazer", "description": "x", "anchors": ["b:0003"], "linked_candidates": {}}],
+        })),
+        ("extractor", _inv("extractor", {
+            "entity_type": "Treatment",
+            "candidates": [
+                {"candidate_id": "trailblazer_ames", "description": "x", "anchors": ["b:0003"], "linked_candidates": {"site_id": "ames_ia"}},
+                {"candidate_id": "trailblazer_mead", "description": "x", "anchors": ["b:0003"], "linked_candidates": {"site_id": "mead_ne"}},
+            ],
+        })),
+    ])
+    candidates, error = orchestrator.run_enumeration(
+        run_id="run1", paper_id=PAPER_ID, entity_type="Treatment", model="test-model", invoke=invoke,
+        link_pools=_TWO_SITE_POOL,
+    )
+    assert error is None
+    assert len(candidates) == 2
+    assert {c.linked_candidates["site_id"] for c in candidates} == {"ames_ia", "mead_ne"}
+
+
+def test_run_enumeration_accepts_unsplit_result_on_final_attempt_rather_than_erroring(env, monkeypatch):
+    # A paper can legitimately not distinguish by the dimension for every
+    # candidate -- after MAX_ENUMERATION_ATTEMPTS, the result is accepted
+    # as-is (the downstream refuse-to-guess gate remains the real safety
+    # net), never turned into a hard enumeration failure.
+    monkeypatch.setitem(orchestrator.ENTITY_DEPENDENCIES, "Treatment", _TWO_SITE_DEPS)
+    unsplit_payload = {
+        "entity_type": "Treatment",
+        "candidates": [{"candidate_id": "trailblazer", "description": "x", "anchors": ["b:0003"], "linked_candidates": {}}],
+    }
+    invoke = make_invoke_sequence([("extractor", _inv("extractor", unsplit_payload))] * orchestrator.MAX_ENUMERATION_ATTEMPTS)
+    candidates, error = orchestrator.run_enumeration(
+        run_id="run1", paper_id=PAPER_ID, entity_type="Treatment", model="test-model", invoke=invoke,
+        link_pools=_TWO_SITE_POOL,
+    )
+    assert error is None
+    assert len(candidates) == 1
+    assert candidates[0].linked_candidates == {}
 
 
 def test_two_observation_candidates_link_to_different_treatment_variable_pairs(env):
