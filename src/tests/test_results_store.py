@@ -170,3 +170,24 @@ def test_rename_paper_dir_moves_the_whole_snapshot(isolated_results_root):
 
 def test_rename_paper_dir_is_a_noop_when_nothing_to_rename(isolated_results_root):
     assert results_store.rename_paper_dir("never_existed", "new_name") is False
+
+
+def test_legacy_run_sentinel_reads_flat_layout_even_when_latest_exists(tmp_path, monkeypatch):
+    # A paper extracted before run isolation and later re-run: LATEST points at the new run, but the older flat
+    # results must still be readable explicitly (the review UI lists them as an earlier results set).
+    import os
+
+    monkeypatch.setenv("IR_RESULTS_ROOT", str(tmp_path))
+    results_store.save_entity_result("p", "Citation", {"record_id": "p", "status": "ready"})           # flat (legacy)
+    results_store.save_entity_result("p", "Citation", {"record_id": "p", "status": "error"}, run_id="r2")
+    results_store.mark_run_results("p", "r1")
+    results_store.mark_run_results("p", "r2")
+    os.utime(tmp_path / "p" / "r1" / "_run.json", (1000, 1000))
+    os.utime(tmp_path / "p" / "r2" / "_run.json", (2000, 2000))
+    results_store.set_latest("p", "r2")
+
+    assert results_store.load_entity_result("p", "Citation")["status"] == "error"                        # LATEST
+    assert results_store.load_entity_result("p", "Citation", results_store.LEGACY_RUN)["status"] == "ready"
+    assert results_store.has_legacy_results("p") is True
+    assert results_store.list_run_ids_newest_first("p") == ["r2", "r1"]
+    assert results_store.has_legacy_results("nothing_here") is False

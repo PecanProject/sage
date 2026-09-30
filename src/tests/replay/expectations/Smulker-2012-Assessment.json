@@ -1,0 +1,150 @@
+{
+  "paper_id": "Smulker-2012-Assessment",
+  "verified_against": "docproc/paper/Smulker-2012-Assessment.pdf (pdftotext) and content.md; hand-selected, never copied from a run",
+  "expectations": [
+    {
+      "id": "citation.doi",
+      "entity_type": "Citation",
+      "concept": "DOI",
+      "anchors": [
+        "b:0008"
+      ],
+      "literals": [
+        "https://doi.org/10.2489/jswc.67.1.16"
+      ],
+      "outcome": {
+        "field": "persistent_identifier",
+        "contains_any": [
+          "10.2489/jswc.67.1.16"
+        ]
+      }
+    },
+    {
+      "id": "site.location",
+      "entity_type": "Site",
+      "concept": "44 ha farm in Yolo County",
+      "anchors": [
+        "b:0013"
+      ],
+      "literals": [
+        "44 ha (108 ac) farm in Yolo County, California"
+      ]
+    },
+    {
+      "id": "site.soil",
+      "entity_type": "Site",
+      "concept": "soil series",
+      "anchors": [
+        "b:0030"
+      ],
+      "literals": [
+        "Tehama silt loam"
+      ],
+      "outcome": {
+        "field": "soil_context",
+        "contains_any": [
+          "Tehama"
+        ]
+      }
+    },
+    {
+      "id": "treatment.mustard_vs_fallow",
+      "entity_type": "Treatment",
+      "concept": "mustard cover crop vs winter fallow",
+      "anchors": [
+        "b:0034"
+      ],
+      "literals": [
+        "compare a mustard cover crop (Brassica nigra [L.] Koch) with winter fallow"
+      ]
+    },
+    {
+      "id": "management.mustard_incorporation",
+      "entity_type": "Management",
+      "concept": "mustard mowed and disced in spring 2006",
+      "anchors": [
+        "b:0034"
+      ],
+      "literals": [
+        "the mustard cover crop was mowed, incorporated by discing"
+      ]
+    },
+    {
+      "id": "management.cowpea",
+      "entity_type": "Management",
+      "concept": "summer cowpea cover crop, a month",
+      "anchors": [
+        "b:0034"
+      ],
+      "literals": [
+        "summer cowpea"
+      ]
+    },
+    {
+      "id": "variable.bulk_density_header",
+      "entity_type": "Variable",
+      "concept": "soil bulk density with units in Table 2 header",
+      "anchors": [
+        "b:0081"
+      ],
+      "literals": [
+        "Bulk density (g cm -3 )"
+      ],
+      "outcome": {
+        "field": "units",
+        "contains_any": [
+          "g cm"
+        ],
+        "where": {
+          "field": "name",
+          "contains_any": [
+            "bulk density"
+          ]
+        }
+      },
+      "pdf_verification": "visual: pdftotext -layout page 7 prints the header cell as 'Bulk' / 'density' / '(g cm–3)' on three lines"
+    },
+    {
+      "id": "method.soil_bulk_density_rings",
+      "entity_type": "Method",
+      "concept": "SOIL bulk density by 345 cm3 rings (not the compost core method)",
+      "anchors": [
+        "b:0061"
+      ],
+      "literals": [
+        "Bulk density was determined at 0 to 6, 9 to 15, and 18 to 24 cm",
+        "using rings of 345 cm 3"
+      ],
+      "outcome": {
+        "field": "description",
+        "contains_any": [
+          "rings",
+          "345"
+        ]
+      },
+      "note": "b:0048 describes the COMPOST bulk density core method; Table 2's soil bulk density must link to this one."
+    },
+    {
+      "id": "method.compost_bulk_density_core",
+      "entity_type": "Method",
+      "concept": "compost bulk density core method (distinct)",
+      "anchors": [
+        "b:0048"
+      ],
+      "literals": [
+        "Bulk density of the compost was measured using the core method"
+      ]
+    },
+    {
+      "id": "table.table2_pooled_years_n",
+      "entity_type": "Table",
+      "concept": "Table 2: means and SE of two years, n = 3 to 6 per site",
+      "anchors": [
+        "b:0080"
+      ],
+      "literals": [
+        "Means and standard errors of two years of sampling are shown (sample size = 3 to 6 per site)"
+      ]
+    }
+  ]
+}

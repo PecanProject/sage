@@ -1,0 +1,3637 @@
+{
+"b:0040": {
+"block_type": "Text",
+"page_id": "page_3",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 1"
+],
+"rendered_in_content_md": true
+},
+"b:0041": {
+"block_type": "Figure",
+"page_id": "page_3",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 1"
+],
+"rendered_in_content_md": true
+},
+"b:0042": {
+"block_type": "Caption",
+"page_id": "page_3",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 1"
+],
+"rendered_in_content_md": false
+},
+"b:0043": {
+"block_type": "Table",
+"page_id": "page_3",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 1"
+],
+"rendered_in_content_md": true
+},
+"b:0044": {
+"block_type": "Text",
+"page_id": "page_3",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 1"
+],
+"rendered_in_content_md": true
+},
+"b:0045": {
+"block_type": "Text",
+"page_id": "page_3",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 1"
+],
+"rendered_in_content_md": true
+},
+"b:0046": {
+"block_type": "Text",
+"page_id": "page_3",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 1"
+],
+"rendered_in_content_md": true
+},
+"b:0236": {
+"block_type": "PageFooter",
+"page_id": "page_9",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false
+},
+"b:0237": {
+"block_type": "PageFooter",
+"page_id": "page_9",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false
+},
+"b:0238": {
+"block_type": "Caption",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": true
+},
+"b:0239": {
+"block_type": "Table",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": true
+},
+"b:0240": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Season",
+"row_index": 0,
+"col_index": 0
+},
+"b:0241": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Site",
+"row_index": 0,
+"col_index": 1
+},
+"b:0242": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Depth (cm)",
+"row_index": 0,
+"col_index": 2
+},
+"b:0243": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "pH",
+"row_index": 0,
+"col_index": 3
+},
+"b:0244": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "EC (\u00b5S cm\u20131)",
+"row_index": 0,
+"col_index": 4
+},
+"b:0245": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "NO3 \u2013\u2013N (mg L\u20131)",
+"row_index": 0,
+"col_index": 5
+},
+"b:0246": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "DRP (mg L\u20131)",
+"row_index": 0,
+"col_index": 6
+},
+"b:0247": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "DOC (mg L\u20131)",
+"row_index": 0,
+"col_index": 7
+},
+"b:0248": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Irrigated Y1",
+"row_index": 1,
+"col_index": 0
+},
+"b:0249": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Oats*",
+"row_index": 1,
+"col_index": 1
+},
+"b:0250": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 1,
+"col_index": 2
+},
+"b:0251": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "ND",
+"row_index": 1,
+"col_index": 3
+},
+"b:0252": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "ND",
+"row_index": 1,
+"col_index": 4
+},
+"b:0253": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "ND",
+"row_index": 1,
+"col_index": 5
+},
+"b:0254": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "ND",
+"row_index": 1,
+"col_index": 6
+},
+"b:0255": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "ND",
+"row_index": 1,
+"col_index": 7
+},
+"b:0256": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 2,
+"col_index": 0
+},
+"b:0257": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Tomatoes",
+"row_index": 2,
+"col_index": 1
+},
+"b:0258": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "30",
+"row_index": 2,
+"col_index": 2
+},
+"b:0259": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.4\u00b10.1",
+"row_index": 2,
+"col_index": 3
+},
+"b:0260": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "904.6 \u00b1 33.1A",
+"row_index": 2,
+"col_index": 4
+},
+"b:0261": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "5.0 \u00b1 1.2A",
+"row_index": 2,
+"col_index": 5
+},
+"b:0262": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.1 \u00b1 0.0",
+"row_index": 2,
+"col_index": 6
+},
+"b:0263": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "5.2 \u00b1 0.7AB",
+"row_index": 2,
+"col_index": 7
+},
+"b:0264": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 3,
+"col_index": 0
+},
+"b:0265": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 3,
+"col_index": 1
+},
+"b:0266": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "60",
+"row_index": 3,
+"col_index": 2
+},
+"b:0267": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.5\u00b10.0",
+"row_index": 3,
+"col_index": 3
+},
+"b:0268": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "894.3 \u00b1 44.7",
+"row_index": 3,
+"col_index": 4
+},
+"b:0269": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "3.4 \u00b1 1.0",
+"row_index": 3,
+"col_index": 5
+},
+"b:0270": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.0 \u00b1 0.0",
+"row_index": 3,
+"col_index": 6
+},
+"b:0271": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "4.9 \u00b1 0.9b",
+"row_index": 3,
+"col_index": 7
+},
+"b:0272": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 4,
+"col_index": 0
+},
+"b:0273": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Ditches",
+"row_index": 4,
+"col_index": 1
+},
+"b:0274": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "30",
+"row_index": 4,
+"col_index": 2
+},
+"b:0275": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.4\u00b10.0",
+"row_index": 4,
+"col_index": 3
+},
+"b:0276": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "1,069.0 \u00b1 14.0A",
+"row_index": 4,
+"col_index": 4
+},
+"b:0277": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "1.1 \u00b1 0.4B",
+"row_index": 4,
+"col_index": 5
+},
+"b:0278": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.7 \u00b1 0.5",
+"row_index": 4,
+"col_index": 6
+},
+"b:0279": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "13.7 \u00b1 8.6A",
+"row_index": 4,
+"col_index": 7
+},
+"b:0280": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 5,
+"col_index": 0
+},
+"b:0281": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 5,
+"col_index": 1
+},
+"b:0282": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "60",
+"row_index": 5,
+"col_index": 2
+},
+"b:0283": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.3\u00b10.2",
+"row_index": 5,
+"col_index": 3
+},
+"b:0284": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "1,039.7 \u00b1 216.9",
+"row_index": 5,
+"col_index": 4
+},
+"b:0285": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "2.6 \u00b1 1.7",
+"row_index": 5,
+"col_index": 5
+},
+"b:0286": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.1 \u00b1 0.1",
+"row_index": 5,
+"col_index": 6
+},
+"b:0287": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "22.5 \u00b1 7.1a",
+"row_index": 5,
+"col_index": 7
+},
+"b:0288": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 6,
+"col_index": 0
+},
+"b:0289": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Tailwater pond",
+"row_index": 6,
+"col_index": 1
+},
+"b:0290": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "30",
+"row_index": 6,
+"col_index": 2
+},
+"b:0291": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.4\u00b10.2",
+"row_index": 6,
+"col_index": 3
+},
+"b:0292": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "519.0 \u00b1 196.0B",
+"row_index": 6,
+"col_index": 4
+},
+"b:0293": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "1.6 \u00b1 0.7B",
+"row_index": 6,
+"col_index": 5
+},
+"b:0294": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.0 \u00b1 0.0",
+"row_index": 6,
+"col_index": 6
+},
+"b:0295": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "3.8 \u00b1 2.1B",
+"row_index": 6,
+"col_index": 7
+},
+"b:0296": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 7,
+"col_index": 0
+},
+"b:0297": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 7,
+"col_index": 1
+},
+"b:0298": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "60",
+"row_index": 7,
+"col_index": 2
+},
+"b:0299": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.1\u00b10.0",
+"row_index": 7,
+"col_index": 3
+},
+"b:0300": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "615.5 \u00b1 40.6",
+"row_index": 7,
+"col_index": 4
+},
+"b:0301": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.9 \u00b1 0.2",
+"row_index": 7,
+"col_index": 5
+},
+"b:0302": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.0 \u00b1 0.0",
+"row_index": 7,
+"col_index": 6
+},
+"b:0303": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "2.6 \u00b1 1.1b",
+"row_index": 7,
+"col_index": 7
+},
+"b:0304": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Rainfed Y1",
+"row_index": 8,
+"col_index": 0
+},
+"b:0305": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Oats",
+"row_index": 8,
+"col_index": 1
+},
+"b:0306": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "30",
+"row_index": 8,
+"col_index": 2
+},
+"b:0307": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.0\u00b10.1",
+"row_index": 8,
+"col_index": 3
+},
+"b:0308": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "905.8 \u00b1 172.8",
+"row_index": 8,
+"col_index": 4
+},
+"b:0309": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "6.1 \u00b1 1.9AB",
+"row_index": 8,
+"col_index": 5
+},
+"b:0310": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.1 \u00b1 0.1",
+"row_index": 8,
+"col_index": 6
+},
+"b:0311": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "13.3 \u00b1 2.5B",
+"row_index": 8,
+"col_index": 7
+},
+"b:0312": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 9,
+"col_index": 0
+},
+"b:0313": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 9,
+"col_index": 1
+},
+"b:0314": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "60",
+"row_index": 9,
+"col_index": 2
+},
+"b:0315": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.1\u00b10.0",
+"row_index": 9,
+"col_index": 3
+},
+"b:0316": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "890.0 \u00b1 103.8",
+"row_index": 9,
+"col_index": 4
+},
+"b:0317": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "3.9 \u00b1 1.6",
+"row_index": 9,
+"col_index": 5
+},
+"b:0318": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.0 \u00b1 0.0",
+"row_index": 9,
+"col_index": 6
+},
+"b:0319": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "8.8 \u00b1 1.6",
+"row_index": 9,
+"col_index": 7
+},
+"b:0320": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 10,
+"col_index": 0
+},
+"b:0321": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Fallow",
+"row_index": 10,
+"col_index": 1
+},
+"b:0322": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "30",
+"row_index": 10,
+"col_index": 2
+},
+"b:0323": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.2\u00b10.0",
+"row_index": 10,
+"col_index": 3
+},
+"b:0324": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "788.4 \u00b1 145.1",
+"row_index": 10,
+"col_index": 4
+},
+"b:0325": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "1.1 \u00b1 0.5B",
+"row_index": 10,
+"col_index": 5
+},
+"b:0326": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.1 \u00b1 0.1",
+"row_index": 10,
+"col_index": 6
+},
+"b:0327": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "30.2 \u00b1 10.8AB",
+"row_index": 10,
+"col_index": 7
+},
+"b:0328": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 11,
+"col_index": 0
+},
+"b:0329": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 11,
+"col_index": 1
+},
+"b:0330": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "60",
+"row_index": 11,
+"col_index": 2
+},
+"b:0331": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.3\u00b10.1",
+"row_index": 11,
+"col_index": 3
+},
+"b:0332": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "1,026.9 \u00b1 116.4",
+"row_index": 11,
+"col_index": 4
+},
+"b:0333": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "8.9 \u00b1 3.4",
+"row_index": 11,
+"col_index": 5
+},
+"b:0334": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.0 \u00b1 0.0",
+"row_index": 11,
+"col_index": 6
+},
+"b:0335": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "13.0 \u00b1 3.2",
+"row_index": 11,
+"col_index": 7
+},
+"b:0336": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 12,
+"col_index": 0
+},
+"b:0337": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Mustard",
+"row_index": 12,
+"col_index": 1
+},
+"b:0338": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "30",
+"row_index": 12,
+"col_index": 2
+},
+"b:0339": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.0\u00b10.1",
+"row_index": 12,
+"col_index": 3
+},
+"b:0340": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "1,226.3 \u00b1 258.7",
+"row_index": 12,
+"col_index": 4
+},
+"b:0341": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "3.2 \u00b1 1.8AB",
+"row_index": 12,
+"col_index": 5
+},
+"b:0342": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.2 \u00b1 0.1",
+"row_index": 12,
+"col_index": 6
+},
+"b:0343": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "70.1 \u00b1 17.5A",
+"row_index": 12,
+"col_index": 7
+},
+"b:0344": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 13,
+"col_index": 0
+},
+"b:0345": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 13,
+"col_index": 1
+},
+"b:0346": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "60",
+"row_index": 13,
+"col_index": 2
+},
+"b:0347": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.1\u00b10.2",
+"row_index": 13,
+"col_index": 3
+},
+"b:0348": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "839.1 \u00b1 140.3",
+"row_index": 13,
+"col_index": 4
+},
+"b:0349": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "6.4 \u00b1 0.9",
+"row_index": 13,
+"col_index": 5
+},
+"b:0350": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.0 \u00b1 0.0",
+"row_index": 13,
+"col_index": 6
+},
+"b:0351": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "14.7 \u00b1 6.1",
+"row_index": 13,
+"col_index": 7
+},
+"b:0352": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 14,
+"col_index": 0
+},
+"b:0353": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Ditches",
+"row_index": 14,
+"col_index": 1
+},
+"b:0354": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "30",
+"row_index": 14,
+"col_index": 2
+},
+"b:0355": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.0\u00b10.0",
+"row_index": 14,
+"col_index": 3
+},
+"b:0356": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "871.5 \u00b1 243.5",
+"row_index": 14,
+"col_index": 4
+},
+"b:0357": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "8.4 \u00b1 3.1A",
+"row_index": 14,
+"col_index": 5
+},
+"b:0358": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.0 \u00b1 0.0",
+"row_index": 14,
+"col_index": 6
+},
+"b:0359": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.2 \u00b1 1.1c",
+"row_index": 14,
+"col_index": 7
+},
+"b:0360": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 15,
+"col_index": 0
+},
+"b:0361": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 15,
+"col_index": 1
+},
+"b:0362": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "60",
+"row_index": 15,
+"col_index": 2
+},
+"b:0363": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.4\u00b10.1",
+"row_index": 15,
+"col_index": 3
+},
+"b:0364": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "916.5 \u00b1 81.5",
+"row_index": 15,
+"col_index": 4
+},
+"b:0365": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "10.7 \u00b1 1.8",
+"row_index": 15,
+"col_index": 5
+},
+"b:0366": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.0 \u00b1 0.0",
+"row_index": 15,
+"col_index": 6
+},
+"b:0367": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "5.1\u00b10.2",
+"row_index": 15,
+"col_index": 7
+},
+"b:0368": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 16,
+"col_index": 0
+},
+"b:0369": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Tailwater pond\u2020",
+"row_index": 16,
+"col_index": 1
+},
+"b:0370": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 16,
+"col_index": 2
+},
+"b:0371": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "ND",
+"row_index": 16,
+"col_index": 3
+},
+"b:0372": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "ND",
+"row_index": 16,
+"col_index": 4
+},
+"b:0373": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "ND",
+"row_index": 16,
+"col_index": 5
+},
+"b:0374": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "ND",
+"row_index": 16,
+"col_index": 6
+},
+"b:0375": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "ND",
+"row_index": 16,
+"col_index": 7
+},
+"b:0376": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Irrigated Y2",
+"row_index": 17,
+"col_index": 0
+},
+"b:0377": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Oats*",
+"row_index": 17,
+"col_index": 1
+},
+"b:0378": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 17,
+"col_index": 2
+},
+"b:0379": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "ND",
+"row_index": 17,
+"col_index": 3
+},
+"b:0380": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "ND",
+"row_index": 17,
+"col_index": 4
+},
+"b:0381": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "ND",
+"row_index": 17,
+"col_index": 5
+},
+"b:0382": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "ND",
+"row_index": 17,
+"col_index": 6
+},
+"b:0383": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "ND",
+"row_index": 17,
+"col_index": 7
+},
+"b:0384": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 18,
+"col_index": 0
+},
+"b:0385": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Tomatoes (F)",
+"row_index": 18,
+"col_index": 1
+},
+"b:0386": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "30",
+"row_index": 18,
+"col_index": 2
+},
+"b:0387": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.6\u00b10.3",
+"row_index": 18,
+"col_index": 3
+},
+"b:0388": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "783.7 \u00b1 79.5",
+"row_index": 18,
+"col_index": 4
+},
+"b:0389": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.2 \u00b1 4.1",
+"row_index": 18,
+"col_index": 5
+},
+"b:0390": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.2 \u00b1 0.0",
+"row_index": 18,
+"col_index": 6
+},
+"b:0391": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "13.9 \u00b1 1.4A",
+"row_index": 18,
+"col_index": 7
+},
+"b:0392": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 19,
+"col_index": 0
+},
+"b:0393": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 19,
+"col_index": 1
+},
+"b:0394": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "60",
+"row_index": 19,
+"col_index": 2
+},
+"b:0395": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.7\u00b10.1",
+"row_index": 19,
+"col_index": 3
+},
+"b:0396": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "721.1 \u00b1 94.8",
+"row_index": 19,
+"col_index": 4
+},
+"b:0397": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "4.0 \u00b1 1.0a",
+"row_index": 19,
+"col_index": 5
+},
+"b:0398": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.1 \u00b1 0.0",
+"row_index": 19,
+"col_index": 6
+},
+"b:0399": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "10.1 \u00b1 1.3a",
+"row_index": 19,
+"col_index": 7
+},
+"b:0400": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 20,
+"col_index": 0
+},
+"b:0401": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Tomatoes (M)",
+"row_index": 20,
+"col_index": 1
+},
+"b:0402": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "30",
+"row_index": 20,
+"col_index": 2
+},
+"b:0403": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.3\u00b10.1",
+"row_index": 20,
+"col_index": 3
+},
+"b:0404": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "726.7 \u00b1 158.4",
+"row_index": 20,
+"col_index": 4
+},
+"b:0405": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "4.2 \u00b1 0.3",
+"row_index": 20,
+"col_index": 5
+},
+"b:0406": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.3 \u00b1 0.1",
+"row_index": 20,
+"col_index": 6
+},
+"b:0407": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "11.9 \u00b1 2.2A",
+"row_index": 20,
+"col_index": 7
+},
+"b:0408": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 21,
+"col_index": 0
+},
+"b:0409": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 21,
+"col_index": 1
+},
+"b:0410": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "60",
+"row_index": 21,
+"col_index": 2
+},
+"b:0411": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.5\u00b10.1",
+"row_index": 21,
+"col_index": 3
+},
+"b:0412": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "918.1 \u00b1 98.4",
+"row_index": 21,
+"col_index": 4
+},
+"b:0413": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "4.1 \u00b1 0.6a",
+"row_index": 21,
+"col_index": 5
+},
+"b:0414": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.1 \u00b1 0.0",
+"row_index": 21,
+"col_index": 6
+},
+"b:0415": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "16.3 \u00b1 0.5a",
+"row_index": 21,
+"col_index": 7
+},
+"b:0416": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 22,
+"col_index": 0
+},
+"b:0417": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Ditches",
+"row_index": 22,
+"col_index": 1
+},
+"b:0418": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "30",
+"row_index": 22,
+"col_index": 2
+},
+"b:0419": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.6\u00b10.2",
+"row_index": 22,
+"col_index": 3
+},
+"b:0420": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "789.8 \u00b1 71.6",
+"row_index": 22,
+"col_index": 4
+},
+"b:0421": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "4.6 \u00b1 0.8",
+"row_index": 22,
+"col_index": 5
+},
+"b:0422": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.2 \u00b1 0.1",
+"row_index": 22,
+"col_index": 6
+},
+"b:0423": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.8 \u00b1 0.4AB",
+"row_index": 22,
+"col_index": 7
+},
+"b:0424": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 23,
+"col_index": 0
+},
+"b:0425": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 23,
+"col_index": 1
+},
+"b:0426": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "60",
+"row_index": 23,
+"col_index": 2
+},
+"b:0427": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.7\u00b10.2",
+"row_index": 23,
+"col_index": 3
+},
+"b:0428": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "800.1 \u00b1 36.0",
+"row_index": 23,
+"col_index": 4
+},
+"b:0429": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "3.2 \u00b1 0.6a",
+"row_index": 23,
+"col_index": 5
+},
+"b:0430": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.1 \u00b1 0.0",
+"row_index": 23,
+"col_index": 6
+},
+"b:0431": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "13.1 \u00b1 1.2a",
+"row_index": 23,
+"col_index": 7
+},
+"b:0432": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 24,
+"col_index": 0
+},
+"b:0433": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Tailwater pond",
+"row_index": 24,
+"col_index": 1
+},
+"b:0434": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "30",
+"row_index": 24,
+"col_index": 2
+},
+"b:0435": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.5\u00b10.1",
+"row_index": 24,
+"col_index": 3
+},
+"b:0436": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "652.9 \u00b1 47.8",
+"row_index": 24,
+"col_index": 4
+},
+"b:0437": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "1.2 \u00b1 0.3",
+"row_index": 24,
+"col_index": 5
+},
+"b:0438": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.1 \u00b1 0.0",
+"row_index": 24,
+"col_index": 6
+},
+"b:0439": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "5.4 \u00b1 0.7B",
+"row_index": 24,
+"col_index": 7
+},
+"b:0440": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 25,
+"col_index": 0
+},
+"b:0441": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 25,
+"col_index": 1
+},
+"b:0442": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "60",
+"row_index": 25,
+"col_index": 2
+},
+"b:0443": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.6\u00b10.1",
+"row_index": 25,
+"col_index": 3
+},
+"b:0444": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "594.6 \u00b1 62.1",
+"row_index": 25,
+"col_index": 4
+},
+"b:0445": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.6 \u00b1 0.2b",
+"row_index": 25,
+"col_index": 5
+},
+"b:0446": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.0 \u00b1 0.0",
+"row_index": 25,
+"col_index": 6
+},
+"b:0447": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "5.6 \u00b1 1.4b",
+"row_index": 25,
+"col_index": 7
+},
+"b:0448": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Rainfed Y2",
+"row_index": 26,
+"col_index": 0
+},
+"b:0449": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Oats",
+"row_index": 26,
+"col_index": 1
+},
+"b:0450": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "30",
+"row_index": 26,
+"col_index": 2
+},
+"b:0451": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.4\u00b10.1",
+"row_index": 26,
+"col_index": 3
+},
+"b:0452": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "320.4 \u00b1 200.2",
+"row_index": 26,
+"col_index": 4
+},
+"b:0453": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "1.0 \u00b1 0.4",
+"row_index": 26,
+"col_index": 5
+},
+"b:0454": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.1 \u00b1 0.0",
+"row_index": 26,
+"col_index": 6
+},
+"b:0455": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "5.3 \u00b1 1.8",
+"row_index": 26,
+"col_index": 7
+},
+"b:0456": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 27,
+"col_index": 0
+},
+"b:0457": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 27,
+"col_index": 1
+},
+"b:0458": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "60",
+"row_index": 27,
+"col_index": 2
+},
+"b:0459": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.8\u00b10.0",
+"row_index": 27,
+"col_index": 3
+},
+"b:0460": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "675.5 \u00b1 95.4",
+"row_index": 27,
+"col_index": 4
+},
+"b:0461": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "1.3 \u00b1 0.5",
+"row_index": 27,
+"col_index": 5
+},
+"b:0462": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.0 \u00b1 0.0",
+"row_index": 27,
+"col_index": 6
+},
+"b:0463": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "4.8 \u00b1 1.4",
+"row_index": 27,
+"col_index": 7
+},
+"b:0464": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 28,
+"col_index": 0
+},
+"b:0465": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Fallow",
+"row_index": 28,
+"col_index": 1
+},
+"b:0466": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "30",
+"row_index": 28,
+"col_index": 2
+},
+"b:0467": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.4\u00b10.1",
+"row_index": 28,
+"col_index": 3
+},
+"b:0468": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "1,230.7 \u00b1 146.3",
+"row_index": 28,
+"col_index": 4
+},
+"b:0469": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "3.1 \u00b1 2.7",
+"row_index": 28,
+"col_index": 5
+},
+"b:0470": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.1 \u00b1 0.0",
+"row_index": 28,
+"col_index": 6
+},
+"b:0471": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "4.0 \u00b1 1.1",
+"row_index": 28,
+"col_index": 7
+},
+"b:0472": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 29,
+"col_index": 0
+},
+"b:0473": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 29,
+"col_index": 1
+},
+"b:0474": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "60",
+"row_index": 29,
+"col_index": 2
+},
+"b:0475": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.6\u00b10.1",
+"row_index": 29,
+"col_index": 3
+},
+"b:0476": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "647.8 \u00b1 105.0",
+"row_index": 29,
+"col_index": 4
+},
+"b:0477": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "2.7 \u00b1 2.0",
+"row_index": 29,
+"col_index": 5
+},
+"b:0478": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.2 \u00b1 0.1",
+"row_index": 29,
+"col_index": 6
+},
+"b:0479": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "2.7 \u00b1 1.0",
+"row_index": 29,
+"col_index": 7
+},
+"b:0480": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 30,
+"col_index": 0
+},
+"b:0481": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Ditches",
+"row_index": 30,
+"col_index": 1
+},
+"b:0482": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "30",
+"row_index": 30,
+"col_index": 2
+},
+"b:0483": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.6\u00b10.0",
+"row_index": 30,
+"col_index": 3
+},
+"b:0484": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "672.3 \u00b1 64.4",
+"row_index": 30,
+"col_index": 4
+},
+"b:0485": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "4.3 \u00b1 1.5",
+"row_index": 30,
+"col_index": 5
+},
+"b:0486": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.1 \u00b1 0.1",
+"row_index": 30,
+"col_index": 6
+},
+"b:0487": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "3.7 \u00b1 0.9",
+"row_index": 30,
+"col_index": 7
+},
+"b:0488": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 31,
+"col_index": 0
+},
+"b:0489": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 31,
+"col_index": 1
+},
+"b:0490": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "60",
+"row_index": 31,
+"col_index": 2
+},
+"b:0491": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.6\u00b10.0",
+"row_index": 31,
+"col_index": 3
+},
+"b:0492": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "738.5 \u00b1 28.0",
+"row_index": 31,
+"col_index": 4
+},
+"b:0493": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "4.8 \u00b1 0.5",
+"row_index": 31,
+"col_index": 5
+},
+"b:0494": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.1 \u00b1 0.0",
+"row_index": 31,
+"col_index": 6
+},
+"b:0495": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "2.5 \u00b1 0.2",
+"row_index": 31,
+"col_index": 7
+},
+"b:0496": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 32,
+"col_index": 0
+},
+"b:0497": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "Tailwater pond",
+"row_index": 32,
+"col_index": 1
+},
+"b:0498": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "30",
+"row_index": 32,
+"col_index": 2
+},
+"b:0499": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.5\u00b10.1",
+"row_index": 32,
+"col_index": 3
+},
+"b:0500": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "578.6 \u00b1 41.5",
+"row_index": 32,
+"col_index": 4
+},
+"b:0501": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "1.0 \u00b1 0.6",
+"row_index": 32,
+"col_index": 5
+},
+"b:0502": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.0 \u00b1 0.0",
+"row_index": 32,
+"col_index": 6
+},
+"b:0503": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "1.8 \u00b1 0.1",
+"row_index": 32,
+"col_index": 7
+},
+"b:0504": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 33,
+"col_index": 0
+},
+"b:0505": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "",
+"row_index": 33,
+"col_index": 1
+},
+"b:0506": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "60",
+"row_index": 33,
+"col_index": 2
+},
+"b:0507": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "7.5\u00b10.1",
+"row_index": 33,
+"col_index": 3
+},
+"b:0508": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "585.4 \u00b1 31.7",
+"row_index": 33,
+"col_index": 4
+},
+"b:0509": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "1.6 \u00b1 1.3",
+"row_index": 33,
+"col_index": 5
+},
+"b:0510": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "0.0 \u00b1 0.0",
+"row_index": 33,
+"col_index": 6
+},
+"b:0511": {
+"block_type": "TableCell",
+"page_id": "page_10",
+"section_path": [
+"Assessment of best management practices for nutrient cycling: A case study on an organic farm in a Mediterranean-type climate",
+"Figure 3"
+],
+"rendered_in_content_md": false,
+"parent_table_anchor": "b:0239",
+"cell_text": "2.0 \u00b1 0.2",
+"row_index": 33,
+"col_index": 7
+}
+}

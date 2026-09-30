@@ -283,3 +283,87 @@ def test_a_call_requesting_a_different_model_aborts_the_run(env, monkeypatch):
             enable_ai_validation=False, run_id="mixed_run",
         )
     assert run_store.load_run_manifest("mixed_run")["run_status"] == "failed"
+
+
+# --------------------------------------------------------------------------- #
+# Locating the `opencode` executable (deployment: a systemd service PATH may
+# not contain /snap/bin). Order: OPENCODE_BIN, then PATH, then /snap/bin.
+# --------------------------------------------------------------------------- #
+
+
+def _fake_exe(directory, name="opencode", version="1.18.27", code=0):
+    directory.mkdir(parents=True, exist_ok=True)
+    exe = directory / name
+    exe.write_text(f"#!/bin/sh\necho {version}\nexit {code}\n")
+    exe.chmod(0o755)
+    return exe
+
+
+def test_opencode_bin_prefers_explicit_setting_over_path(tmp_path, monkeypatch):
+    explicit = _fake_exe(tmp_path / "explicit")
+    _fake_exe(tmp_path / "onpath")
+    monkeypatch.setenv("OPENCODE_BIN", str(explicit))
+    monkeypatch.setenv("PATH", str(tmp_path / "onpath"))
+    assert run_config.resolve_opencode_bin() == str(explicit)
+
+
+def test_opencode_bin_uses_path_when_not_configured(tmp_path, monkeypatch):
+    on_path = _fake_exe(tmp_path / "onpath")
+    monkeypatch.delenv("OPENCODE_BIN", raising=False)
+    monkeypatch.setenv("PATH", str(tmp_path / "onpath"))
+    assert run_config.resolve_opencode_bin() == str(on_path)
+
+
+def test_opencode_bin_falls_back_to_snap_location_when_not_on_path(tmp_path, monkeypatch):
+    fallback = _fake_exe(tmp_path / "snap" / "bin")
+    monkeypatch.delenv("OPENCODE_BIN", raising=False)
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+    monkeypatch.setattr(run_config, "OPENCODE_FALLBACK_PATH", str(fallback))
+    assert run_config.resolve_opencode_bin() == str(fallback)
+    assert run_config.opencode_bin_for_subprocess() == str(fallback)
+
+
+def test_opencode_bin_none_when_nowhere_and_subprocess_keeps_the_old_failure(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENCODE_BIN", raising=False)
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+    monkeypatch.setattr(run_config, "OPENCODE_FALLBACK_PATH", str(tmp_path / "missing" / "opencode"))
+    assert run_config.resolve_opencode_bin() is None
+    # the bare name keeps the existing FileNotFoundError -> provider_unavailable classification unchanged
+    assert run_config.opencode_bin_for_subprocess() == "opencode"
+    ok, message = run_config.check_opencode()
+    assert ok is False and "not found" in message
+
+
+def test_check_opencode_reports_path_and_version(tmp_path, monkeypatch):
+    exe = _fake_exe(tmp_path / "bin", version="1.18.27")
+    monkeypatch.setenv("OPENCODE_BIN", str(exe))
+    ok, message = run_config.check_opencode()
+    assert ok is True and str(exe) in message and "1.18.27" in message
+
+
+def test_check_opencode_fails_for_a_broken_or_non_executable_setting(tmp_path, monkeypatch):
+    broken = _fake_exe(tmp_path / "bin", version="", code=1)
+    monkeypatch.setenv("OPENCODE_BIN", str(broken))
+    assert run_config.check_opencode()[0] is False
+    not_exec = tmp_path / "bin" / "plain"
+    not_exec.write_text("x")
+    monkeypatch.setenv("OPENCODE_BIN", str(not_exec))
+    ok, message = run_config.check_opencode()
+    assert ok is False and "not executable" in message
+
+
+def test_agent_invocation_uses_the_resolved_opencode_bin(tmp_path, monkeypatch):
+    from pipeline import orchestrator
+
+    exe = _fake_exe(tmp_path / "bin")
+    monkeypatch.setenv("OPENCODE_BIN", str(exe))
+    seen = {}
+
+    def fake_run(cmd, **kwargs):
+        seen["cmd"] = cmd
+        raise FileNotFoundError(cmd[0])
+
+    monkeypatch.setattr(orchestrator.subprocess, "run", fake_run)
+    result = orchestrator._invoke_agent_once("extractor", "m", "p", timeout=5)
+    assert seen["cmd"][0] == str(exe) and seen["cmd"][1:3] == ["run", "--agent"]
+    assert orchestrator.classify_invocation_failure(result) == "provider_unavailable"

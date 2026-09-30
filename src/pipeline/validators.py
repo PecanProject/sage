@@ -25,6 +25,7 @@ from pathlib import Path
 import re
 from typing import Any, Optional
 
+from pipeline import coordinates
 from pipeline.ir_schema import (
     IRDataset,
     Management,
@@ -723,6 +724,20 @@ _TYPOGRAPHIC_EQUIVALENTS: list[tuple[str, str]] = [
     ("−", "-"),  # minus sign
     ("$\\times$", "×"),  # LaTeX inline-math multiplication sign
     ("\\times", "×"),  # bare LaTeX command, no $ delimiters
+    # Degree / prime / quote variants. Real case (Kathryn-2020-Winter b:0035): the source prints "36˚37´N" with a
+    # RING ABOVE and an ACUTE ACCENT; the model quoted it as "36°37′N" and the (identical-looking) coordinate was
+    # rejected, Site went unresolved and blocked every Treatment and Observation.
+    ("˚", "°"),  # ring above
+    ("º", "°"),  # masculine ordinal, OCR'd as a degree sign
+    ("′", "'"),  # prime
+    ("´", "'"),  # acute accent used as a prime
+    ("ʹ", "'"),  # modifier prime
+    ("’", "'"),  # right single quotation mark
+    ("‘", "'"),  # left single quotation mark
+    ("″", '"'),  # double prime
+    ("“", '"'),
+    ("”", '"'),
+    ("µ", "μ"),  # MICRO SIGN vs GREEK SMALL LETTER MU: the same unit prefix, two code points
 ]
 
 
@@ -732,19 +747,38 @@ _TYPOGRAPHIC_EQUIVALENTS: list[tuple[str, str]] = [
 # the model writes "CO2" (false rejection of a `notes` sentence, which sank the whole mustard-CO2 Observation). Only
 # NOTATION is normalised -- \pm -> ±, ^{-1} -> -1, ⁻¹ -> -1, CO_2 -> CO2, \mathrm{..}/$/~/braces dropped -- never a
 # number, a unit symbol or a word, so no scientific meaning changes.
-_SUPERSCRIPTS = str.maketrans({"⁻": "-", "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9"})
-_MATH_TEXT_COMMAND_RE = re.compile(r"\\(?:mathrm|mathit|mathbf|textrm|textit|text)\s*\{([^{}]*)\}")
+_SUPERSCRIPTS = str.maketrans({
+    "⁻": "-", "⁺": "+", "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
+    # Unicode SUBSCRIPT digits: the model writes "NH₄NO₃" where Marker renders "NH 4 NO 3" (real case Daren-1997-Canopy
+    # b:0028); the whitespace-stripped fallback then compares "nh4no3" on both sides.
+    "₀": "0", "₁": "1", "₂": "2", "₃": "3", "₄": "4", "₅": "5", "₆": "6", "₇": "7", "₈": "8", "₉": "9", "₊": "+", "₋": "-",
+})
+_MATH_TEXT_COMMAND_RE = re.compile(r"\\(?:mathrm|mathit|mathbf|textrm|textit|text|rm|it|bf)\s*\{([^{}]*)\}")
+# `{\rm cmax}` / `{\it x}`: the old-style font switch inside a group (real case Philippe-2007-Six b:0046 "$V_{\rm cmax}$").
+_MATH_FONT_SWITCH_RE = re.compile(r"\\(?:rm|it|bf|mathrm)\s+")
 _MATH_BRACED_SCRIPT_RE = re.compile(r"[\^_]\s*\{([^{}]*)\}")
 _MATH_SIMPLE_SCRIPT_RE = re.compile(r"(?<=[A-Za-z0-9\)])[\^_]\s*(-?\d+)")
+# A single-letter/short alphanumeric subscript written with an underscore: "N_a", "C_i", "V_cmax" -> "Na", "Ci", "Vcmax".
+# Real cases (Philippe-2007-Six b:0044): "$N_a$", "$C_i$", "$V_{\text{cmax}}$" never matched the model's "Na"/"Vcmax".
+_MATH_LETTER_SUBSCRIPT_RE = re.compile(r"(?<=[A-Za-z0-9\)])_(?=[A-Za-z0-9])")
 
 
 def _normalize_math(text: str) -> str:
     if "\\" not in text and "$" not in text and "~" not in text and "^" not in text and "_" not in text:
         return text.translate(_SUPERSCRIPTS)
     text = text.replace("\\pm", "±").replace("\\cdot", "·")
-    text = _MATH_BRACED_SCRIPT_RE.sub(lambda m: m.group(1).replace(" ", ""), text)
+    # Nested groups unwrap from the inside out, whichever kind is innermost: "\mathrm{Mg~ha^{-1}}" needs its script
+    # flattened before the command matches, "_{\text{cmax}}" needs its command removed before the script matches.
+    # Repeat both until nothing changes (bounded: each pass removes at least one brace pair).
+    for _ in range(8):
+        before = text
+        text = _MATH_FONT_SWITCH_RE.sub("", text)
+        text = _MATH_BRACED_SCRIPT_RE.sub(lambda m: m.group(1).replace(" ", ""), text)
+        text = _MATH_TEXT_COMMAND_RE.sub(r"\1", text)
+        if text == before:
+            break
     text = _MATH_SIMPLE_SCRIPT_RE.sub(r"\1", text)
-    text = _MATH_TEXT_COMMAND_RE.sub(r"\1", text)
+    text = _MATH_LETTER_SUBSCRIPT_RE.sub("", text)
     text = text.replace("$", "").replace("~", " ").replace("{", "").replace("}", "")
     return " ".join(text.translate(_SUPERSCRIPTS).split())
 
@@ -865,8 +899,22 @@ def _canon(text: str) -> str:
 
 def _units_key(text: str) -> str:
     """Comparison key for a units string: canonicalised notation, lowercase, spaces and separators dropped
-    ('g N m -2' == 'g N m-2' == 'g N m^{-2}' == 'g N m⁻²')."""
-    return re.sub(r"[\s.^()\[\]|*,;:_]+", "", _canon(text))
+    ('g N m -2' == 'g N m-2' == 'g N m^{-2}' == 'g N m⁻²' == 'g·N·m-2')."""
+    return re.sub(r"[\s.^()\[\]|*,;:_·×{}]+", "", _canon(text))
+
+
+def _short_unit_pattern(canon_units: str) -> str:
+    """Regex for a SHORT unit as a whole token, tolerating the single spaces Marker leaves inside rendered
+    superscripts ('m 2' for m², 'cm 2' for cm²): whitespace is allowed only between a letter run and a digit/sign run,
+    never inside a letter run, and the letter-boundary guards still stop a stray letter of a word from counting.
+    Pure-symbol units ('°', '%', '‰') need no word boundaries: '45°42' writes the degree sign between two digits."""
+    compact = re.sub(r"\s+", "", canon_units)
+    if compact and not re.search(r"[a-z0-9]", compact):
+        return re.escape(compact)
+    parts = re.findall(r"[a-zμ°%]+|[-+]?\d+|.", compact)
+    body = r"\s*".join(re.escape(p) for p in parts)
+    left = "" if compact[:1] in "°%" else r"(?<![a-z0-9])"
+    return rf"{left}{body}(?![a-z0-9])"
 
 
 def _unit_supported(units: str, texts: list[str]) -> bool:
@@ -874,17 +922,35 @@ def _unit_supported(units: str, texts: list[str]) -> bool:
     if key in _DIMENSIONLESS_UNITS:
         return True
     canon_units = _canon(units)
+    pattern = _short_unit_pattern(canon_units)
     for text in texts:
         if key not in _units_key(text):
             continue
         # a very short unit ('g', 'm', 'mm', '%') must stand as a whole token, never a stray letter of a word
-        if len(key) >= 3 or re.search(rf"(?<![a-z0-9]){re.escape(canon_units)}(?![a-z0-9])", _canon(text)):
+        if len(key) >= 3 or re.search(pattern, _canon(text)):
             return True
     return False
 
 
 def _numbers_in(text: str) -> list[float]:
-    return [float(m.replace(",", "")) for m in _NUMBER_RE.findall(_canon(text))]
+    """Every number written in `text`, SIGNED when the source writes a minus sign. A hyphen/dash/minus is a sign only
+    when the nearest non-space character before it is not a digit, letter, '.', ')' , ']' or '%': '–0.69' (Philippe
+    Table 3 dark respiration) is -0.69 and '(-121˚32´W' is -121, while a range ('0-0.1', '15 – 30') and a unit exponent
+    ('g m -2') keep unsigned numbers exactly as before. Before this, '–0.69' read as 0.69: the correct value -0.69 was
+    rejected and a sign-dropped 0.69 accepted."""
+    canon = _canon(text)
+    numbers: list[float] = []
+    for match in _NUMBER_RE.finditer(canon):
+        value = float(match.group().replace(",", ""))
+        start = match.start()
+        if start > 0 and canon[start - 1] == "-":
+            j = start - 2
+            while j >= 0 and canon[j] == " ":
+                j -= 1
+            if j < 0 or not (canon[j].isalnum() or canon[j] in ".)]%"):
+                value = -value
+        numbers.append(value)
+    return numbers
 
 
 def _year_of(value: Any) -> Optional[int]:
@@ -927,6 +993,8 @@ def _nested_value_issues(field_path: str, value: dict[str, Any], cited: list[tup
     reported_text = value.get("reported_text")
     if isinstance(reported_text, str) and reported_text.strip():
         supported = any(_value_supported_by_text(reported_text, text) for text in texts)
+        if not supported and is_quantity and field_path.rsplit(".", 1)[-1] in coordinates.COORDINATE_FIELDS:
+            supported = coordinates.stated_equivalently(reported_text, texts)
         if not supported and is_date:
             # A date the pipeline assembled from two cited stretches ("9 June" in one block + "1993" in another, the
             # Item 11 temporal-context flow: date_text + year_text) is not one contiguous quote. It is accepted only
@@ -942,6 +1010,8 @@ def _nested_value_issues(field_path: str, value: dict[str, Any], cited: list[tup
                 f"never a reformatted, completed or paraphrased version.",
             )
     if is_quantity:
+        for code, message in coordinates.coordinate_issues(field_path, value):
+            issues.append(ValidationIssue("error", code, message))
         numeric = value.get("reported_numeric_value")
         if numeric is not None and isinstance(reported_text, str) and not any(abs(n - float(numeric)) < 1e-9 for n in _numbers_in(reported_text)):
             issue("provenance_numeric_mismatch", f"reported_numeric_value={numeric!r} does not appear in reported_text {reported_text!r}.")
@@ -964,6 +1034,24 @@ def _nested_value_issues(field_path: str, value: dict[str, Any], cited: list[tup
                 )
                 break
     return issues
+
+
+_BINOMIAL_RE = re.compile(r"\b([A-Z][a-z]{2,})\s+([a-z]{3,})\b")
+
+
+def _genus_abbreviation_variants(value: Any, blocks: dict[str, str]) -> list[str]:
+    """`value` with each full binomial ("Pinus sylvestris") abbreviated the way papers write it after first mention
+    ("P. sylvestris") -- but only for a binomial the SAME paper spells out in full somewhere, so the expansion is
+    itself grounded in the document, never supplied from outside knowledge. Real case (Philippe-2007-Six b:0028):
+    "25-year-old natural P. sylvestris stand" rejected the model's "25-year-old natural Pinus sylvestris stand"."""
+    if not isinstance(value, str) or not _BINOMIAL_RE.search(value):
+        return []
+    document = " ".join(blocks.values())
+    variants: list[str] = []
+    for genus, epithet in {m.groups() for m in _BINOMIAL_RE.finditer(value)}:
+        if re.search(rf"\b{re.escape(genus)}\s+{re.escape(epithet)}\b", document):
+            variants.append(re.sub(rf"\b{re.escape(genus)}\s+{re.escape(epithet)}\b", f"{genus[0]}. {epithet}", value))
+    return variants
 
 
 def validate_provenance(paper_id: str, payload: dict[str, Any]) -> list[ValidationIssue]:
@@ -1044,7 +1132,10 @@ def validate_provenance(paper_id: str, payload: dict[str, Any]) -> list[Validati
                 )
                 continue
 
-            if not _value_supported_by_text(value, block_text, field_name=leaf_name):
+            if not _value_supported_by_text(value, block_text, field_name=leaf_name) and not any(
+                _value_supported_by_text(variant, block_text, field_name=leaf_name)
+                for variant in _genus_abbreviation_variants(value, blocks)
+            ):
                 issues.append(
                     ValidationIssue(
                         "error",
@@ -1116,6 +1207,9 @@ READINESS_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     # "every optional field": identity is required; descriptive metadata (description, units, notes) never is.
     "Variable": ("name",),
     "Method": ("name",),
+    # Phase A5: protocol Section 6.3 minimum -- a treatment has a recognisable name AND a definition of the intended
+    # contrast. Real hollow "ready" Treatments (Kathryn run 20260925T225646): "4" with no name, "mean" with neither.
+    "Treatment": ("name", "definition"),
 }
 
 # Identity that can be given in either of two fields. A Crop is the paper-specific cultivar/variety (ir_schema.Crop): its

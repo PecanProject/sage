@@ -66,7 +66,7 @@ def test_review_progress_does_not_count_link_fields(monkeypatch):
     data["Treatment"] = [{"record_id": "t1", "status": "ready", "run_id": "r", "ai_validation": None, "reason": None,
                           "fields": {"id": _bare("t1"), "site_id": _extracted("s", review="pending"),
                                      "name": _extracted("Fallow", review="approved"), "definition": _extracted("x")}}]
-    monkeypatch.setattr(api_client, "get_review_data", lambda paper_id: data)
+    monkeypatch.setattr(api_client, "get_review_data", lambda paper_id, run_id=None: data)
     summary = api_client.review_summary(PAPER)
     assert (summary["total_fields"], summary["reviewed"], summary["remaining"]) == (2, 1, 1)   # name + definition only
 
@@ -136,7 +136,11 @@ def page(monkeypatch):
         "id": _bare("V1"), "notes": _bare("generated"), "weather_rows": _bare(None),
     }}]
     calls: list[tuple] = []
-    monkeypatch.setattr(api_client, "get_review_data", lambda paper_id: data)
+    monkeypatch.setattr(api_client, "get_review_data", lambda paper_id, run_id=None: data)
+    monkeypatch.setattr(api_client, "default_review_run", lambda paper_id: "r")
+    monkeypatch.setattr(api_client, "list_result_runs", lambda paper_id: [
+        {"run_id": "r", "label": "r (latest)", "counts": {"ready": 3}, "reviewable": True, "is_latest": True},
+    ])
     monkeypatch.setattr(api_client, "get_pdf_bytes", lambda paper_id: None)
     monkeypatch.setattr(api_client, "get_block_text", lambda paper_id, anchor: "Fallow plots were left untilled.")
     monkeypatch.setattr(api_client, "submit_correction", lambda *a, **k: calls.append((a, k)) or {"payload": {}})
@@ -193,6 +197,7 @@ def test_approve_records_confirm_unresolved_for_a_not_found_field_and_approve_ot
     assert calls[-1][0][3] == "confirm_unresolved" and calls[-1][1]["field_name"] == "definition"
     at.button(key="approve_Treatment__T1__name").click().run()
     assert calls[-1][0][3] == "approve" and calls[-1][1]["field_name"] == "name"
+    assert all(k["run_id"] == "r" for _, k in calls)   # every review action belongs to the run under review
 
 
 def test_the_eye_icon_sends_the_field_source_to_the_pdf_pane(page):

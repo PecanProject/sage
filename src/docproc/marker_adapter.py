@@ -131,6 +131,10 @@ STRUCTURAL_CONTAINER_TYPES = {
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _MATH_RE = re.compile(r"<math[^>]*>(.*?)</math>", re.DOTALL)
+# An HTML-ESCAPED formatting tag as the --use_llm postprocessing leaves it in body text ("&lt;sup&gt;-2&lt;/sup&gt;").
+# Only these tag names: an escaped "&lt;" followed by anything else is a real less-than sign in the paper ("P &lt; 0.05",
+# "&lt;0.5 mm") and must survive as text.
+_ESCAPED_FORMAT_TAG_RE = re.compile(r"&lt;(/?)(sup|sub|u|b|i|em|strong|span|br|p)\b([^&<>]*?)(/?)&gt;", re.IGNORECASE)
 _CONTENT_REF_RE = re.compile(r"<content-ref\s+src=['\"]([^'\"]+)['\"]\s*/?>")
 
 # Exact signature of the --use_llm Footnote <sup> double-escaping bug observed
@@ -194,25 +198,29 @@ def html_to_text(raw_html: Optional[str]) -> str:
       1. Fix the known Footnote double-escape corruption signature first
          (a single generic unescape does not fully repair that pattern --
          verified empirically).
-      2. Unescape entities BEFORE stripping tags. This is required because
-         the --use_llm postprocessing bug is WIDER than just Footnote blocks:
-         ordinary body Text blocks also contain single-escaped pseudo-tags
-         (e.g. literal "&lt;sup&gt;-2&lt;/sup&gt;" mixed inline with correctly
-         -formed real <math> tags in the same sentence -- confirmed in
-         light-use-2007.json, block /page/2/Text/9). Unescaping first turns
-         these back into real <sup>/<sub> tags so the tag-strip step actually
-         removes them; unescaping AFTER stripping (the original, wrong order)
-         left literal "<sup>-2</sup>" text visible in content.md.
-      3. Strip remaining real tags.
-      4. Collapse whitespace.
+      2. Turn ESCAPED formatting tags back into real tags. The --use_llm
+         postprocessing bug is WIDER than just Footnote blocks: ordinary body
+         Text blocks also contain single-escaped pseudo-tags (e.g. literal
+         "&lt;sup&gt;-2&lt;/sup&gt;" mixed inline with correctly-formed real
+         <math> tags in the same sentence -- confirmed in light-use-2007.json,
+         block /page/2/Text/9), and they must be stripped like real tags.
+      3. Strip real tags.
+      4. Unescape entities LAST, so a real less-than sign in the paper survives
+         as text. The previous order (unescape everything, then strip) turned
+         "P &lt; 0.05" into "P < 0.05" and then deleted everything up to the
+         next ">" as if it were a tag -- real loss in every paper (174 places
+         across 13 papers; Felipe-2010-Cultivar lost its cover-crop C/N ratio,
+         both survival rates, a harvest N value and every significance level).
+      5. Collapse whitespace.
     """
     if not raw_html:
         return ""
     fixed, _ = _fix_marker_llm_sup_corruption(raw_html)
     with_math = _math_to_text(fixed)
-    unescaped = html_module.unescape(with_math)
-    no_tags = _TAG_RE.sub(" ", unescaped)
-    text = re.sub(r"[ \t]+", " ", no_tags).strip()
+    real_tags = _ESCAPED_FORMAT_TAG_RE.sub(lambda m: f"<{m.group(1)}{m.group(2)}{m.group(3)}{m.group(4)}>", with_math)
+    no_tags = _TAG_RE.sub(" ", real_tags)
+    text = html_module.unescape(no_tags)
+    text = re.sub(r"[ \t]+", " ", text).strip()
     return text
 
 

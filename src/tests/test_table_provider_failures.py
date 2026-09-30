@@ -171,7 +171,8 @@ def test_the_cooldown_grows_between_provider_rounds_and_never_follows_the_last(e
     monkeypatch.setattr(orchestrator, "TABLE_PROVIDER_COOLDOWN_SECONDS", 7)
     invoke, _ = _script([TIMEOUT, MALFORMED] + [TIMEOUT] * (n - 2))
     result, _ = _classify(invoke)
-    assert result is None and sleeps == [orchestrator.provider_cooldown_seconds(k) for k in range(1, n)]  # n-1 waits, none after the last
+    # a wait after every TIMEOUT round except the last; none after the harmony leak (round 2: not an outage)
+    assert result is None and sleeps == [orchestrator.provider_cooldown_seconds(k) for k in range(1, n) if k != 2]
     assert sleeps[0] == 7 and sleeps == sorted(sleeps)
     assert _final()["failure_classes"] == ["provider_timeout", "provider_malformed"] + ["provider_timeout"] * (n - 2)
     assert _final()["failure_kind"] == "provider"
@@ -287,3 +288,36 @@ def test_the_provider_budget_and_cooldown_are_recorded_in_every_manifest():
     assert constants["MAX_PROVIDER_FAILURE_ROUNDS"] == orchestrator.MAX_PROVIDER_FAILURE_ROUNDS
     assert "TABLE_PROVIDER_COOLDOWN_SECONDS" in constants and "MAX_TABLE_CLASSIFICATION_ATTEMPTS" in constants
     assert {"PROVIDER_COOLDOWN_GROWTH", "PROVIDER_COOLDOWN_CAP_SECONDS", "MAX_CONSECUTIVE_PROVIDER_TERMINALS"} <= set(constants)
+
+
+# --------------------------------------------------------------------- #
+# Step B stalls (see tests/test_no_answer_handling.py for the evidence)
+# --------------------------------------------------------------------- #
+
+_STALL_STDOUT = "\n".join(json.dumps(e) for e in (
+    {"type": "step_start", "part": {"type": "step-start"}},
+    {"type": "tool_use", "part": {"type": "tool", "tool": "read_table", "state": {"status": "completed", "input": {}, "output": "..."}}},
+    {"type": "step_finish", "part": {"type": "step-finish", "reason": "tool-calls"}},
+    {"type": "step_finish", "part": {"type": "step-finish", "reason": "stop"}},
+))
+STALL = lambda: orchestrator.AgentInvocation(  # noqa: E731
+    agent="extractor", model="m", prompt="p", returncode=0, stdout=_STALL_STDOUT, stderr="",
+    final_text=None, parsed_json=None, parse_error="no final assistant text found in agent output")
+
+
+def test_a_step_b_stall_is_retried_at_once_asking_for_the_classification(env, monkeypatch):
+    monkeypatch.setattr(orchestrator.time, "sleep", lambda s: pytest.fail("a stall is never waited out"))
+    invoke, prompts = _script([STALL, lambda: _answer(_valid())])
+    result, error = _classify(invoke)
+    assert error is None and result is not None
+    assert orchestrator._final_answer_nudge("table_classification") in prompts[1]
+    first = _artifacts()[0]
+    assert first["failure_class"] == "no_final_answer" and first["numbered_attempt"] is None and first["failure_kind"] == "extraction"
+
+
+def test_step_b_stalls_are_bounded_and_cached_as_the_models_failure(env, monkeypatch):
+    monkeypatch.setattr(orchestrator.time, "sleep", lambda s: pytest.fail("a stall is never waited out"))
+    invoke, prompts = _script([STALL] * (orchestrator.MAX_FINAL_ANSWER_RETRIES + 1))
+    result, error = _classify(invoke)
+    assert result is None and len(prompts) == orchestrator.MAX_FINAL_ANSWER_RETRIES + 1
+    assert _final()["failure_class"] == "no_final_answer" and _final()["failure_kind"] == "extraction"

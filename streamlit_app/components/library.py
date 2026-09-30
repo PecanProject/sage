@@ -40,7 +40,28 @@ def _stored_status_label(row: dict) -> str:
 
 
 def _extracted_status_label(row: dict) -> str:
-    return "Extracted — with errors" if row.get("has_errors") else "Extracted"
+    if not row.get("reviewable", True):
+        return "No reviewable records"
+    label = "Extracted — with errors" if row.get("has_errors") else "Extracted"
+    if row.get("review_run") and not row.get("review_run_is_latest", True):
+        label += " (earlier run)"
+    return label
+
+
+def _extracted_detail(row: dict) -> str:
+    """The review-progress cell: counts when there is something to review, otherwise why not (the failure that
+    blocked the run), plus which results set is shown when it is not the latest run."""
+    if not row.get("reviewable", True):
+        failure = row.get("failure") or "no ready or unresolved records in any run"
+        return f"Latest run failed — {failure}"
+    s = row["summary"]
+    text = (
+        f"{s['total_fields']} fields | {s['reviewed']} reviewed | "
+        f"{s['unresolved']} unresolved | {s['blocked']} blocked | {s['remaining']} remaining"
+    )
+    if row.get("review_run") and not row.get("review_run_is_latest", True):
+        text += " · latest run has nothing to review; showing an earlier one"
+    return text
 
 
 def render():
@@ -136,7 +157,7 @@ def _render_extracted_papers(extracted_rows: list[dict]):
         )
 
     if not extracted_rows:
-        st.caption("No papers extracted yet. Extract a stored paper above.")
+        st.caption("No papers extracted yet (src/results is empty). Extract a stored paper above.")
         return
 
     ordered = _reorder_by_match(extracted_rows, query)
@@ -156,19 +177,12 @@ def _render_extracted_row(row: dict):
     cols = st.columns([0.22, 0.16, 0.38, 0.24], vertical_alignment="center")
     cols[0].write(paper_id)
     cols[1].write(_extracted_status_label(row))
-    if row["summary"]:
-        s = row["summary"]
-        cols[2].caption(
-            f"{s['total_fields']} fields | {s['reviewed']} reviewed | "
-            f"{s['unresolved']} unresolved | {s['blocked']} blocked | {s['remaining']} remaining"
-        )
-    else:
-        cols[2].caption("—")
+    cols[2].caption(_extracted_detail(row))
     with cols[3]:
         action_cols = st.columns([0.5, 0.25, 0.25])
         with action_cols[0]:
             if st.button("Review", key=f"review_{safe_key}", use_container_width=True):
-                state.open_paper(paper_id)
+                state.open_paper(paper_id, row.get("review_run"))
                 st.rerun()
         with action_cols[1]:
             if st.button(

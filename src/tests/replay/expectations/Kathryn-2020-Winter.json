@@ -1,0 +1,153 @@
+{
+  "paper_id": "Kathryn-2020-Winter",
+  "verified_against": "docproc/paper/Kathryn-2020-Winter.pdf (pdftotext) and content.md; hand-selected, never copied from a run",
+  "expectations": [
+    {
+      "id": "citation.doi",
+      "entity_type": "Citation",
+      "concept": "DOI in the citation line",
+      "anchors": [
+        "b:0004"
+      ],
+      "literals": [
+        "https://doi.org/10.1371/journal.pone.0228677"
+      ],
+      "outcome": {
+        "field": "persistent_identifier",
+        "contains_any": [
+          "10.1371/journal.pone.0228677"
+        ]
+      }
+    },
+    {
+      "id": "site.name",
+      "entity_type": "Site",
+      "concept": "site location name",
+      "anchors": [
+        "b:0035"
+      ],
+      "literals": [
+        "USDA-ARS in Salinas, CA"
+      ],
+      "outcome": {
+        "field": "name",
+        "contains_any": [
+          "Salinas",
+          "USDA-ARS"
+        ]
+      }
+    },
+    {
+      "id": "site.coordinates",
+      "entity_type": "Site",
+      "concept": "coordinates written with ring-above and acute accent",
+      "anchors": [
+        "b:0035"
+      ],
+      "literals": [
+        "36˚37´N",
+        "-121˚32´W"
+      ],
+      "outcome": {
+        "field": "latitude"
+      },
+      "note": "Run 20260923T095532: the model wrote 36°37′N; grounding does not equate ˚/° and ´/′, Site went unresolved and blocked Treatment/Observation."
+    },
+    {
+      "id": "design.rcbd",
+      "entity_type": "Study",
+      "concept": "randomized complete block, eight systems, four blocks",
+      "anchors": [
+        "b:0036"
+      ],
+      "literals": [
+        "randomized complete block with eight systems in four blocks"
+      ]
+    },
+    {
+      "id": "treatment.systems_table1",
+      "entity_type": "Treatment",
+      "concept": "five systems defined in Table 1",
+      "anchors": [
+        "b:0044",
+        "b:0043"
+      ],
+      "literals": [
+        "Quadrennial",
+        "Legume-rye",
+        "The five systems at the Salinas Organic Cropping Systems experiment"
+      ]
+    },
+    {
+      "id": "management.spading",
+      "entity_type": "Management",
+      "concept": "annual tillage with a soil spader",
+      "anchors": [
+        "b:0042"
+      ],
+      "literals": [
+        "tilled with a soil spader"
+      ],
+      "outcome": {
+        "field": "event_type",
+        "contains_any": [
+          "till"
+        ]
+      }
+    },
+    {
+      "id": "management.compost",
+      "entity_type": "Management",
+      "concept": "compost application rate",
+      "anchors": [
+        "b:0042"
+      ],
+      "literals": [
+        "7.6 Mg ha-1 (dry weight basis) urban yard waste compost"
+      ],
+      "outcome": {
+        "field": "event_type",
+        "contains_any": [
+          "compost",
+          "amendment",
+          "fertil"
+        ]
+      }
+    },
+    {
+      "id": "management.subsoiling",
+      "entity_type": "Management",
+      "concept": "post-harvest subsoiling",
+      "anchors": [
+        "b:0076"
+      ],
+      "literals": [
+        "subsoiled to approximately 1 m"
+      ]
+    },
+    {
+      "id": "method.soc_combustion",
+      "entity_type": "Method",
+      "concept": "total soil C by combustion",
+      "anchors": [
+        "b:0085"
+      ],
+      "literals": [
+        "Total soil C was determined on all air-dried ground"
+      ]
+    },
+    {
+      "id": "table.cn_confidence_limits",
+      "entity_type": "Table",
+      "concept": "Table 3 reports means with 95% confidence limits",
+      "anchors": [
+        "b:0176",
+        "b:0177"
+      ],
+      "literals": [
+        "95% confidence limits",
+        "9.5 [9.3, 9.8]"
+      ]
+    }
+  ]
+}

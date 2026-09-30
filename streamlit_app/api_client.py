@@ -33,50 +33,80 @@ REVIEW_ACTIONS = sorted(corrections_store.VALID_ACTIONS)
 # Paper library
 # ---------------------------------------------------------------------------
 
+def _run_status_counts(paper_id: str, run_id: Optional[str]) -> dict[str, int]:
+    """{status: record count} over every entity type of ONE results set (a run id, `results_store.LEGACY_RUN`, or
+    None for the default LATEST/legacy resolution)."""
+    counts: dict[str, int] = {}
+    for entity_type in ENTITY_TYPES:
+        for result in results_store.load_any_entity_results(paper_id, entity_type, run_id):
+            status = result.get("status")
+            counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
+def _is_reviewable(counts: dict[str, int]) -> bool:
+    return bool(counts.get("ready") or counts.get("unresolved"))
+
+
+def _candidate_runs(paper_id: str) -> list[str]:
+    """Every results set this paper has, in the order they are preferred for review: the LATEST completed run, then
+    the other runs newest first, then the legacy flat layout (results written before per-run directories)."""
+    latest = results_store.latest_run_id(paper_id)
+    runs = results_store.list_run_ids_newest_first(paper_id)
+    ordered = ([latest] if latest in runs else []) + [r for r in runs if r != latest]
+    if results_store.has_legacy_results(paper_id):
+        ordered.append(results_store.LEGACY_RUN)
+    return ordered
+
+
+def list_result_runs(paper_id: str) -> list[dict]:
+    """One entry per results set of this paper (see `_candidate_runs` for the order): its run id, a label, its status
+    counts, whether it has reviewable records, and whether it is the LATEST completed run."""
+    latest = results_store.latest_run_id(paper_id)
+    rows = []
+    for run_id in _candidate_runs(paper_id):
+        counts = _run_status_counts(paper_id, run_id)
+        label = "earlier results (before per-run folders)" if run_id == results_store.LEGACY_RUN else run_id
+        if run_id == latest:
+            label += " (latest)"
+        rows.append({
+            "run_id": run_id, "label": label, "counts": counts,
+            "reviewable": _is_reviewable(counts), "is_latest": run_id == latest,
+        })
+    return rows
+
+
+def default_review_run(paper_id: str) -> Optional[str]:
+    """The results set the review opens by default: the LATEST run when it has reviewable (ready/unresolved) records,
+    otherwise the newest run that has, so a failed latest run (e.g. Citation error -> everything blocked) never hides
+    real, earlier results. When no run has any, the first candidate (so its failure can still be inspected), or None."""
+    candidates = _candidate_runs(paper_id)
+    for run_id in candidates:
+        if _is_reviewable(_run_status_counts(paper_id, run_id)):
+            return run_id
+    return candidates[0] if candidates else None
+
+
 def is_extracted(paper_id: str) -> bool:
-    """True when this paper has at least one real record to review (some
-    entity type reached ready/unresolved) -- distinct from `processed`
-    (Marker/document-preparation done), which says nothing about whether
-    the extraction pipeline itself has ever been run.
+    """True when ANY results set of this paper (any run, or the legacy flat layout) has at least one real record to
+    review (ready/unresolved) -- distinct from `processed` (Marker/document preparation done), which says nothing about
+    whether the extraction pipeline itself has ever been run.
 
-    Deliberately NOT `marker_pipeline._needs_extraction` inverted: that
-    function answers a different question ("should the batch pipeline
-    re-run extraction for this paper"), and its "any single error anywhere
-    means treat the WHOLE paper as not extracted" rule is right for that
-    -- a partially-errored batch run shouldn't be silently treated as
-    finished. But reusing it here hid a real, mostly-successful paper from
-    the Extracted Papers list entirely: a real run (Oceologia-1998) with 89
-    of 92 records ready/unresolved and only 2 unrelated stray errors (one
-    Species candidate, one Method candidate) never appeared as reviewable
-    at all. Whether a paper has data worth reviewing is a much lower bar --
-    ANY real ready/unresolved record, regardless of unrelated errors
-    elsewhere -- since the review workspace already handles ready/
-    unresolved/error per record, not as one all-or-nothing paper status."""
-    from pipeline import results_store
-    from pipeline.ir_schema import ENTITY_MODELS
-
-    for entity_type in ENTITY_MODELS:
-        for result in results_store.load_any_entity_results(paper_id, entity_type):
-            if result.get("status") in ("ready", "unresolved"):
-                return True
-    return False
+    Deliberately NOT `marker_pipeline._needs_extraction` inverted: that function answers a different question ("should
+    the batch pipeline re-run extraction for this paper"), and its "any single error anywhere means treat the WHOLE
+    paper as not extracted" rule is right for that. Whether a paper has data worth reviewing is a much lower bar -- ANY
+    real ready/unresolved record, regardless of unrelated errors elsewhere (real case: Oceologia-1998, 89 of 92 records
+    ready/unresolved and 2 stray errors). Nor is it only the LATEST run: a latest run that failed at Citation (everything
+    else blocked) must not hide an earlier run's real results (real case: Oceologia-1998 and Paul-1998-Foliar, whose
+    latest runs failed while their earlier flat-layout results hold 81 and 39 ready records)."""
+    return any(_is_reviewable(_run_status_counts(paper_id, run_id)) for run_id in _candidate_runs(paper_id))
 
 
-def has_error_records(paper_id: str) -> bool:
-    """True when this paper's PERSISTED results include at least one
-    entity/record that ended in "error" -- read the same way is_extracted()
-    reads ready/unresolved, so the library page's "Extracted — with errors"
-    status reflects real, on-disk state (works even after a session/server
-    restart), not a live run result that only exists in session_state
-    during the run that produced it."""
-    from pipeline import results_store
-    from pipeline.ir_schema import ENTITY_MODELS
-
-    for entity_type in ENTITY_MODELS:
-        for result in results_store.load_any_entity_results(paper_id, entity_type):
-            if result.get("status") == "error":
-                return True
-    return False
+def has_error_records(paper_id: str, run_id: Optional[str] = None) -> bool:
+    """True when the given results set (default: `default_review_run`) includes at least one entity/record that ended
+    in "error" -- read from real, on-disk state, so the library's "with errors" status survives a restart."""
+    run_id = run_id if run_id is not None else default_review_run(paper_id)
+    return bool(_run_status_counts(paper_id, run_id).get("error"))
 
 
 def list_papers() -> list[dict]:
@@ -111,25 +141,46 @@ def list_papers() -> list[dict]:
 
 
 def list_extracted_papers() -> list[dict]:
-    """The Extracted Papers listing -- one row per paper_id discovered from
-    real results/<paper_id>/ directories on disk (results_store.
-    list_paper_ids()), independent of whether that paper's PDF is still in
-    the library (see list_papers()'s own docstring for the bug this
-    fixes). A row here always has real data worth reviewing (is_extracted
-    is checked the same way list_papers() checks it; a results/ directory
-    that exists but somehow has nothing ready/unresolved in it -- e.g. an
-    interrupted run -- is omitted rather than shown as a hollow row)."""
+    """The Extracted Papers listing -- one row for EVERY paper_id with a results/<paper_id>/ directory on disk
+    (results_store.list_paper_ids()), independent of whether that paper's PDF is still in the library (a real,
+    confirmed bug: deleting a PDF used to hide its results) and of whether its latest run succeeded (a real,
+    confirmed bug: a latest run that failed at Citation hid the paper entirely, earlier real results included).
+
+    Each row names the results set the review opens (`review_run`, see `default_review_run`), whether that is the
+    LATEST run, and -- when no results set has anything to review -- `reviewable=False` with `failure` saying why (the
+    first error reason recorded), so every extracted paper stays visible and inspectable."""
     rows = []
     for paper_id in results_store.list_paper_ids():
-        if not is_extracted(paper_id):
-            continue
+        runs = _candidate_runs(paper_id)
+        review_run = default_review_run(paper_id)
+        counts = _run_status_counts(paper_id, review_run) if review_run is not None else {}
+        reviewable = _is_reviewable(counts)
         rows.append({
             "paper_id": paper_id,
             "has_pdf": sage_paths.has_pdf(paper_id),
-            "has_errors": has_error_records(paper_id),
-            "summary": review_summary(paper_id),
+            "reviewable": reviewable,
+            "has_errors": bool(counts.get("error")),
+            "review_run": review_run,
+            # True also when the paper has no LATEST pointer (legacy-only results): nothing newer exists to fall back from.
+            "review_run_is_latest": results_store.latest_run_id(paper_id) in (None, review_run),
+            "run_count": len(runs),
+            "counts": counts,
+            "failure": None if reviewable else _first_error_reason(paper_id, review_run),
+            "summary": review_summary(paper_id, review_run) if reviewable else None,
         })
     return rows
+
+
+def _first_error_reason(paper_id: str, run_id: Optional[str]) -> Optional[str]:
+    """The reason of the first entity result that ended in "error" in this results set, in entity order (the one that
+    blocked the others, e.g. Citation), or None."""
+    if run_id is None:
+        return None
+    for entity_type in ENTITY_TYPES:
+        for result in results_store.load_any_entity_results(paper_id, entity_type, run_id):
+            if result.get("status") == "error":
+                return f"{entity_type}: {result.get('reason') or 'no reason recorded'}"
+    return None
 
 
 def upload_pdfs(files: list[tuple[str, bytes]]) -> list[str]:
@@ -336,7 +387,7 @@ def _normalize_field(
     }
 
 
-def get_review_data(paper_id: str) -> dict[str, list[dict]]:
+def get_review_data(paper_id: str, run_id: Optional[str] = None) -> dict[str, list[dict]]:
     """Every one of the 12 entity types for this paper, each holding
     whatever real result(s) exist for it -- 'not_extracted' when nothing
     does yet, never fabricated. Most entity types store at most one record
@@ -346,10 +397,15 @@ def get_review_data(paper_id: str) -> dict[str, list[dict]]:
     this entity_type actually uses, so this function itself never needs to
     know or care which one that is. Field values reflect corrections
     already applied (effective_value), while `value` always keeps the
-    ORIGINAL extraction untouched, per the immutability requirement."""
+    ORIGINAL extraction untouched, per the immutability requirement.
+
+    `run_id` selects the results set (a run id, or `results_store.LEGACY_RUN`); by default the one
+    `default_review_run` picks, so a failed latest run never hides earlier, real results."""
+    if run_id is None:
+        run_id = default_review_run(paper_id)
     data: dict[str, list[dict]] = {}
     for entity_type in ENTITY_TYPES:
-        raw_results = results_store.load_any_entity_results(paper_id, entity_type)
+        raw_results = results_store.load_any_entity_results(paper_id, entity_type, run_id)
 
         records = []
         for raw_result in raw_results:
@@ -395,11 +451,11 @@ def reviewable_fields(record: dict) -> dict[str, dict]:
     return shown
 
 
-def review_summary(paper_id: str) -> dict:
+def review_summary(paper_id: str, run_id: Optional[str] = None) -> dict:
     """Compact counts for the paper overview line -- e.g.
     '47 fields | 31 reviewed | 9 unresolved | 4 blocked | 3 remaining'.
     Deliberately just counts, no charts. Link fields are not counted (see `is_link_field`)."""
-    data = get_review_data(paper_id)
+    data = get_review_data(paper_id, run_id)
     total_fields = 0
     reviewed = 0
     unresolved = 0
@@ -427,8 +483,8 @@ def review_summary(paper_id: str) -> dict:
 # Entity pickers for "Relink Entity" (existing records, never raw id typing)
 # ---------------------------------------------------------------------------
 
-def list_record_ids(paper_id: str, entity_type: str) -> list[str]:
-    data = get_review_data(paper_id)
+def list_record_ids(paper_id: str, entity_type: str, run_id: Optional[str] = None) -> list[str]:
+    data = get_review_data(paper_id, run_id)
     return [r["record_id"] for r in data.get(entity_type, []) if r["status"] == "ready"]
 
 
@@ -463,17 +519,21 @@ def _revalidate_locators(paper_id: str, new_value: Any, locators: list[dict]) ->
 
 def submit_correction(
     paper_id: str, entity_type: str, record_id: str, action: str,
-    field_name: Optional[str] = None, payload: Optional[dict] = None,
+    field_name: Optional[str] = None, payload: Optional[dict] = None, run_id: Optional[str] = None,
 ) -> dict:
     """Record one review action. For `correct_value`, re-runs deterministic
     provenance validation against the field's (possibly updated) locators
     before recording -- the validation OUTCOME is stored alongside the
     correction, but the correction is still recorded even if validation
     fails, so a scientist's action is never silently dropped; the UI is
-    responsible for surfacing a failed re-validation clearly."""
+    responsible for surfacing a failed re-validation clearly.
+
+    `run_id` is the results set being reviewed (default: `default_review_run`). The correction is tagged with the
+    reviewed RECORD's own run id -- the same id `get_review_data` reads corrections back with -- so it applies to
+    exactly that run's record and never to another run's record of the same id."""
     payload = dict(payload or {})
+    record = next((r for r in get_review_data(paper_id, run_id).get(entity_type, []) if r["record_id"] == record_id), None)
     if action == "correct_value" and field_name:
-        record = next((r for r in get_review_data(paper_id).get(entity_type, []) if r["record_id"] == record_id), None)
         field = (record or {}).get("fields", {}).get(field_name, {})
         source = field.get("source") or {}
         locators = source.get("locators") or []
@@ -482,18 +542,29 @@ def submit_correction(
         issues = _revalidate_locators(paper_id, payload.get("new_value"), locators)
         payload["revalidation_issues"] = issues
 
-    # The review UI shows the LATEST completed run, so a correction made
-    # here belongs to that run (run isolation; see corrections_store).
     return corrections_store.append_correction(
         paper_id=paper_id, entity_type=entity_type, record_id=record_id,
         action=action, field_name=field_name, payload=payload,
-        run_id=results_store.latest_run_id(paper_id),
+        run_id=_correction_run_id(paper_id, record, run_id),
     )
 
 
-def get_corrections(paper_id: str, entity_type: str, record_id: str, field_name: Optional[str] = None) -> list[dict]:
+def _correction_run_id(paper_id: str, record: Optional[dict], run_id: Optional[str]) -> Optional[str]:
+    """The run a correction belongs to: the reviewed record's own run id; else the reviewed run (never the legacy
+    sentinel, which is not a run); else the LATEST run."""
+    if record and record.get("run_id"):
+        return record["run_id"]
+    if run_id is not None and run_id != results_store.LEGACY_RUN:
+        return run_id
+    return results_store.latest_run_id(paper_id)
+
+
+def get_corrections(
+    paper_id: str, entity_type: str, record_id: str, field_name: Optional[str] = None, run_id: Optional[str] = None,
+) -> list[dict]:
+    record = next((r for r in get_review_data(paper_id, run_id).get(entity_type, []) if r["record_id"] == record_id), None)
     return corrections_store.read_for_record(
-        paper_id, entity_type, record_id, field_name, run_id=results_store.latest_run_id(paper_id),
+        paper_id, entity_type, record_id, field_name, run_id=_correction_run_id(paper_id, record, run_id),
     )
 
 

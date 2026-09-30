@@ -57,6 +57,7 @@ from pydantic import ValidationError
 
 from pipeline import content_reader, pooling_evidence, results_store, run_config, run_lock, run_store, store, vocab
 from pipeline.fingerprint import config_fingerprint, schema_fingerprint
+from pipeline import cell_values, causes, context_bundle, coordinates, design, document_map, evidence_index, method_map
 from pipeline.ir_schema import IRDataset
 from pipeline.raw_schema import (
     MIXTURE_LEVEL_RULE, CandidateDimension, EnumerationCandidate, EnumerationResult, MethodHintFlag, RawExtraction,
@@ -64,6 +65,7 @@ from pipeline.raw_schema import (
 )
 from pipeline.validators import (  # reuse, don't re-implement anchor parsing/grounding
     _load_rendered_blocks, _normalize_typography, _papers_root, validate_dataset, _value_supported_by_text,
+    _unit_supported as _validator_unit_supported,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -267,6 +269,7 @@ class _ProviderBudget:
         self.run_id, self.record_key, self.stage = run_id, record_key, stage
         self.rounds = 0
         self.classes: list[str] = []
+        self.last_result: Optional[AgentInvocation] = None
 
     def round_limit(self) -> int:
         """The rounds this loop may spend: the full budget, or a single round while the provider is evidently down
@@ -274,11 +277,13 @@ class _ProviderBudget:
         down = _PROVIDER_OUTAGE.get(self.run_id, 0) >= MAX_CONSECUTIVE_PROVIDER_TERMINALS
         return 1 if down else MAX_PROVIDER_FAILURE_ROUNDS
 
-    def failed(self, failure_class: str) -> bool:
+    def failed(self, failure_class: str, result: Optional[AgentInvocation] = None) -> bool:
         """Record one provider-failed round. True when the loop must stop: the executable is missing (never
-        retried) or the budget is spent."""
+        retried) or the budget is spent. `result` is the failed invocation, used by `cooldown` to decide whether there
+        is any evidence of an outage to wait out."""
         self.rounds += 1
         self.classes.append(failure_class)
+        self.last_result = result
         outage_mode = self.round_limit() < MAX_PROVIDER_FAILURE_ROUNDS
         terminal = failure_class == "provider_unavailable" or self.rounds >= self.round_limit()
         if terminal and failure_class != "provider_unavailable":
@@ -290,7 +295,18 @@ class _ProviderBudget:
         return terminal
 
     def cooldown(self) -> None:
-        time.sleep(provider_cooldown_seconds(self.rounds))
+        """Wait before the next round -- only when the last failure shows evidence of an outage (`_outage_evidence`).
+        A provider that answered promptly with no usable text (a clean empty turn, a harmony-format leak) is not down:
+        waiting does not change its answer, so the next round goes immediately, with the changed prompt
+        (`needs_answer_nudge`). Real evidence (Felipe-2010-Cultivar, run 20260923T132453_7595c3bf): 4 records spent 44 of
+        111 minutes in 20/60/180/300 s cooldowns after failed calls that each lasted ~0.5 s."""
+        if _outage_evidence(self.last_result):
+            time.sleep(provider_cooldown_seconds(self.rounds))
+
+    def needs_answer_nudge(self) -> bool:
+        """After a failure that is not an outage, the next round asks for the answer directly instead of repeating the
+        identical prompt (the model's no-answer turn was repeatable: identical token counts round after round)."""
+        return self.last_result is not None and not _outage_evidence(self.last_result)
 
     def disclosure(self, numbered: int, terminal: bool) -> dict[str, Any]:
         """The fields a terminal record/enumeration/table failure carries: whose failure it was."""
@@ -302,10 +318,15 @@ class _ProviderBudget:
 
 def summarize_provider_failures(run_id: str, *, discard: bool = True) -> dict[str, Any]:
     """Every provider-failed round of this run for the manifest: totals by stage and class, and the loops that ended
-    because the provider budget was spent (`terminal`). Provider failures are never counted as extraction failures."""
+    because the provider budget was spent (`terminal`). Provider failures are never counted as extraction failures.
+    Stalls (`no_final_answer`: the model's own no-answer turns) are reported separately under `model_no_answer`."""
     log = _PROVIDER_FAILURE_LOG.pop(run_id, []) if discard else list(_PROVIDER_FAILURE_LOG.get(run_id, []))
+    stalls = _STALL_LOG.pop(run_id, []) if discard else list(_STALL_LOG.get(run_id, []))
     if discard:
         _PROVIDER_OUTAGE.pop(run_id, None)
+    stall_by_stage: dict[str, int] = {}
+    for entry in stalls:
+        stall_by_stage[entry["stage"]] = stall_by_stage.get(entry["stage"], 0) + 1
     by_stage: dict[str, int] = {}
     by_class: dict[str, int] = {}
     for entry in log:
@@ -316,7 +337,101 @@ def summarize_provider_failures(run_id: str, *, discard: bool = True) -> dict[st
         "terminal": [{k: e[k] for k in ("stage", "record_key", "failure_class")} for e in log if e["terminal"]],
         # Loops that got only one round because the provider was evidently down (see MAX_CONSECUTIVE_PROVIDER_TERMINALS).
         "outage_mode": [e["record_key"] for e in log if e["terminal"] and e.get("outage_mode")],
+        "model_no_answer": {
+            "total_rounds": len(stalls), "by_stage": stall_by_stage,
+            "terminal": [{k: e[k] for k in ("stage", "record_key")} for e in stalls if e["terminal"]],
+        },
     }
+
+
+# --------------------------------------------------------------------------- #
+# No-answer turns: a stall is not an outage
+# --------------------------------------------------------------------------- #
+# Real evidence (Felipe-2010-Cultivar, run 20260923T132453_7595c3bf): of 19 "provider failure" rounds, 12 were STALLS --
+# the model used a tool, the tool answered, and the model's next turn produced ~100 output tokens that never arrived as
+# text (identical token counts round after round, e.g. 125 then 107 for every round of Variable plant_nutrient_content),
+# each call lasting ~0.5 s. The provider was answering; waiting 20/60/180/300 s and repeating the identical prompt only
+# reproduced the same turn. So, on every stage: a stall gets up to MAX_FINAL_ANSWER_RETRIES immediate retries with a short
+# "answer now" instruction (`_final_answer_nudge`), outside the provider budget; and among provider-classed failures only
+# real outage evidence (`_outage_evidence`) earns a cooldown.
+
+# As many rounds as the provider budget used to give the same failure (MAX_PROVIDER_FAILURE_ROUNDS = 5), minus the first:
+# the replayed Felipe Coverage record answered on its 5th round after four no-answer turns, so fewer would have lost it.
+# The difference is that none of them waits, and each asks for the answer directly.
+MAX_FINAL_ANSWER_RETRIES = 4
+_STALL_LOG: dict[str, list[dict]] = {}   # run_id -> [{stage, record_key, terminal}]
+# A provider error event that is really the gpt-oss/vLLM harmony-format defect (a model output formatting failure, seen
+# as "unexpected tokens remaining in message header" / "could not decode header"), not an outage.
+_HARMONY_ERROR_RE = re.compile(
+    r"unexpected tokens remaining in message header|could not decode header|<\|(?:channel|end|start|message|call)\|>",
+    re.IGNORECASE,
+)
+
+
+def _stream_events(stdout: str) -> list[dict]:
+    """Every JSON event with a `type` in an `opencode run --format json` stream."""
+    events = []
+    for line in (stdout or "").splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            obj = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(obj, dict) and obj.get("type"):
+            events.append(obj)
+    return events
+
+
+def _outage_evidence(result: Optional[AgentInvocation]) -> bool:
+    """Is there evidence the provider is DOWN (worth waiting for), as opposed to having answered with no usable text?
+    Outage: no invocation to judge (conservative), a timeout, a missing executable, a provider error event other than
+    the harmony-format defect, or no response events at all. Not an outage: the harmony leak, and a stream that ran and
+    finished normally with no text (the provider answered)."""
+    if result is None:
+        return True
+    failure = classify_invocation_failure(result)
+    if failure in ("provider_timeout", "provider_unavailable"):
+        return True
+    if result.had_malformed_tool_call:
+        return False
+    events = _stream_events(result.stdout)
+    errors = [json.dumps(e.get("error") or e) for e in events if e.get("type") == "error"]
+    if errors:
+        return not all(_HARMONY_ERROR_RE.search(message) for message in errors)
+    return not events
+
+
+def _record_stall(run_id: str, stage: str, record_key: str, terminal: bool) -> None:
+    _STALL_LOG.setdefault(run_id, []).append({"stage": stage, "record_key": record_key, "terminal": terminal})
+
+
+# Every round is a NEW model session: nothing read in the previous one carries over. The old wording ("Stop reading and
+# do not call any more tools. Using what you have already read ...") therefore left a fresh session with nothing read and
+# no permission to read -- and every "the table was not read" answer on record came from exactly that prompt with zero
+# tool calls (Philippe b:0053 and b:0193, Paul b:0458, Daren b:0119, Berntson b:0059).
+_ANSWER_NOW = (
+    "Your previous attempt ended without a final answer. This is a new session: nothing read there carries over. "
+    "{where} Output {what} now, from that; use a tool only for one specific block this prompt does not contain."
+)
+
+
+def _final_answer_nudge(stage: str, entity_type: Optional[str] = None) -> str:
+    """The short, targeted instruction for the round after a no-answer turn -- never the identical prompt again."""
+    if stage == "extraction" and entity_type == "Citation":
+        return CITATION_FINAL_ANSWER_NUDGE
+    return {
+        "extraction": _ANSWER_NOW.format(what="the RawExtraction JSON", where="The evidence packet above holds the text.")
+        + " A field the text does not state is reported with raw_value null -- that is a complete answer.",
+        "enumeration": _ANSWER_NOW.format(what="the EnumerationResult JSON", where="The evidence packet above holds the text.")
+        + " If you found none, an empty candidates array is a complete answer.",
+        "table_classification": _ANSWER_NOW.format(
+            what="the TableClassification JSON",
+            where="The table, its caption and its notes are in this prompt verbatim (THE TABLE section)."),
+        "conversion": _ANSWER_NOW.format(what="the candidate record JSON exactly as your system prompt instructs",
+                                         where="The raw evidence above is all the conversion needs."),
+    }[stage]
 
 
 # Real runs (20260914T204018_d8c6ddb6 Citation/Oceologia-1998;
@@ -378,7 +493,7 @@ def _invoke_agent_once(agent: str, model: str, prompt: str, timeout: int) -> Age
     (below) can call this repeatedly without duplicating the subprocess/
     parse logic itself."""
     cmd = [
-        "opencode", "run",
+        run_config.opencode_bin_for_subprocess(), "run",
         "--agent", agent,
         "--model", model,
         "--format", "json",
@@ -607,7 +722,7 @@ def check_health(ir_service_url: str) -> tuple[bool, str]:
 
 def _extraction_prompt(
     paper_id: str, entity_type: str, record_id: str, prior_errors: Optional[list[dict]] = None,
-    extraction_context: Optional[str] = None,
+    extraction_context: Optional[str] = None, supplied_context: Optional[str] = None, final_answer_nudge: bool = False,
 ) -> str:
     # The reminder of the exact top-level shape is repeated here, not just in
     # extractor.md's system prompt: both models tested during this sprint
@@ -661,7 +776,228 @@ def _extraction_prompt(
         + json.dumps(prior_errors, indent=2)
         if prior_errors
         else ""
+    ) + (
+        # `supplied_context`: Citation only (`_citation_extraction_note`). `final_answer_nudge`: any entity type, only on
+        # the round after a no-answer turn (`_final_answer_nudge`). Absent, the prompt is byte-identical to before.
+        f"\n\n{supplied_context}" if supplied_context else ""
+    ) + (
+        f"\n\n{_final_answer_nudge('extraction', entity_type)}" if final_answer_nudge else ""
     )
+
+
+# --------------------------------------------------------------------------- #
+# Citation: front matter supplied, missing information made explicit
+# --------------------------------------------------------------------------- #
+# Real evidence (Philippe-2007-Six, run 20260923T040931_c10b6234; Felipe runs felipe_stepbcheck_20260921T043924 and
+# 20260922T141344_057d0434): the paper prints no DOI and no journal name (Marker's page-header blocks are empty -- the
+# information is absent upstream). The extractor read the first page, then went looking for them -- calling tools that
+# do not exist (`find_issues`, `find`, `find_in_document`) and `read_section("Journal")` / `("doi")` -- and ended its
+# turn with no answer text. That was classified `provider_empty` and retried with the IDENTICAL prompt, which the model
+# answered the same way (Felipe 22 Sept: rounds 1-4 each ended with the same 178 output tokens and no text), until the
+# provider budget was spent; Citation ended in error and blocked eight downstream entity types.
+#
+# Three narrow remedies, Citation only:
+#   1. the first-page blocks are supplied verbatim, with their anchors, plus a deterministic DOI check of that page, so
+#      nothing needs to be searched for;
+#   2. a round that used tools and then stopped cleanly with no answer (`_ended_without_answer_after_tools`) is a
+#      STALL -- a model behaviour, not a provider failure -- and gets a short targeted "stop searching, answer now"
+#      retry instead of the same prompt, at most MAX_CITATION_FINAL_ANSWER_RETRIES times, outside the provider budget;
+#   3. a field the source does not write (journal, DOI) is recorded by the orchestrator as NOT WRITTEN
+#      (`_citation_not_written`) -- a semantic unresolved state for Conversion, never evidence and never a value.
+# Grounding is unchanged: every reported value still needs its literal text in its cited block.
+
+MAX_CITATION_FINAL_ANSWER_RETRIES = 3   # Citation's own, tighter bound (it is given its front matter up front)
+_CITATION_FRONT_MATTER_MAX_BLOCKS = 12
+_CITATION_FRONT_MATTER_MAX_CHARS = 6000
+_CITATION_FRONT_MATTER_BLOCK_CHARS = 1200
+_CITATION_DOI_SCAN_FALLBACK_BLOCKS = 20        # without provenance.json: how many leading blocks count as the first page
+# A heading that opens the article body ends the front matter. The title itself is often a heading, so only these do.
+_BODY_HEADING_RE = re.compile(
+    r"^\W*(introduction|background|materials?\b|methods?\b|study (area|site)|site description|experimental|results)",
+    re.IGNORECASE,
+)
+_DOI_RE = re.compile(r"\b10\.\d{4,9}/[^\s⟦\])>,;\"']+")
+# The Citation information the extractor is asked about, keyed by the canonical name, with the fact names it may use.
+# `journal` is not an IR field (Citation holds author, year, title, persistent_identifier); it is still asked for and
+# reported as NOT WRITTEN when absent, so the model has an explicit way to say so instead of hunting for it.
+CITATION_FIELD_ALIASES: dict[str, frozenset[str]] = {
+    "title": frozenset({"title"}),
+    "author": frozenset({"author", "authors"}),
+    "year": frozenset({"year", "publication_year"}),
+    "journal": frozenset({"journal", "journal_name", "journal_title"}),
+    "persistent_identifier": frozenset({"persistent_identifier", "doi", "pid"}),
+}
+# The fields the orchestrator may itself declare NOT WRITTEN. Title, author and year are not: a paper always writes
+# them, so a missing one is an extraction omission, left to Conversion's normal handling -- never excused here.
+CITATION_MISSABLE_FIELDS = ("journal", "persistent_identifier")
+CITATION_NOT_WRITTEN_REASON = "Not written in the paper's text (front matter checked)"
+
+CITATION_FINAL_ANSWER_NUDGE = (
+    "Your previous reply ended without a final answer. Stop searching now and do not call any more tools. Using the "
+    "CITATION FRONT MATTER above (and anything you have already read), output the RawExtraction JSON now. Every Citation "
+    "field that is not written in that text -- for example the journal or the DOI -- is reported as a fact with raw_value "
+    "null and notes \"NOT WRITTEN in the paper\"; that is a complete, correct answer."
+)
+
+
+def _canonical_citation_field(field_name: Any) -> Optional[str]:
+    key = _fact_field_key(field_name)
+    return next((canonical for canonical, names in CITATION_FIELD_ALIASES.items() if key in names), None)
+
+
+def _citation_front_matter(paper_id: str) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    """(front-matter blocks, DOI hits) for a paper, both as (anchor, text) in document order.
+
+    Front matter: the rendered blocks from the start of the paper up to the first heading that opens the article body
+    (`_BODY_HEADING_RE`), at most `_CITATION_FRONT_MATTER_MAX_BLOCKS`. DOI hits: every rendered block of the FIRST PAGE
+    (page_0 in provenance.json; without provenance, the first `_CITATION_DOI_SCAN_FALLBACK_BLOCKS` blocks) containing a
+    `10.NNNN/...` identifier, with the identifier. Deliberately the first page only: later pages carry the reference
+    list, whose DOIs belong to other papers (Kathryn-2020-Winter cites seven). Texts are the literal rendered blocks."""
+    try:
+        blocks = _load_rendered_blocks(paper_id)
+    except FileNotFoundError:
+        return [], []
+    provenance = content_reader._load_provenance(paper_id, _papers_root()) or {}
+    ordered = [(a, " ".join(blocks[a].split())) for a in sorted(blocks, key=content_reader._anchor_sort_key)]
+    ordered = [(a, t) for a, t in ordered if t]
+
+    front: list[tuple[str, str]] = []
+    for anchor, text in ordered:
+        block_type = (provenance.get(anchor) or {}).get("block_type")
+        is_heading = block_type == "SectionHeader" or text.startswith("#")
+        if front and is_heading and _BODY_HEADING_RE.match(text.lstrip("# ").strip()):
+            break
+        front.append((anchor, text))
+        if len(front) >= _CITATION_FRONT_MATTER_MAX_BLOCKS:
+            break
+
+    if provenance:
+        first_page = [(a, t) for a, t in ordered if (provenance.get(a) or {}).get("page_id") == "page_0"]
+    else:
+        first_page = ordered[:_CITATION_DOI_SCAN_FALLBACK_BLOCKS]
+    hits = [(a, m.group(0).rstrip(".")) for a, t in first_page for m in [_DOI_RE.search(t)] if m]
+    return front, hits
+
+
+def _citation_extraction_note(paper_id: str) -> str:
+    """The Citation extraction prompt's supplied context: the front matter verbatim with anchors, the DOI check, and
+    the rules for a field that is not written. "" when the paper has no rendered content (the prompt is then unchanged)."""
+    front, hits = _citation_front_matter(paper_id)
+    if not front:
+        return ""
+    # A DOI block outside the front matter (e.g. a first-page footnote) is supplied too, so its text is in front of the model.
+    blocks = dict(front)
+    extra = []
+    if any(a not in blocks for a, _ in hits):
+        rendered = _load_rendered_blocks(paper_id)
+        extra = [(a, " ".join(rendered[a].split())) for a in dict.fromkeys(a for a, _ in hits) if a not in blocks]
+    lines, used = [], 0
+    for anchor, text in front + extra:
+        text = text[:_CITATION_FRONT_MATTER_BLOCK_CHARS]
+        if used + len(text) > _CITATION_FRONT_MATTER_MAX_CHARS:
+            break
+        lines.append(f"[{anchor}] {text}")
+        used += len(text)
+    if hits:
+        doi_check = (
+            "DOI CHECK (deterministic scan of the first page): a DOI is written -- "
+            + "; ".join(f"{doi!r} in block {anchor}" for anchor, doi in hits)
+            + ". Report it as persistent_identifier with its literal text and that block's anchor."
+        )
+    else:
+        doi_check = (
+            "DOI CHECK (deterministic scan of the first page): no DOI (a '10.NNNN/...' identifier) is written on the "
+            "first page. persistent_identifier is NOT WRITTEN -- do not search for it."
+        )
+    return (
+        "CITATION FRONT MATTER -- the first blocks of this paper, verbatim, each labelled with its content.md anchor, "
+        "supplied by the pipeline so you do not have to search for them:\n" + "\n".join(lines) + "\n\n" + doi_check + "\n\n"
+        "Rules for this Citation:\n"
+        "- Report title, author, year, journal and persistent_identifier, one fact each, from the text above. You may read "
+        "other blocks with the listed read tools, but make at most 3 further reads: if a field is still not found, it is "
+        "not written.\n"
+        "- A value is reported only when it is literally written: raw_text_excerpt is that literal text, anchors the "
+        "block it is in. Never invent or complete a journal, DOI, volume, pages or year.\n"
+        "- A field that is not written is reported as a fact with raw_value null, anchors = the front-matter block(s) "
+        "you checked, and notes \"NOT WRITTEN in the paper\". NOT WRITTEN is not evidence: it never needs to appear in "
+        "the paper. Then continue with the other fields -- never keep searching for it.\n"
+        "- There is no find or search tool; call only the read tools listed above."
+    )
+
+
+def _tool_events(stdout: str) -> list[dict]:
+    """Every tool part of an `opencode run --format json` stream: {tool, status, input}."""
+    events = []
+    for line in (stdout or "").splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            obj = json.loads(line)
+        except ValueError:
+            continue
+        part = obj.get("part") if isinstance(obj, dict) else None
+        if isinstance(part, dict) and part.get("type") == "tool":
+            state = part.get("state") if isinstance(part.get("state"), dict) else {}
+            tool = part.get("tool")
+            if tool == "invalid" and isinstance(state.get("input"), dict):
+                tool = f"invalid:{state['input'].get('tool')}"
+            events.append({"tool": tool, "status": state.get("status"), "input": state.get("input")})
+    return events
+
+
+def _stream_has_error_event(stdout: str) -> bool:
+    for line in (stdout or "").splitlines():
+        line = line.strip()
+        if line.startswith("{"):
+            try:
+                if json.loads(line).get("type") == "error":
+                    return True
+            except (ValueError, AttributeError):
+                continue
+    return False
+
+
+def _ended_without_answer_after_tools(result: AgentInvocation) -> bool:
+    """A STALL, told apart from a provider failure: the model used at least one tool successfully and the stream then
+    ended normally (no provider error event, no harmony leak) without any answer text. The provider did its job; the
+    model kept searching and never answered. Everything else with no answer -- nothing came back at all, a provider
+    error event, a timeout, the harmony leak, a missing binary -- stays a provider failure (`classify_invocation_failure`
+    is unchanged)."""
+    if result.final_text is not None or result.had_malformed_tool_call or result.returncode != 0:
+        return False
+    if result.parse_error and "opencode executable not found" in result.parse_error:
+        return False
+    if _stream_has_error_event(result.stdout):
+        return False
+    return any(event["status"] == "completed" for event in _tool_events(result.stdout))
+
+
+def _citation_not_written(paper_id: str, extraction: RawExtraction) -> tuple[list[dict], list[dict]]:
+    """(not-written entries, errors) for a grounded Citation extraction.
+
+    A missable field (`CITATION_MISSABLE_FIELDS`) with no valued fact is NOT WRITTEN: an entry {field, reason,
+    checked_anchors} for Conversion, never a value and never evidence. One exception is an error instead: the DOI check
+    found a DOI on the first page but the extraction reported none -- the DOI is written, so it must be reported."""
+    front, hits = _citation_front_matter(paper_id)
+    checked = [a for a, _ in front]
+    valued = {
+        _canonical_citation_field(f.field_name) for f in extraction.facts
+        if f.raw_value is not None and str(f.raw_value).strip()
+    }
+    entries, errors = [], []
+    for field in CITATION_MISSABLE_FIELDS:
+        if field in valued:
+            continue
+        if field == "persistent_identifier" and hits:
+            errors.append({
+                "field": "persistent_identifier",
+                "message": f"a DOI is written on the first page ({'; '.join(f'{d!r} in block {a}' for a, d in hits)}) but no "
+                           f"persistent_identifier fact reports it -- report it with its literal text and that anchor.",
+            })
+            continue
+        entries.append({"field": field, "reason": CITATION_NOT_WRITTEN_REASON, "checked_anchors": checked})
+    return entries, errors
 
 
 # Universal Multi-Record pass: per-entity-type "what counts as a distinct
@@ -1017,6 +1353,13 @@ def _misnamed_link_keys(candidates: list, link_pools: Optional[dict[str, list[di
     ]
 
 
+# Phase C: {run_id: [table cells extracted but not representable in the current IR]}.
+_REPRESENTATION_BLOCKED: dict[str, list[dict]] = {}
+_UNIDENTIFIED_ROWS: dict[str, list[dict]] = {}
+# Phase A1: {(run_id, entity_type): outcome} for an enumeration whose empty answer could not be trusted.
+_ENUMERATION_OUTCOMES: dict[tuple[str, str], dict[str, Any]] = {}
+
+
 def run_enumeration(
     *, run_id: str, paper_id: str, entity_type: str, model: str,
     invoke: Callable[..., AgentInvocation] = invoke_agent,
@@ -1024,6 +1367,8 @@ def run_enumeration(
     excluded_table_anchors: Optional[set[str]] = None,
     covered_conditions: Optional[list[str]] = None,
     declare_dimensions: bool = False,
+    evidence_packet: Optional[str] = None,
+    evidence_found: Optional[list[str]] = None,
 ) -> tuple[list, Optional[str]]:
     """Bounded, deterministically-validated enumeration pass for a
     multi-record entity type. Returns (candidates, None) on success --
@@ -1051,17 +1396,33 @@ def run_enumeration(
     attempt = 0   # numbered attempts: the model's own answers
     rounds = 0    # every invocation round: the artifact index
     provider_terminal = False
+    stalls = 0              # no-answer turns (see "No-answer turns: a stall is not an outage")
+    stall_terminal = False
+    nudge = False
+    empty_reask_done = False   # Phase A1: at most one clean re-ask of an empty answer that cannot be trusted
+    _ENUMERATION_OUTCOMES.pop((run_id, entity_type), None)
 
     while attempt < MAX_ENUMERATION_ATTEMPTS:
         rounds += 1
-        result = invoke(
-            "extractor", model,
-            _enumeration_prompt(
-                paper_id, entity_type, errors, link_pools, excluded_table_anchors,
-                covered_conditions=covered_conditions, declare_dimensions=declare_dimensions,
-            ),
-        )
+        prompt = _enumeration_prompt(
+            paper_id, entity_type, errors, link_pools, excluded_table_anchors,
+            covered_conditions=covered_conditions, declare_dimensions=declare_dimensions,
+        ) + (f"\n\n{evidence_packet}" if evidence_packet else "")
+        result = invoke("extractor", model, prompt + (f"\n\n{_final_answer_nudge('enumeration')}" if nudge else ""))
         artifact = result.as_artifact()
+
+        if _ended_without_answer_after_tools(result):
+            stalls += 1
+            stall_terminal = stalls > MAX_FINAL_ANSWER_RETRIES
+            artifact["validation_errors"] = [{"field": None, "message": "the model used tools and ended without a final answer"}]
+            artifact.update(failure_class="no_final_answer", failure_kind="extraction", numbered_attempt=None)
+            run_store.save_stage_attempt(run_id, record_key, "enumeration", rounds, artifact)
+            _record_stall(run_id, "enumeration", record_key, stall_terminal)
+            last_message = f"round {rounds}: no final answer after tool use ({stalls} stall(s))"
+            if stall_terminal:
+                break
+            nudge = True
+            continue
 
         failure = _provider_failure(result)
         if failure:
@@ -1069,10 +1430,11 @@ def run_enumeration(
             artifact.update(failure_class=failure, failure_kind="provider", numbered_attempt=None)
             run_store.save_stage_attempt(run_id, record_key, "enumeration", rounds, artifact)
             last_message = f"round {rounds}: provider failure ({failure}): {result.parse_error}"
-            if provider.failed(failure):
+            if provider.failed(failure, result):
                 provider_terminal = True
                 break
             provider.cooldown()
+            nudge = nudge or provider.needs_answer_nudge()
             continue
         attempt += 1
 
@@ -1214,6 +1576,39 @@ def run_enumeration(
             # identity is unresolved and it is kept and flagged, never compared.
             candidates = [c.model_copy(update={"dimensions": []}) if c.candidate_id in bad_ids else c for c in candidates]
 
+        if not candidates:
+            disturbed = stalls > 0 or provider.rounds > 0 or nudge
+            if (disturbed or evidence_found) and not empty_reask_done:
+                # Phase A1: an empty list right after a stall / provider hiccup, or while the pipeline's own packet
+                # holds evidence for this entity type, is not trusted as "none exist": ONE clean re-ask (no
+                # answer-now pressure), naming the evidence found. Real cases: Philippe Management (2 events one
+                # night, 0 the next), Kathryn Variable/Coverage/Study -- each an empty answer after a stall.
+                empty_reask_done = True
+                nudge = False
+                attempt -= 1   # the untrusted empty answer does not spend a numbered attempt
+                errors = [{"field": "candidates", "message": (
+                    f"Your answer listed no {entity_type} candidates"
+                    + (" right after an interrupted turn" if disturbed else "")
+                    + ". " + (f"The evidence packet contains evidence of: {'; '.join(evidence_found)}. " if evidence_found else "")
+                    + f"Read the packet (and the paper) again and report EVERY distinct {entity_type} it states. "
+                    f"Answer with an empty list only if, having read that evidence, none of it is a {entity_type}."
+                )}]
+                artifact["validation_errors"] = errors
+                artifact["empty_answer_reasked"] = {"disturbed": disturbed, "evidence_found": evidence_found or []}
+                run_store.save_stage_attempt(run_id, record_key, "enumeration", rounds, artifact)
+                last_message = f"attempt {attempt + 1}: empty answer re-asked once"
+                continue
+            if disturbed:
+                # Still empty after an interrupted turn and a clean re-ask: nothing was reliably looked at.
+                _ENUMERATION_OUTCOMES[(run_id, entity_type)] = {
+                    "candidates": 0, "reliable": False, "disturbed": True, "evidence_found": evidence_found or [],
+                    "cause": causes.NOT_RETRIEVED,
+                }
+                artifact["enumeration_outcome"] = _ENUMERATION_OUTCOMES[(run_id, entity_type)]
+            elif evidence_found:
+                # Read the evidence twice, uninterrupted, and judged none of it an instance: the model's judgment,
+                # kept visible -- not turned into an unresolved record (the packet's concept words are generic).
+                artifact["enumeration_outcome"] = {"candidates": 0, "reliable": True, "empty_despite_packet_evidence": evidence_found}
         artifact["validation_errors"] = []
         run_store.save_stage_attempt(run_id, record_key, "enumeration", rounds, artifact)
         return candidates, None
@@ -1221,6 +1616,7 @@ def run_enumeration(
     run_store.save_final(run_id, record_key, {
         "status": "error", "message": last_message,
         **(provider.disclosure(attempt, provider_terminal) if provider.rounds else {}),
+        **({"failure_class": "no_final_answer", "failure_kind": "extraction", "stall_rounds": stalls} if stall_terminal else {}),
     })
     return [], last_message
 
@@ -1328,6 +1724,7 @@ def _table_classification_prompt(
     prior_errors: Optional[list[dict]] = None,
     confirmed_chain: Optional[list[str]] = None,
     methods_context: str = "",
+    prior_answer: Optional[dict] = None,
 ) -> str:
     """Step B's prompt: a MUCH narrower ask than free-form enumeration --
     "reconstruct the real row-by-row structure of THIS one table", not
@@ -1510,12 +1907,107 @@ def _table_classification_prompt(
         f"Do not skip real rows to save space -- if the table has 18 population x maturity "
         f"combinations, report all 18 you can find, not a representative sample."
     )
-    if prior_errors:
+    base += _table_text_section(paper_id, seed_table_anchor, confirmed_chain)
+    if prior_errors and prior_answer is not None:
+        # F1: a retry REPAIRS the previous answer. Without it the model re-classified from scratch, and a correct
+        # structure could be replaced by a different one (Philippe Table 3, run 20260926T162813_56de01a6: PAR class /
+        # Year / Statistic became one "Condition" factor after an unrelated variable-label error).
+        base += (
+            "\n\nYour previous answer is below. It failed validation with the errors listed after it. Return the SAME "
+            "answer with ONLY what these errors require changed: keep every factor, its name and dimension, and every "
+            "row group and cell exactly as they are unless an error is about them.\n\nPREVIOUS ANSWER:\n"
+            + json.dumps(prior_answer, indent=1, ensure_ascii=False)
+            + "\n\nERRORS:\n" + json.dumps(prior_errors, indent=2)
+        )
+    elif prior_errors:
         base += (
             "\n\nThe previous attempt failed validation with these errors -- fix exactly these, "
             "the rest of your approach was fine:\n" + json.dumps(prior_errors, indent=2)
         )
     return base
+
+
+# An answer whose own reason says the table was not read (real reasons, all accepted as non_enumerable before):
+# "its content and caption were not accessed", "no table data was read", "the table cells were not read",
+# "ambiguous or inaccessible". A judgement about the content ("severely garbled", "reports ANOVA F-statistics") is not.
+_NOT_READ_RE = re.compile(
+    r"\b(?:not|never)\s+(?:been\s+)?(?:read|accessed|retrieved|opened)\b|\bwithout\s+(?:reading|accessing|opening)\b"
+    r"|\b(?:could not|couldn't|unable to|cannot|can't)\s+(?:access|read|retrieve|open)\b|\binaccessible\b"
+    r"|\bno\s+(?:table\s+)?(?:data|content|cells?)\s+(?:was|were)\s+(?:read|retrieved|accessed)\b",
+    re.IGNORECASE)
+
+
+TABLE_TEXT_MAX_CHARS = 16000
+
+
+def _table_text_section(paper_id: str, seed_table_anchor: str, chain: Optional[list[str]] = None) -> str:
+    """The table itself -- caption, every block of the logical table, and its notes -- verbatim from the Document Map,
+    so an answer never depends on a read that a session may not have made. The read tools stay available (raw per-cell
+    data, other blocks); this is the same text read_table/read_nearby return. Empty when the paper cannot be mapped."""
+    try:
+        dmap = document_map.build_document_map(paper_id, _papers_root())
+        raw = _load_rendered_blocks(paper_id)       # line breaks kept: a markdown table stays one row per line
+    except (FileNotFoundError, OSError):
+        return ""
+    table = dmap.table_containing(seed_table_anchor)
+    anchors = list(dict.fromkeys([*(table.anchors if table else (seed_table_anchor,)), *(chain or [])]))
+    parts = []
+    for anchor in (table.caption_anchors if table else ()):
+        parts.append(f"[{anchor}] (caption) {dmap.text(anchor)}")
+    for anchor in anchors:
+        text = (raw.get(anchor) or dmap.text(anchor) or "").strip()
+        if text:
+            parts.append(f"[{anchor}] (table)\n{text}")
+    for anchor in (table.note_anchors if table else ()):
+        parts.append(f"[{anchor}] (note) {dmap.text(anchor)}")
+    if not parts:
+        return ""
+    body = "\n\n".join(parts)
+    if len(body) > TABLE_TEXT_MAX_CHARS:
+        body = body[:TABLE_TEXT_MAX_CHARS] + "\n... (truncated here -- read the rest with read_table)"
+    return ("\n\nTHE TABLE -- verbatim from content.md (the same text read_table and read_nearby return), supplied so "
+            "you can answer from it directly:\n" + body)
+
+
+def _factor_structure(answer: Any) -> Optional[list[tuple[str, str]]]:
+    """(name, dimension) of every declared factor of a TableClassification answer (model JSON or validated)."""
+    factors = answer.get("factors") if isinstance(answer, dict) else getattr(answer, "factors", None)
+    if not isinstance(factors, list):
+        return None
+    out = []
+    for f in factors:
+        name = f.get("name") if isinstance(f, dict) else getattr(f, "name", None)
+        dimension = f.get("dimension") if isinstance(f, dict) else getattr(f, "dimension", None)
+        out.append((str(name), str(dimension)))
+    return sorted(out)
+
+
+def _repair_table_classification(answer: Any) -> tuple[Any, list[dict]]:
+    """F1: the deterministic repair of a slip that needs no model -- a value column naming its variable by the
+    variable's `variable_name` instead of its declared `label` ("leaf nitrogen concentration per unit area" for
+    "Na (g m-2)"). Repaired only when exactly ONE declared variable has that name; each repair is recorded. Anything
+    else is left for the model."""
+    if not isinstance(answer, dict) or not isinstance(answer.get("variables"), list) or not isinstance(answer.get("value_columns"), list):
+        return answer, []
+    from pipeline.raw_schema import _variable_key
+    variables = [v for v in answer["variables"] if isinstance(v, dict) and isinstance(v.get("label"), str)]
+    labels = {_variable_key(v["label"]) for v in variables}
+    repairs: list[dict] = []
+    columns = []
+    for column in answer["value_columns"]:
+        named = column.get("variable") if isinstance(column, dict) else None
+        if isinstance(named, str) and _variable_key(named) not in labels:
+            matches = [v["label"] for v in variables
+                       if isinstance(v.get("variable_name"), str) and _variable_key(v["variable_name"]) == _variable_key(named)]
+            if len(matches) == 1:
+                column = {**column, "variable": matches[0]}
+                repairs.append({"value_column_id": column.get("value_column_id"), "field": "variable", "from": named,
+                                "to": matches[0], "reason": "the column named the variable by its declared variable_name; "
+                                                           "set to that variable's label"})
+        columns.append(column)
+    if not repairs:
+        return answer, []
+    return {**answer, "value_columns": columns}, repairs
 
 
 def _load_cached_table_classification(run_id: str, record_key: str) -> Optional[TableClassification]:
@@ -1577,36 +2069,57 @@ def run_table_classification(
     provider = _ProviderBudget(run_id, record_key, "table_classification")  # rounds with no usable answer
     failure_classes: list[str] = []
     terminal_kind = "extraction"
+    stalls = 0              # no-answer turns (see "No-answer turns: a stall is not an outage")
+    nudge = False
+    prior_answer: Optional[dict] = None      # F1: the last parsed answer, shown to the retry to be repaired
+    prior_structures: list[list[tuple[str, str]]] = []
+    structure: Optional[list[tuple[str, str]]] = None
 
     def _save(failure_class: Optional[str]) -> None:
+        if failure_class in ("schema_invalid", "validation_failure") and structure is not None:
+            prior_structures.append(structure)
         artifact["failure_class"] = failure_class
         artifact["failure_kind"] = None if failure_class is None else ("provider" if failure_class in PROVIDER_FAILURE_CLASSES else "extraction")
-        artifact["numbered_attempt"] = None if failure_class in PROVIDER_FAILURE_CLASSES else numbered
+        artifact["numbered_attempt"] = None if failure_class in PROVIDER_FAILURE_CLASSES or failure_class == "no_final_answer" else numbered
         if failure_class is not None:
             failure_classes.append(failure_class)
         run_store.save_stage_attempt(run_id, record_key, "table_classification", rounds, artifact)
 
     while numbered < MAX_TABLE_CLASSIFICATION_ATTEMPTS:
         rounds += 1
-        result = invoke(
-            "extractor", model,
-            _table_classification_prompt(
-                paper_id, seed_table_anchor, other_tables, errors, chain_anchors, methods_context=methods_context,
-            ),
+        prompt = _table_classification_prompt(
+            paper_id, seed_table_anchor, other_tables, errors, chain_anchors, methods_context=methods_context,
+            prior_answer=prior_answer if errors else None,
         )
+        result = invoke("extractor", model, prompt + (f"\n\n{_final_answer_nudge('table_classification')}" if nudge else ""))
         artifact = result.as_artifact()
+
+        if _ended_without_answer_after_tools(result):
+            # A stall: not a numbered attempt and not the provider's budget; the next round asks for the answer now.
+            stalls += 1
+            stall_terminal = stalls > MAX_FINAL_ANSWER_RETRIES
+            artifact["validation_errors"] = [{"field": None, "message": "the model used tools and ended without a final answer"}]
+            _save("no_final_answer")
+            _record_stall(run_id, "table_classification", record_key, stall_terminal)
+            last_message = f"round {rounds}: no final answer after tool use ({stalls} stall(s))"
+            if stall_terminal:
+                break
+            nudge = True
+            continue
 
         failure = _provider_failure(result)
         if failure:
-            # Nothing usable came back: not a numbered attempt, and the model gets no "feedback" about
-            # a failure that was not its answer -- the next round repeats the same prompt.
+            # Nothing usable came back: not a numbered attempt, and the model gets no "feedback" about a failure that was
+            # not its answer. After an outage the same prompt is repeated after a cooldown; otherwise immediately,
+            # asking for the answer directly.
             artifact["validation_errors"] = [{"field": None, "message": result.parse_error}]
             _save(failure)
             last_message = f"round {rounds}: provider failure ({failure}): {result.parse_error}"
-            if provider.failed(failure):
+            if provider.failed(failure, result):
                 terminal_kind = "provider"
                 break
             provider.cooldown()
+            nudge = nudge or provider.needs_answer_nudge()
             continue
 
         numbered += 1
@@ -1615,19 +2128,47 @@ def run_table_classification(
         if result.parsed_json is None:
             errors = [{"field": None, "message": result.parse_error}]
             artifact["validation_errors"] = errors
+            prior_answer = None
             _save("invalid_json")
             last_message = f"attempt {attempt}: {result.parse_error}"
             continue
 
+        answer = result.parsed_json
+        prior_answer = answer if isinstance(answer, dict) else None
+        structure = _factor_structure(answer)
         try:
-            validated = TableClassification.model_validate(result.parsed_json)
+            validated = TableClassification.model_validate(answer)
         except ValidationError as exc:
-            errors = [
-                {"field": ".".join(str(p) for p in err["loc"]), "message": err["msg"]} for err in exc.errors()
-            ]
+            repaired, repairs = _repair_table_classification(answer)
+            validated = None
+            if repairs:
+                try:
+                    validated = TableClassification.model_validate(repaired)
+                    artifact["deterministic_repairs"] = repairs
+                except ValidationError:
+                    validated = None
+            if validated is None:
+                errors = [
+                    {"field": ".".join(str(p) for p in err["loc"]), "message": err["msg"]} for err in exc.errors()
+                ]
+                artifact["validation_errors"] = errors
+                _save('schema_invalid')
+                last_message = f"attempt {attempt}: TableClassification shape validation failed: {errors}"
+                continue
+
+        if not validated.applicable and _NOT_READ_RE.search(validated.reason or ""):
+            # Fix 2: "not applicable" is a judgement about the table's CONTENT; an answer whose own reason says the
+            # table was not read is a failed attempt, never accepted as non_enumerable (Philippe b:0053, run
+            # 20260926T190955_435c16fa: "...its content and caption were not accessed" -- Table 1 was then lost; the
+            # same in Paul b:0458, Daren b:0119, Berntson b:0059).
+            errors = [{"field": "applicable", "message": (
+                f"the answer says the table was not read ({validated.reason!r}). Whether a table is non_enumerable can "
+                f"only be judged from its content: read it with read_table (paper_id={paper_id!r}, anchor "
+                f"{seed_table_anchor!r}) and classify what it contains.")}]
             artifact["validation_errors"] = errors
-            _save('schema_invalid')
-            last_message = f"attempt {attempt}: TableClassification shape validation failed: {errors}"
+            prior_answer = None               # nothing to repair: the answer is not a classification of the table
+            _save("validation_failure")
+            last_message = f"attempt {attempt}: the model did not read the table ({validated.reason})"
             continue
 
         try:
@@ -1768,11 +2309,20 @@ def run_table_classification(
         # Method hints the paper's prose does not support are withheld the same way (Felipe Table 1 / Item 10).
         validated = _withhold_ungrounded_method_hints(validated, paper_id)
 
+        # F1: a retry that changed the declared factors (names or dimensions) of a previous answer is flagged -- a
+        # retry is meant to repair, and a changed structure is exactly what the cross-table check must then confirm.
+        structure_change = None
+        if prior_structures and prior_structures[-1] != structure:
+            structure_change = {"before": prior_structures[-1], "after": structure,
+                                "note": "the accepted answer declares different factors than the answer it was asked to repair"}
+            artifact["structure_changed_on_retry"] = structure_change
         artifact["validation_errors"] = []
         _save(None)
         run_store.save_final(run_id, record_key, {
             "status": "success", "classification": validated.model_dump(), "pooling_evidence": pooling_records,
             **({"variable_declaration_flags": variable_flags} if variable_flags else {}),
+            **({"deterministic_repairs": artifact["deterministic_repairs"]} if artifact.get("deterministic_repairs") else {}),
+            **({"structure_changed_on_retry": structure_change} if structure_change else {}),
         })
         return validated, None
 
@@ -2022,10 +2572,9 @@ def _cached_pooling_evidence(run_id: str) -> dict[str, list[dict]]:
     return out
 
 
-def _cached_variable_declaration_flags(run_id: str) -> dict[str, list[dict]]:
-    """{record key: variable-declaration flags} saved next to each Step B classification that was accepted with
-    undeclared row-encoded variable levels."""
-    out: dict[str, list[dict]] = {}
+def _cached_classification_field(run_id: str, field_name: str) -> dict[str, Any]:
+    """{record key: final.json[field_name]} for every accepted Step B classification that carries that field."""
+    out: dict[str, Any] = {}
     for record_key in run_store.list_records(run_id):
         if not record_key.startswith("table_classification__"):
             continue
@@ -2034,9 +2583,15 @@ def _cached_variable_declaration_flags(run_id: str) -> dict[str, list[dict]]:
             data = run_store.load_json(path) if path.is_file() else None
         except (OSError, ValueError):
             data = None
-        if isinstance(data, dict) and data.get("status") == "success" and data.get("variable_declaration_flags"):
-            out[record_key] = list(data["variable_declaration_flags"])
+        if isinstance(data, dict) and data.get("status") == "success" and data.get(field_name):
+            out[record_key] = data[field_name]
     return out
+
+
+def _cached_variable_declaration_flags(run_id: str) -> dict[str, list[dict]]:
+    """{record key: variable-declaration flags} saved next to each Step B classification that was accepted with
+    undeclared row-encoded variable levels."""
+    return {k: list(v) for k, v in _cached_classification_field(run_id, "variable_declaration_flags").items()}
 
 
 def _normalize_for_matching(text: str) -> str:
@@ -2391,7 +2946,7 @@ def _pooled_context(classification: TableClassification) -> dict[str, Any]:
 # only where it agrees with that text, and a hint the source does not support is FLAGGED -- never silently
 # adopted and never silently corrected to either reading.
 _UNIT_CHAR_MAP = str.maketrans({
-    "⁻": "-", "−": "-", "–": "-", "—": "-", "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5",
+    "⁻": "-", "−": "-", "–": "-", "—": "-", "‐": "-", "‑": "-", "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5",
     "µ": "u", "μ": "u", "·": "", "×": "",
 })
 _PLACEHOLDER_UNITS = frozenset({"unknown", "n/a", "na", "none", "not reported", "not stated", "not given", "unspecified", "tbd", "?", "-"})
@@ -2404,17 +2959,13 @@ def _units_key(text: str) -> str:
 
 
 def _units_supported(hint: str, texts: list[str]) -> bool:
-    """Is `hint` written in any of `texts`? Compared ignoring spacing and superscript spelling; a very short
-    hint ('g', 'm', '%') must additionally stand as a whole token so a stray letter never counts as support."""
-    key = _units_key(hint)
-    if not key:
+    """Is `hint` written in any of `texts`? One implementation for the whole pipeline: the grounding validator's
+    (`validators._unit_supported`), so a table's units hint and a committed record's units are judged by the same
+    rule -- spacing, superscript and dash spelling ignored, short units as whole tokens. Real false flag this removes
+    (Philippe-2007-Six Tables 2/3): "m2" vs the header "(m 2 )", "g m‑2" (non-breaking hyphen) vs "(g m–2)"."""
+    if not _units_key(hint):
         return True
-    for text in texts:
-        if key not in _units_key(text):
-            continue
-        if len(key) >= 3 or re.search(rf"(?<![a-z0-9]){re.escape(hint.strip().lower())}(?![a-z0-9])", text.translate(_UNIT_CHAR_MAP).lower()):
-            return True
-    return False
+    return _validator_unit_supported(hint, texts)
 
 
 def _unit_hint_flags(classification: TableClassification, blocks: dict[str, str], paper_id: str) -> list[UnitHintFlag]:
@@ -2505,6 +3056,29 @@ def _prose_normalized_texts(paper_id: str) -> list[str]:
     ]
 
 
+_HINT_ANCHOR_RE = re.compile(r"\bb:\d{3,5}\b")
+
+
+def _hint_grounded_in_cited_block(hint: str, paper_id: str) -> bool:
+    """Phase B2: a hint that CITES its block ("3D-digitizing technique (Pol95 software) - see b:0038", Philippe Table 2,
+    withheld in run 20260925T212142 because it paraphrased one word) is grounded when that block carries at least one
+    of the hint's DISTINCTIVE words (not "analyzer", "measured", "software"): the model says where, and the words it
+    uses to name the method are really there. A hint citing no block keeps the existing all-words rule."""
+    anchors = _HINT_ANCHOR_RE.findall(hint or "")
+    if not anchors:
+        return False
+    try:
+        blocks = _load_rendered_blocks(paper_id)
+    except FileNotFoundError:
+        return False
+    words = method_map._distinctive(_HINT_ANCHOR_RE.sub(" ", hint))
+    for anchor in anchors:
+        text = blocks.get(anchor)
+        if text and words & set(evidence_index.significant_words(text)):
+            return True
+    return False
+
+
 def _method_hint_grounded(hint: str, prose: dict[str, set[str]], texts: list[str]) -> bool:
     """A hint is grounded when ONE prose block contains every one of its significant words (>=4 characters, not a
     generic method word -- the matcher's own `_significant_tokens`) AND either it has at least two of them or the whole
@@ -2533,13 +3107,15 @@ def _withhold_ungrounded_method_hints(classification: TableClassification, paper
     flags: list[MethodHintFlag] = []
     variables = []
     for variable in classification.variables:
-        if variable.method_hint and not _method_hint_grounded(variable.method_hint, prose, texts):
+        if variable.method_hint and not (_method_hint_grounded(variable.method_hint, prose, texts)
+                                         or _hint_grounded_in_cited_block(variable.method_hint, paper_id)):
             flags.append(MethodHintFlag(scope="variable", key=variable.label, method_hint=variable.method_hint, reason=reason))
             variable = variable.model_copy(update={"method_hint": None})
         variables.append(variable)
     columns = []
     for column in classification.value_columns:
-        if column.method_hint and not _method_hint_grounded(column.method_hint, prose, texts):
+        if column.method_hint and not (_method_hint_grounded(column.method_hint, prose, texts)
+                                       or _hint_grounded_in_cited_block(column.method_hint, paper_id)):
             flags.append(MethodHintFlag(scope="column", key=column.value_column_id, method_hint=column.method_hint, reason=reason))
             column = column.model_copy(update={"method_hint": None})
         columns.append(column)
@@ -2610,8 +3186,52 @@ def _method_match_values(classification: TableClassification, row: Any, value_co
     return values
 
 
+# Phase A5: row labels that are statistics or summaries, never a condition of the experiment (patterns shared with
+# design.py, which also keeps statistic rows out of its layout and pooling reasoning).
+_STATISTIC_ROW_RE = design.STATISTIC_ROW_RE
+_SUMMARY_ROW_RE = design.SUMMARY_ROW_RE
+
+
+def _summary_row_level(row: Any) -> Optional[str]:
+    """The summary/statistic label of a row group ("Mean", "LSD (0.05)", "P value"), or None for a real condition."""
+    for value in (getattr(row, "factor_values", None) or {}).values():
+        if isinstance(value, str) and (_STATISTIC_ROW_RE.match(value.strip()) or _SUMMARY_ROW_RE.match(value.strip())):
+            return value
+    return None
+
+
+def _blocked_cell(classification: TableClassification, row: Any, value_column_id: str, cell_text: str,
+                  pooling: Any) -> dict[str, Any]:
+    """A table value extracted deterministically (the cell text IS the value, anchored to its table) that the current
+    IR cannot represent -- kept with what it is and why, never forced onto an invented Treatment."""
+    column = next((c for c in classification.value_columns if c.value_column_id == value_column_id), None)
+    return {
+        "table_anchor": row.source_table_anchor, "row": row.row_group_id, "factor_levels": dict(row.factor_values or {}),
+        "variable": (column.variable or column.variable_name_hint) if column else value_column_id,
+        "value_text": cell_text.strip(), "pooled_over": pooling.pooled_over, "status": design.BLOCKED_BY_REPRESENTATION,
+        "reason": pooling.reason, "evidence": pooling.evidence,
+    }
+
+
+def _layout_pooling_context(classification: TableClassification, pooling: Any) -> dict[str, Any]:
+    """Candidate context for a value the table's LAYOUT shows to be pooled (a main-effect row): aggregated_mean over the
+    factors it averages, with the time levels those cover. Not a quoted pooling statement -- the note says so."""
+    if pooling is None:
+        return {}
+    context = {
+        "reported_effect_scope": "aggregated_mean", "aggregated_over_factors": pooling.pooled_over,
+        "layout_pooling": pooling.evidence,
+    }
+    span = design.time_span(classification, pooling.pooled_over)
+    if span:
+        context["pooled_time_levels"] = span
+    return context
+
+
 def _table_classification_to_candidates(
     classification: TableClassification, link_pools: dict[str, list[dict]],
+    method_links: Optional[dict[str, Any]] = None,
+    blocked_sink: Optional[list[dict]] = None,
 ) -> list[EnumerationCandidate]:
     """Step C: pure, deterministic cross-product -- no model call, no
     interpretation. For every (row_group x value_column) pair with a real,
@@ -2624,7 +3244,11 @@ def _table_classification_to_candidates(
     # aggregated_summary (a valid source of aggregated data that the current
     # IR cannot express as a normal treatment-combination row), a
     # weather_context table, and a non_enumerable table never do.
-    if classification.table_role != "treatment_response":
+    main_effects = design.is_main_effect_layout(classification)
+    if classification.table_role != "treatment_response" and not (
+            classification.table_role == "aggregated_summary" and main_effects):
+        # Phase C: an aggregated summary whose pooling the LAYOUT explains (main-effect rows) is expressed per cell as
+        # aggregated means below; any other aggregated summary keeps the existing gate.
         return candidates
     # (Fix 2, real Daren-1997-Canopy Table 7: a successfully-reconstructed
     # aggregated/main-effects summary is the wrong KIND of table for
@@ -2641,12 +3265,32 @@ def _table_classification_to_candidates(
     value_columns_by_id = {c.value_column_id: c for c in classification.value_columns}
 
     for row in classification.row_groups:
+        summary = _summary_row_level(row)
+        if summary is not None:
+            # Phase A5/C: a Mean/Total row is an aggregate over the factor it replaces; a statistic row (SE, LSD, P) is
+            # not a value at all. Neither is a condition. A mean over a TREATMENT factor has no Treatment to reference.
+            if blocked_sink is not None and not _STATISTIC_ROW_RE.match(summary.strip()):
+                pooling = design.summary_row_pooling(classification, row, summary)
+                for value_column_id, cell_text in (row.cells or {}).items():
+                    if cell_text and re.search(r"\d", cell_text) and pooling.representation == design.BLOCKED_BY_REPRESENTATION:
+                        blocked_sink.append(_blocked_cell(classification, row, value_column_id, cell_text, pooling))
+            continue
         for value_column_id, cell_text in (row.cells or {}).items():
             if not cell_text or not cell_text.strip():
                 continue
             value_column = value_columns_by_id.get(value_column_id)
             if value_column is None:
                 continue  # schema validation already guarantees this can't happen; defensive only
+            layout_pooling = design.cell_pooling(classification, row, value_column_id) if main_effects else None
+            if layout_pooling is not None and layout_pooling.representation == design.UNIDENTIFIED_ROW:
+                if blocked_sink is not None:   # recorded, never counted as a blocked measurement
+                    blocked_sink.append({**_blocked_cell(classification, row, value_column_id, cell_text, layout_pooling),
+                                         "status": design.UNIDENTIFIED_ROW})
+                continue
+            if layout_pooling is not None and layout_pooling.representation == design.BLOCKED_BY_REPRESENTATION:
+                if blocked_sink is not None and re.search(r"\d", cell_text):   # a "–" is not a reported value
+                    blocked_sink.append(_blocked_cell(classification, row, value_column_id, cell_text, layout_pooling))
+                continue
 
             candidate_id = _sanitize_candidate_id(f"{value_column_id}_{row.row_group_id}")
             # Declared column-/table-level factor levels are part of the
@@ -2699,6 +3343,12 @@ def _table_classification_to_candidates(
                 if field == "method_id":
                     # Method-relevant values only (never the Treatment/Site/time levels); the matcher is unchanged.
                     match = _match_method_hint(_method_match_values(classification, row, value_column, method_hint), method_hint, pool)
+                    if match is None and method_links:
+                        # Phase B: the paper-level Variable -> Method map (decided once, with evidence).
+                        link = method_map.lookup(method_links, variable.label if variable else None, variable_label,
+                                                 variable.variable_name if variable else None)
+                        if link is not None and link.status == method_map.LINKED:
+                            match = link.method_slug
                 elif field == "variable_id":
                     # Item 12: the variable link rests on the VARIABLE's own label/name only (never on the
                     # row's other factor values); every spelling that resolves to one Variable record shares
@@ -2719,7 +3369,14 @@ def _table_classification_to_candidates(
                 linked_candidates=linked_candidates,
                 known_value=cell_text.strip(),
                 variable_name_hint=variable_name_hint, units_hint=units_hint,
-                context={**pooled_context, **_temporal_context(_time_levels_for_cell(classification, row, value_column))},
+                context={**pooled_context, **_temporal_context(_time_levels_for_cell(classification, row, value_column)),
+                         **_layout_pooling_context(classification, layout_pooling),
+                         "cell": {"table_anchor": row.source_table_anchor, "table_anchors": list(classification.table_anchors),
+                                  "row_levels": dict(row.factor_values or {}), "column": value_column_id,
+                                  "column_label": variable_label, "value_text": cell_text.strip(),
+                                  "column_variable": (variable.label if variable else None) or value_column.variable,
+                                  "variable_name": variable.variable_name if variable else None,
+                                  "column_levels": dict(value_column.factor_levels or {})}},
             ))
 
     return candidates
@@ -2965,6 +3622,8 @@ def _table_classifications_to_treatment_candidates(
         column_encoded = any(vc.treatment_level_hint for vc in classification.value_columns)
 
         for row in classification.row_groups:
+            if _summary_row_level(row) is not None:
+                continue   # Phase A5: "Mean" is never a Treatment (Kathryn run 20260925T225646: treatment_mean, READY)
             for value_column_id, cell_text in (row.cells or {}).items():
                 if not cell_text or not cell_text.strip():
                     continue
@@ -3144,11 +3803,36 @@ def _dimension_pools(paper_id: str, this_run_records: dict) -> dict[str, list[di
     return pools
 
 
+def _apply_factor_consistency(
+    classifications: dict[str, TableClassification],
+) -> tuple[dict[str, TableClassification], "design.FactorConsistency"]:
+    """F2: the paper's tables checked against each other before any Treatment or Observation is derived from them.
+    A WITHHELD table (a treatment factor shown to hold another factor's levels -- design.factor_consistency) is left
+    out of both projections; its finding is the run artifact `factor_consistency` and part of the manifest's design
+    section. A treatment level spelled with another table's name of the SAME treatment factor ("PARt 0-0.1" where
+    Table 1 declares "PAR t" = "0-0.1") is compared by that level, so one real Treatment is not minted twice."""
+    consistency = design.factor_consistency(classifications)
+    kept: dict[str, TableClassification] = {}
+    for seed, classification in classifications.items():
+        if seed in consistency.withheld:
+            continue
+        aliases = consistency.level_aliases.get(seed) or {}
+        if aliases:
+            classification = classification.model_copy(update={"row_groups": [
+                row.model_copy(update={"factor_values": {
+                    name: aliases.get(name, {}).get(value, value) for name, value in (row.factor_values or {}).items()
+                }}) for row in classification.row_groups
+            ]})
+        kept[seed] = classification
+    return kept, consistency
+
+
 def run_table_enumeration(
     *, run_id: str, paper_id: str, entity_type: str, model: str,
     invoke: Callable[..., AgentInvocation] = invoke_agent,
     link_pools: Optional[dict[str, list[dict]]] = None,
     dimension_pools: Optional[dict[str, list[dict]]] = None,
+    method_links: Optional[dict[str, Any]] = None,
 ) -> tuple[list[EnumerationCandidate], set[str]]:
     """Steps A + B (shared, cached across entity types within one run --
     see run_table_classification_pass) + Step C (entity-specific
@@ -3178,26 +3862,48 @@ def run_table_enumeration(
             run_id, f"{entity_type}__enumeration", "dimension_check", 1, {"overrides": overrides_log},
         )
 
+    all_classifications = classifications
+    classifications, consistency = _apply_factor_consistency(classifications)
+    if consistency.withheld or consistency.level_aliases:
+        run_store.save_stage_attempt(
+            run_id, f"{entity_type}__enumeration", "factor_consistency", 1, consistency.to_artifact(),
+        )
+    # A withheld table is accounted for (its finding is recorded): the free-form pass is not invited to re-derive
+    # Treatments or Observations from the same table whose structure was just shown to be misread.
+    withheld_anchors = {a for seed in consistency.withheld for a in all_classifications[seed].table_anchors}
+
     if entity_type == "Treatment":
         identity_notes: list[dict] = []
-        result = _table_classifications_to_treatment_candidates(
+        candidates, covered = _table_classifications_to_treatment_candidates(
             list(classifications.values()), link_pools or {}, identity_notes,
         )
         if identity_notes:
             run_store.save_stage_attempt(
                 run_id, f"{entity_type}__enumeration", "identity_check", 1, {"ambiguous_identities": identity_notes},
             )
-        return result
+        return candidates, covered | withheld_anchors
 
     all_candidates: list[EnumerationCandidate] = []
     covered_anchors: set[str] = set()
+    blocked_cells: list[dict] = []
     for classification in classifications.values():
-        candidates = _table_classification_to_candidates(classification, link_pools or {})
+        candidates = _table_classification_to_candidates(classification, link_pools or {}, method_links, blocked_cells)
         if candidates:
             all_candidates.extend(candidates)
             covered_anchors.update(classification.table_anchors)
+        elif any(cell["table_anchor"] in classification.table_anchors for cell in blocked_cells):
+            covered_anchors.update(classification.table_anchors)   # fully accounted for, as blocked cells
 
-    return all_candidates, covered_anchors
+    unidentified = [c for c in blocked_cells if c.get("status") == design.UNIDENTIFIED_ROW]
+    blocked_cells = [c for c in blocked_cells if c.get("status") != design.UNIDENTIFIED_ROW]
+    if blocked_cells or unidentified:
+        # Phase C: extracted, not representable -- a run artifact and a manifest section, never silently dropped.
+        # Rows the classification left unidentified are listed separately: they are not measurements.
+        run_store.save_stage_attempt(run_id, f"{entity_type}__enumeration", "representation_blocked", 1, {
+            "reason": design.L4_TREATMENT_POOLED, "cells": blocked_cells, "unidentified_rows": unidentified})
+        _REPRESENTATION_BLOCKED[run_id] = blocked_cells
+        _UNIDENTIFIED_ROWS[run_id] = unidentified
+    return all_candidates, covered_anchors | withheld_anchors
 
 
 _SANITIZE_CANDIDATE_ID_RE = re.compile(r"[^a-z0-9]+")
@@ -3630,6 +4336,9 @@ def summarize_table_pass(run_id: str, paper_id: str, this_run_records: dict) -> 
         from extraction failures."""
     reconciled = _reconciled_classifications(run_id, paper_id, this_run_records)
     variable_flags = _cached_variable_declaration_flags(run_id)
+    repairs = _cached_classification_field(run_id, "deterministic_repairs")
+    structure_changes = _cached_classification_field(run_id, "structure_changed_on_retry")
+    withheld = design.factor_consistency(reconciled).withheld
     tables, sources = [], []
     for key, c in sorted(reconciled.items()):
         tables.append({
@@ -3643,6 +4352,9 @@ def summarize_table_pass(run_id: str, paper_id: str, this_run_records: dict) -> 
             "time_levels": [{"factor": tl.factor, "level": tl.level, "site": tl.site, "date_text": tl.date_text, "year_text": tl.year_text,
                              "anchors": tl.anchors} for tl in c.time_levels],
             "has_treatment_dimension": _has_treatment_dimension(c) if c.factors else None,
+            **({"deterministic_repairs": repairs[key]} if key in repairs else {}),
+            **({"structure_changed_on_retry": structure_changes[key]} if key in structure_changes else {}),
+            **({"withheld": withheld[key]} if key in withheld else {}),
         })
         if c.table_role == "aggregated_summary":
             sources.append({
@@ -3681,6 +4393,268 @@ def summarize_table_pass(run_id: str, paper_id: str, this_run_records: dict) -> 
         # ("provider") or the extraction's ("extraction") -- never conflated.
         "table_pass_failures": failures,
     }
+
+
+def _species_names(payload: dict, common_names: dict[str, set[str]]) -> set[str]:
+    """Every way the paper names one Species record: its binomial, "G. epithet", its genus alone is NOT enough (two
+    species may share it), its extracted common name, and the common names the paper itself pairs with it."""
+    def value(field: str) -> Optional[str]:
+        entry = payload.get(field)
+        return entry.get("value") if isinstance(entry, dict) and isinstance(entry.get("value"), str) else None
+
+    names: set[str] = set()
+    genus, epithet = value("genus"), value("species_epithet")
+    scientific = value("scientific_name") or (f"{genus} {epithet}" if genus and epithet else None)
+    if scientific:
+        parts = scientific.split()
+        if len(parts) >= 2:
+            names |= {f"{parts[0]} {parts[1]}".lower(), f"{parts[0][0]}. {parts[1]}".lower()}
+            names |= common_names.get(f"{parts[0]} {parts[1]}".lower(), set())
+    if value("common_name"):
+        names.add(value("common_name").lower())
+    return {n for n in names if len(n) > 2}
+
+
+def _evidenced_species(paper_id: str, candidate: Any, this_run_records: dict) -> tuple[list[str], dict]:
+    """The referenceable Species a Crop candidate's OWN evidence names (its anchors and their reading-order
+    neighbours; never the model-written description). Returns (record ids, decision log)."""
+    species = _referenceable_records(this_run_records, "Species")
+    try:
+        dmap = document_map.build_document_map(paper_id, _papers_root())
+    except (FileNotFoundError, OSError):
+        return [], {"decision": "no_document", "message": "species link not verifiable: the paper is not prepared"}
+    index = evidence_index.build_evidence_index(dmap)
+    anchors = list(candidate.anchors)
+    for anchor in candidate.anchors:
+        anchors += [b.anchor for b in dmap.neighbors(anchor, before=1, after=1)]
+    text = " " + evidence_index.normalize(" ".join(dmap.text(a) for a in dict.fromkeys(anchors))) + " "
+    compact = re.sub(r"\s+", "", text)
+    common = index.common_names()
+    evidenced = []
+    for record in species:
+        names = _species_names(((record.get("detail") or {}).get("payload")) or {}, common)
+        for name in names:
+            normalized = evidence_index.normalize(name)
+            if re.search(rf"(?<![a-z]){re.escape(normalized)}(?![a-z])", text) or (
+                    # a scientific name split by a rendering hyphenation break -- "( Bras sica juncea Czern.)"
+                    # (Kathryn-2020-Winter b:0041) -- still names it: compared with spaces removed
+                    " " in normalized and "." not in normalized and len(normalized) > 10
+                    and re.sub(r"\s+", "", normalized) in compact):
+                evidenced.append(record["record_id"])
+                break
+    if evidenced:
+        return evidenced, {"decision": "species_evidenced", "species_ids": evidenced, "anchors": anchors}
+    extracted = [r["record_id"] for r in species]
+    return [], {"decision": "species_not_evidenced", "anchors": anchors, "extracted_species": extracted, "message": (
+        f"the crop's own evidence ({', '.join(dict.fromkeys(anchors))}) names none of the Species extracted in this run "
+        f"({', '.join(extracted) or 'none'}): its species link cannot be established without guessing, so the crop is "
+        f"not linked by elimination")}
+
+
+def _build_variable_method_map(
+    run_id: str, paper_id: str, model: str, invoke: Callable[..., AgentInvocation], this_run_records: dict,
+    link_pools: dict[str, list[dict]],
+) -> Optional[dict[str, Any]]:
+    """Phase B: the paper's Variable -> Method map, decided once before Observation candidates are linked (see
+    `pipeline/method_map.py`). Only when the paper has more than one referenceable Method -- with one, the existing
+    single-record resolution applies unchanged. Saved as the `variable_method_map` artifact."""
+    record_key = "Observation__enumeration"
+    pool = link_pools.get("method_id") or []
+    if len(pool) < 2:
+        return None
+    classifications = run_table_classification_pass(run_id=run_id, paper_id=paper_id, model=model, invoke=invoke)
+    entries = method_map.collect_variables(classifications.values())
+    if not entries:
+        return None
+    records = [{**r, "slug": _candidate_slug_from_record_id(paper_id, "Method", r["record_id"])}
+               for r in _referenceable_records(this_run_records, "Method")]
+    methods = method_map.method_evidence(records)
+    try:
+        index = evidence_index.build_evidence_index(document_map.build_document_map(paper_id, _papers_root()))
+        packet_bundle = context_bundle.build_context_bundle(paper_id, "Method", "enumeration", papers_root=_papers_root())
+    except (FileNotFoundError, OSError):
+        return None
+    calls = {"n": 0}
+
+    def hint_resolver(entry: method_map.VariableEntry) -> Optional[str]:
+        for hint in entry.hints:
+            match = _match_method_hint({"Variable": entry.label}, hint, pool)
+            if match:
+                return match
+        return None
+
+    def ask_model(prompt: str) -> Optional[dict]:
+        calls["n"] += 1
+        result = invoke("extractor", model, prompt)
+        artifact = result.as_artifact()
+        failure = _provider_failure(result)
+        if failure:
+            artifact.update(failure_class=failure, failure_kind="provider")
+        run_store.save_stage_attempt(run_id, record_key, "variable_method_map_call", calls["n"], artifact)
+        return None if failure else result.parsed_json
+
+    links = method_map.build_map(entries, methods, index, hint_resolver, ask_model,
+                                 packet_bundle.render() if packet_bundle is not None else None)
+    run_store.save_stage_attempt(run_id, record_key, "variable_method_map", 1, method_map.to_artifact(entries, links))
+    return links
+
+
+def _record_by_id(this_run_records: dict, entity_type: str, record_id: Any) -> Optional[dict]:
+    if not isinstance(record_id, str):
+        return None
+    records = this_run_records.get(entity_type)
+    for record in (records if isinstance(records, list) else [records] if records else []):
+        if record.get("record_id") == record_id:
+            return record
+    return None
+
+
+def _payload_value(record: Optional[dict], field: str) -> Optional[Any]:
+    payload = ((record or {}).get("detail") or {}).get("payload") or {}
+    entry = payload.get(field)
+    return entry.get("value") if isinstance(entry, dict) else None
+
+
+def _record_anchors(record: Optional[dict], limit: int = 3) -> list[str]:
+    return sorted(method_map._payload_anchors(((record or {}).get("detail") or {}).get("payload") or {}))[:limit]
+
+
+def _observation_experimental_context(
+    paper_id: str, candidate: Any, known_refs: dict[str, Any], this_run_records: dict,
+    method_links: Optional[dict[str, Any]], design_summary: Optional[dict[str, Any]],
+) -> tuple[dict[str, Any], dict[str, list[str]]]:
+    """Phase D: the chain cell -> variable -> method -> treatment/factor -> time -> site -> aggregation -> statistics ->
+    design for ONE Observation candidate, READ from what earlier stages established (the table reconstruction, the
+    Variable -> Method map, the linked records, design.json). Nothing is decided here: an unresolved link is reported as
+    unresolved. Returns (context, {role: evidence anchors}) -- the anchors become the packet's verbatim blocks."""
+    context: dict[str, Any] = {}
+    evidence: dict[str, list[str]] = {}
+    cell = (candidate.context or {}).get("cell") or {}
+    try:
+        dmap = document_map.build_document_map(paper_id, _papers_root())
+    except (FileNotFoundError, OSError):
+        dmap = None
+
+    # cell
+    table = dmap.table_containing(cell["table_anchor"]) if dmap is not None and cell.get("table_anchor") else None
+    if cell:
+        context["cell"] = {**{k: cell[k] for k in ("table_anchor", "row_levels", "column_label", "value_text")},
+                           "table_label": table.label if table else None}
+        evidence["table"] = (list(table.caption_anchors) + [table.anchors[0]] + list(table.note_anchors[:1])) if table else [cell["table_anchor"]]
+
+    # variable
+    variable_record = _record_by_id(this_run_records, "Variable", known_refs.get("variable_id"))
+    label = cell.get("column_label") or candidate.variable_name_hint
+    context["variable"] = {
+        "label": label, "name": cell.get("variable_name") or _payload_value(variable_record, "name"),
+        "header_units": candidate.units_hint, "record_id": (variable_record or {}).get("record_id"),
+        "record_units": _payload_value(variable_record, "units"),
+    }
+    evidence["variable"] = _record_anchors(variable_record, 2)
+
+    # method -- the paper-level map's decision for this variable, never re-decided per cell
+    method_id = known_refs.get("method_id")
+    link = method_map.lookup(method_links or {}, cell.get("column_variable"), label, cell.get("variable_name")) \
+        if method_links else None
+    method_record = _record_by_id(this_run_records, "Method", method_id)
+    if link is not None:
+        context["method"] = {"status": link.status, "tier": link.tier, "reason": link.reason,
+                             "record_id": link.method_record_id, "name": _payload_value(
+                                 _record_by_id(this_run_records, "Method", link.method_record_id), "name")}
+        evidence["method"] = list(link.anchors) or _record_anchors(_record_by_id(this_run_records, "Method", link.method_record_id))
+    elif isinstance(method_id, str):
+        context["method"] = {"status": "linked", "tier": "single_or_linked", "reason": "resolved by the existing linker",
+                             "record_id": method_id, "name": _payload_value(method_record, "name")}
+        evidence["method"] = _record_anchors(method_record)
+    else:
+        context["method"] = {"status": "ambiguous" if isinstance(method_id, list) else "none",
+                             "reason": "no established link for this variable", "record_id": None}
+
+    # treatment / factor levels
+    treatment_id = known_refs.get("treatment_id")
+    treatment_record = _record_by_id(this_run_records, "Treatment", treatment_id)
+    levels = {**(cell.get("row_levels") or {}), **(cell.get("column_levels") or {})}
+    factors = (design_summary or {}).get("factors") or {}
+    context["treatment"] = {
+        "record_id": treatment_id if isinstance(treatment_id, str) else None,
+        "candidates": treatment_id if isinstance(treatment_id, list) else None,
+        "name": _payload_value(treatment_record, "name"), "definition": _payload_value(treatment_record, "definition"),
+        "levels": {k: {"level": v, "dimension": (factors.get(k) or {}).get("dimension")} for k, v in levels.items()},
+    }
+    evidence["treatment"] = _record_anchors(treatment_record, 2)
+
+    # time
+    time: dict[str, Any] = {}
+    for tl in (candidate.context or {}).get("temporal_context") or []:
+        time[f"{tl['factor']}={tl['level']}"] = tl.get("date_text") or tl.get("year_text") or "dated in the paper"
+    for name, info in levels.items():
+        if (factors.get(name) or {}).get("dimension") == "time":
+            time.setdefault(name, info)
+    if (candidate.context or {}).get("pooled_time_levels"):
+        time["pooled over"] = candidate.context["pooled_time_levels"]
+    if time:
+        context["time"] = time
+
+    # site
+    site_record = _record_by_id(this_run_records, "Site", known_refs.get("site_id"))
+    if site_record is not None:
+        context["site"] = f"{site_record['record_id']} ({_payload_value(site_record, 'name') or 'name unresolved'})"
+
+    # aggregation
+    scope = (candidate.context or {}).get("reported_effect_scope") or "treatment_mean"
+    context["aggregation"] = {
+        "reported_effect_scope": scope, "aggregated_over_factors": (candidate.context or {}).get("aggregated_over_factors") or [],
+        "basis": "table layout (main-effect row)" if (candidate.context or {}).get("layout_pooling")
+                 else "pooling statement" if (candidate.context or {}).get("pooling_evidence") else "cell mean",
+    }
+
+    # statistics -- the cell's own parts; the statistic named only where the table states it
+    parsed = cell_values.parse_cell(cell.get("value_text") or candidate.known_value or "")
+    if parsed is not None:
+        sources = []
+        if dmap is not None and table is not None:
+            sources = [(table.anchors[0], "\n".join(dmap.text(table.anchors[0]).splitlines()[:4]))]
+            sources += [(a, dmap.text(a)) for a in list(table.caption_anchors) + list(table.note_anchors)]
+        basis = cell_values.statistic_basis(sources, parsed)
+        statistic_value = (f"[{parsed.interval[0]:g}, {parsed.interval[1]:g}]" if parsed.interval
+                           else parsed.dispersion if parsed.dispersion is not None else parsed.parenthetical)
+        context["statistics"] = {
+            "mean_text": parsed.mean_text, "mean": parsed.mean, "dispersion": parsed.dispersion,
+            "interval": list(parsed.interval) if parsed.interval else None,
+            "statistic_name": basis.name, "statistic_value": statistic_value if basis.name else None,
+            "statistic_source_anchor": basis.source_anchor, "statistic_source_text": basis.source_text,
+            "letters": parsed.letters if basis.letters_meaning else None, "letters_meaning": basis.letters_meaning,
+            "sample_size_evidence": [e["anchor"] for e in (design_summary or {}).get("sample_size_evidence") or []] or None,
+        }
+        evidence["design"] = [e["anchor"] for e in (design_summary or {}).get("sample_size_evidence") or []][:1]
+
+    # design
+    table_entry = next((t for t in (design_summary or {}).get("tables") or []
+                        if cell.get("table_anchor") in (t.get("anchors") or [])), None)
+    relevant_conflicts = [c for c in (design_summary or {}).get("conflicts") or [] if c.get("subject") in levels]
+    context["design"] = {
+        "layout": (table_entry or {}).get("layout"), "factors": list(levels) or None,
+        "conflicts": [f"{c['claim_a']} ({c['source_a']}) vs {c['claim_b']} ({c['source_b']})" for c in relevant_conflicts] or None,
+    }
+    evidence["design"] = evidence.get("design", []) + [c["source_b"] for c in relevant_conflicts]
+    return context, evidence
+
+
+def _packet_evidence_found(bundle: Any) -> Optional[list[str]]:
+    """The concepts an enumeration packet FOUND, as "thinning (b:0030, b:0006)" -- for the empty-answer re-ask."""
+    if bundle is None:
+        return None
+    found = [f"{c.concept} ({', '.join(c.anchors[:3])})" for c in bundle.coverage if c.status == context_bundle.FOUND]
+    return found or None
+
+
+def _evidence_target(entity_type: str, candidate: Any) -> Optional[str]:
+    """What a record's evidence packet is conditioned on: a Variable is looked up by its own name (the table's variable
+    hint, else the candidate slug); other entity types by their anchors alone."""
+    if entity_type != "Variable":
+        return None
+    hint = getattr(candidate, "variable_name_hint", None)
+    return hint or str(getattr(candidate, "candidate_id", "") or "").replace("_", " ") or None
 
 
 def _run_multi_record_entity(
@@ -3727,10 +4701,12 @@ def _run_multi_record_entity(
     "blocked" entry (using the same `_entity_record_id` convention the
     single-record path already uses for its own blocked entries), matching
     single-record `run_paper()` behavior byte-for-byte."""
+    recorded_records = this_run_records
+    this_run_records, pending = _with_pending(entity_type, recorded_records)
     known_refs, blocked_reason = _resolve_known_refs(entity_type, this_run_records)
     if blocked_reason is not None:
         if entity_type == "Observation" and "Treatment" in blocked_reason:
-            limitation = _treatment_dimension_limitation(run_id, paper_id, this_run_records)
+            limitation = _treatment_dimension_limitation(run_id, paper_id, recorded_records)
             if limitation:
                 blocked_reason = f"{blocked_reason}. {limitation}"
         return [{
@@ -3739,6 +4715,7 @@ def _run_multi_record_entity(
         }]
 
     link_pools = _multi_record_link_pools(paper_id, entity_type, this_run_records)
+    prerequisite_notes = _prerequisite_notes(entity_type, recorded_records)
 
     # Step D (table enumeration, see the module section above
     # run_table_enumeration's own definition): for entity types with a
@@ -3748,10 +4725,18 @@ def _run_multi_record_entity(
     # doesn't re-report (and duplicate) them.
     table_candidates: list = []
     covered_table_anchors: set[str] = set()
+    method_links: Optional[dict[str, Any]] = None
+    design_summary: Optional[dict[str, Any]] = None
     if entity_type in TABLE_ENUMERATION_ENTITY_TYPES:
+        method_links = (
+            _build_variable_method_map(run_id, paper_id, model, invoke, this_run_records, link_pools or {})
+            if entity_type == "Observation" else None
+        )
+        design_summary = _design_section(run_id, paper_id) if entity_type == "Observation" else None
         table_candidates, covered_table_anchors = run_table_enumeration(
             run_id=run_id, paper_id=paper_id, entity_type=entity_type, model=model, invoke=invoke,
             link_pools=link_pools or None, dimension_pools=_dimension_pools(paper_id, this_run_records),
+            method_links=method_links,
         )
 
     # Item 8: for Treatment, when the tables cover it, free-form candidates are
@@ -3760,12 +4745,23 @@ def _run_multi_record_entity(
     # case -- other entity types, and a paper with no applicable table -- keeps
     # the existing behavior untouched.
     semantic_dedup = entity_type == "Treatment" and bool(covered_table_anchors or table_candidates)
+    enumeration_bundle = None
+    try:
+        enumeration_bundle = context_bundle.build_context_bundle(
+            paper_id, entity_type, "enumeration", papers_root=_papers_root())
+    except Exception as exc:  # a packet is an aid, never a reason to lose the enumeration
+        run_store.save_stage_attempt(run_id, f"{entity_type}__enumeration", "context_bundle_error", 1,
+                                     {"error": f"{type(exc).__name__}: {exc}"})
+    if enumeration_bundle is not None:
+        run_store.save_stage_attempt(run_id, f"{entity_type}__enumeration", "context_bundle", 1, enumeration_bundle.to_dict())
     freeform_candidates, enum_error = run_enumeration(
         run_id=run_id, paper_id=paper_id, entity_type=entity_type, model=model, invoke=invoke,
         link_pools=link_pools or None,
         excluded_table_anchors=covered_table_anchors or None,
         covered_conditions=_covered_condition_labels(table_candidates) if semantic_dedup else None,
         declare_dimensions=semantic_dedup,
+        evidence_packet=enumeration_bundle.render() if enumeration_bundle is not None else None,
+        evidence_found=_packet_evidence_found(enumeration_bundle),
     )
     if semantic_dedup:
         dimension_pools = _dimension_pools(paper_id, this_run_records)
@@ -3801,6 +4797,20 @@ def _run_multi_record_entity(
     candidates = table_candidates + freeform_candidates
     if enum_error is not None and not candidates:
         return []
+    outcome = _ENUMERATION_OUTCOMES.pop((run_id, entity_type), None)
+    if not candidates and outcome is not None:
+        # Phase A1: never a silent zero. The entity type is recorded as unresolved, with why.
+        record_id = f"{paper_id}_{entity_type.lower()}_enumeration"
+        message = (
+            f"no {entity_type} candidates could be established: the enumeration answered with an empty list after an "
+            f"interrupted turn (stall / provider failure) and again on a clean re-ask -- not evidence that the paper "
+            f"reports none"
+            + (f" (the evidence packet holds: {'; '.join(outcome['evidence_found'])})" if outcome["evidence_found"] else "")
+        )
+        detail = {"status": "unresolved", "last_errors": [{"field": None, "message": message}],
+                  "enumeration_outcome": outcome, "unresolved_cause": outcome["cause"]}
+        run_store.save_final(run_id, f"{entity_type}__{record_id}", detail)
+        return [{"entity_type": entity_type, "record_id": record_id, "status": "unresolved", "detail": detail}]
 
     # Phase 1.2: never let two distinct candidates silently collide onto
     # the same record_id -- see _dedupe_candidate_record_ids's own
@@ -3837,6 +4847,30 @@ def _run_multi_record_entity(
         candidate_known_refs = _apply_candidate_links(
             paper_id, entity_type, this_run_records, known_refs, candidate,
         )
+        refusals = [] if entity_type == "Crop" else _link_refusals(
+            paper_id, entity_type, this_run_records, candidate_known_refs or {}, candidate)
+        if refusals:
+            detail = {"status": "unresolved", "unresolved_cause": refusals[0]["cause"],
+                      "last_errors": [{"field": r["field"], "message": r["message"]} for r in refusals]}
+            run_store.save_final(run_id, f"{entity_type}__{record_id}", detail)
+            link_decisions.append({"candidate_id": candidate.candidate_id, "decision": "refused_link", "refusals": refusals})
+            record_infos.append({"entity_type": entity_type, "record_id": record_id, "status": "unresolved",
+                                 "detail": detail})
+            continue
+        if entity_type == "Crop":
+            species_ids, species_decision = _evidenced_species(paper_id, candidate, this_run_records)
+            link_decisions.append({"candidate_id": candidate.candidate_id, **species_decision})
+            if not species_ids:
+                # Phase A2: never bind a crop to a Species by elimination (Felipe run 20260926T002842: tomato
+                # cultivar AB-2 committed READY with species Brassica nigra -- the only Species that run found).
+                detail = {"status": "unresolved", "unresolved_cause": causes.AMBIGUOUS, "last_errors": [{
+                    "field": "species_id", "message": species_decision["message"]}]}
+                run_store.save_final(run_id, f"{entity_type}__{record_id}", detail)
+                record_infos.append({"entity_type": entity_type, "record_id": record_id, "status": "unresolved",
+                                     "detail": detail})
+                continue
+            candidate_known_refs = {**(candidate_known_refs or {}),
+                                    "species_id": species_ids[0] if len(species_ids) == 1 else sorted(species_ids)}
         context = (
             f"{candidate.description} (identified by an earlier enumeration pass from "
             f"anchor(s): {', '.join(candidate.anchors)})"
@@ -3850,33 +4884,88 @@ def _run_multi_record_entity(
                 f"{evidence}. Also report that pooling statement as a fact (field_name 'pooled_over', citing the "
                 f"block above) so the record can state what the value was averaged over."
             )
+        if candidate.context.get("layout_pooling"):
+            context += (
+                f" NOTE: this value is a main-effect (marginal) mean -- {candidate.context['layout_pooling']}"
+                + (f"; it covers {candidate.context['pooled_time_levels']}" if candidate.context.get("pooled_time_levels") else "")
+                + ". Report the value exactly as the table cell gives it; there is no separate pooling sentence to find."
+            )
         if candidate.context.get("temporal_context"):
             context += _temporal_extraction_note(candidate.context["temporal_context"])
+        if entity_type == "Treatment":
+            context += _treatment_definition_note(paper_id, candidate)
         hints = {k: v for k, v in (("variable_name_hint", candidate.variable_name_hint), ("units_hint", candidate.units_hint)) if v}
         if hints:
             context += _hint_extraction_note(hints)
         if entity_type == "Management":
-            verified, decisions = _verified_treatment_links(paper_id, candidate, this_run_records, link_blocks)
+            verified, decisions = _verified_treatment_links(paper_id, candidate, recorded_records, link_blocks)
             link_decisions.extend(decisions)
             if verified:
                 hints["treatment_link"] = {
                     "treatment_ids": [v["record_id"] for v in verified], "names": [v["name"] for v in verified],
                     "evidence_anchors": list(candidate.anchors),
                 }
+        observation_bundle = None
+        if entity_type == "Observation":
+            experimental, evidence = _observation_experimental_context(
+                paper_id, candidate, candidate_known_refs or {}, this_run_records, method_links, design_summary)
+            hints["experimental_context"] = experimental
+            observation_bundle = context_bundle.build_observation_bundle(paper_id, experimental, evidence, _papers_root())
         result = run_record(
             run_id=run_id, paper_id=paper_id, entity_type=entity_type, record_id=record_id,
             model=model, client=client, invoke=invoke, enable_ai_validation=enable_ai_validation,
             known_refs=candidate_known_refs or None, extraction_context=context,
-            known_value=candidate.known_value, candidate_context={**candidate.context, **hints} or None,
+            known_value=candidate.known_value, evidence_bundle=observation_bundle,
+            evidence_seeds=list(candidate.anchors),
+            evidence_target=_evidence_target(entity_type, candidate), candidate_context={**candidate.context, **hints} or None,
+            pending_prerequisites=pending or None,
         )
         record_info = {
             "entity_type": entity_type, "record_id": record_id,
             "status": result.status, "detail": result.detail,
         }
+        if prerequisite_notes:
+            record_info["prerequisite_notes"] = prerequisite_notes
         record_infos.append(record_info)
     if link_decisions:
-        run_store.save_stage_attempt(run_id, f"{entity_type}__enumeration", "treatment_links", 1, {"decisions": link_decisions})
+        stage = "species_links" if entity_type == "Crop" else "treatment_links"
+        run_store.save_stage_attempt(run_id, f"{entity_type}__enumeration", stage, 1, {"decisions": link_decisions})
     return record_infos
+
+
+def _treatment_definition_note(paper_id: str, candidate: Any) -> str:
+    """Where the paper DEFINES this Treatment's factor, for its `definition`. Real case (Philippe run
+    20260926T190955_435c16fa): the packet held b:0046 ("The PAR t ... was divided into three classes (0-0.1, 0.1-0.2 and
+    0.2-0.37)"), yet the extraction reported Table 3's response values (Na, Vcmax, ...) as the Treatment's facts and no
+    definition -- 2 of 3 PAR classes were refused, the third got its name copied as its definition. The blocks named here
+    are the design statements (methods / abstract / front matter, a design term such as "classes", "gradient",
+    "treatments") that name the factor; nothing is inferred, and none is cited when the paper has none."""
+    levels = [(d.name, d.level) for d in (getattr(candidate, "dimensions", None) or []) if d.dimension == "treatment"]
+    if not levels:
+        return ""
+    try:
+        index = evidence_index.build_evidence_index(document_map.build_document_map(paper_id, _papers_root()))
+    except (FileNotFoundError, OSError):
+        return ""
+    names = {design._key(name) for name, _ in levels}
+    anchors = []
+    for block in index.dmap.blocks:
+        if block.region not in design.DESIGN_REGIONS or block.block_type == "Table":
+            continue
+        if not index.signals.get(block.anchor, {}).get("design_term"):
+            continue
+        if any(name and name in design._key(block.text) for name in names):
+            anchors.append(block.anchor)
+    described = ", ".join(f"{name}={level!r}" for name, level in levels)
+    where = (f" The paper describes this factor in {', '.join(anchors[:4])} -- the `definition` is what that text says "
+             f"the level is and how it was obtained; quote it from there." if anchors else "")
+    return (
+        f" NOTE (Treatment): this Treatment is the level {described}. Its `definition` states what that level IS and "
+        f"how it was imposed, from the paper's design text, never the level label repeated.{where} The measured values "
+        f"a table reports for this level (means of response variables) are Observations, not facts of a Treatment -- do "
+        f"not report them. If the text gives the level's bounds differently from the table, report what each says; "
+        f"never reconcile them."
+    )
 
 
 def _temporal_extraction_note(temporal_context: list[dict]) -> str:
@@ -3955,6 +5044,30 @@ def _conversion_prompt(
         "`source.page_number` is filled in by the pipeline from the document's own layout data: leave it out, and never "
         "mark a field UNRESOLVED because a page number is not known.",
     ]
+    if entity_type == "Site":
+        # Philippe-2007-Six / Kathryn-2020-Winter: coordinates written in degrees and minutes were either converted by
+        # the model (rejected by grounding: 45.7 is not written anywhere) or dropped, and Site went unresolved.
+        parts += [
+            "",
+            "latitude / longitude: reported_text is the coordinate EXACTLY as the source writes it (e.g. \"45°42′ N\", "
+            "\"-121˚32´W\"), one coordinate per field. Do NOT convert it to decimal degrees yourself and do not set "
+            "converted_value: the pipeline derives the decimal from reported_text and records the formula. When the text "
+            "is in degrees and minutes, leave reported_numeric_value null; reported_units is the degree sign when the "
+            "source writes one. If the source gives no coordinates, omit these fields.",
+        ]
+    if entity_type == "Citation" and raw_extraction.get("orchestrator_not_written"):
+        fields = [entry["field"] for entry in raw_extraction["orchestrator_not_written"] if entry["field"] in ("persistent_identifier",)]
+        parts += [
+            "",
+            "RAW_EVIDENCE.orchestrator_not_written lists Citation information the paper does NOT WRITE (a pipeline "
+            "determination, not source text). "
+            + (
+                f"For {', '.join(fields)}: value null, provenance_label UNRESOLVED, unresolved_reason "
+                f"\"{CITATION_NOT_WRITTEN_REASON}\", and cite one of the anchors in RAW_EVIDENCE as its locator. "
+                if fields else ""
+            )
+            + "Never fill a not-written field with a value. `journal` has no IR field: do not add one.",
+        ]
     if known_refs:
         # ir_schema.py's bare-reference fields (site_id, citation_id,
         # treatment_id, method_id, species_id -- ExtractedReference = str,
@@ -4034,7 +5147,23 @@ def _conversion_prompt(
                 "\"9 June 1993\") and use its result. If RAW_EVIDENCE has no such fact, or the year is missing, "
                 "temporal_info is UNRESOLVED with a real reason -- never compute or assume a date or a year.",
             ]
-        if candidate_context.get("aggregated_over_factors"):
+        experimental = candidate_context.get("experimental_context")
+        if entity_type == "Observation" and experimental:
+            parts += ["", _experimental_conversion_note(experimental)]
+        if candidate_context.get("aggregated_over_factors") and candidate_context.get("layout_pooling"):
+            # Phase C: pooling shown by the table's LAYOUT (a main-effect row), not by a sentence -- so it is an
+            # inference from structure, labelled INFERRED with that basis, never passed off as a quoted statement.
+            parts += [
+                "",
+                "CANDIDATE_CONTEXT says this value is a MAIN-EFFECT MEAN pooled over "
+                f"{candidate_context['aggregated_over_factors']!r}: {candidate_context['layout_pooling']}. Set "
+                "`reported_effect_scope` to \"aggregated_mean\" and `aggregated_over_factors` to that list, labelled "
+                "INFERRED, citing the table block, with unresolved_reason stating that basis (the table layout). "
+                + (f"The value covers the levels {candidate_context['pooled_time_levels']}: do not narrow temporal_info "
+                   f"to one of them. " if candidate_context.get("pooled_time_levels") else "")
+                + "Never set treatment_mean for this value.",
+            ]
+        elif candidate_context.get("aggregated_over_factors"):
             parts += [
                 "",
                 "CANDIDATE_CONTEXT says this table's values are MEANS POOLED over "
@@ -4064,6 +5193,9 @@ def _conversion_prompt(
             # already in scope.
             candidate_anchors = all_anchors(raw_extraction)
             candidate_anchor_texts = _anchor_texts(paper_id, candidate_anchors)
+            span_hints = _closest_span_hints(paper_id, prior_errors)
+            if span_hints:
+                parts += ["", "CLOSEST VERBATIM TEXT in the cited block for each rejected value:", *span_hints]
             parts += [
                 "",
                 "For every `provenance_value_mismatch` above: the most likely "
@@ -4123,12 +5255,23 @@ def _conversion_prompt(
 
 
 def _ai_validation_prompt(
-    entity_type: str, candidate_payload: dict, raw_extraction: dict, anchor_texts: dict[str, str]
+    entity_type: str, candidate_payload: dict, raw_extraction: dict, anchor_texts: dict[str, str],
+    design_context: Optional[dict] = None,
 ) -> str:
+    design_lines = [] if not design_context else [
+        "DESIGN_CONTEXT (the factors this paper's tables declare, with their dimensions -- a Treatment must be a level "
+        "(or combination of levels) of a factor of dimension 'treatment'; a level of a time, site or crop factor, such "
+        "as a year, is never a Treatment -- flag it if this candidate is one):",
+        "```json",
+        json.dumps(design_context, indent=2, ensure_ascii=False),
+        "```",
+        "",
+    ]
     return "\n".join(
         [
             f"Review this already deterministically-valid Sage IR `{entity_type}` candidate record.",
             "",
+            *design_lines,
             "CANDIDATE_RECORD:",
             "```json",
             json.dumps(candidate_payload, indent=2),
@@ -4269,12 +5412,52 @@ def _run_ai_validation(
     anchor_texts = _anchor_texts(paper_id, anchors)
     val_result = invoke(
         "ir-validator", model,
-        _ai_validation_prompt(entity_type, candidate_payload, raw_extraction, anchor_texts),
+        _ai_validation_prompt(entity_type, candidate_payload, raw_extraction, anchor_texts,
+                              _treatment_design_context(run_id) if entity_type == "Treatment" else None),
     )
     run_store.save_stage_attempt(run_id, record_key, "ai_validation", attempt, val_result.as_artifact())
-    return val_result.parsed_json or {
+    verdict = val_result.parsed_json or {
         "verdict": "parse_error", "issues": [], "raw_parse_error": val_result.parse_error,
     }
+    return _scope_ai_concerns(verdict)
+
+
+def _treatment_design_context(run_id: str) -> Optional[dict]:
+    """F4: the paper-level factor registry (every factor the run's tables declare: dimensions, levels, tables) for the
+    Treatment validator -- the run already knew "Year" was time in Philippe Tables 1-2 when it validated "Year 2004"
+    as a plausible Treatment. From the cached table pass only; None when the paper has no classified table."""
+    classifications = {key.split("__", 1)[1]: c for key, c in _cached_table_classifications(run_id).items()}
+    if not classifications:
+        return None
+    registry = design.factor_consistency(classifications).to_artifact()["registry"]
+    return {"factors": [{"name": f["name"], "dimensions": f["dimensions"], "levels": f["levels"], "tables": f["tables"]}
+                        for f in registry.values()]}
+
+
+# Phase A3: fields the PIPELINE owns -- a concern about them is never a reason to keep a record from ready. Real case
+# (Smulker-2012-Assessment, run 20260926T024449): the validator objected to the record `id` spelling (the paper folder is
+# "Smulker", the author Smukler), the correction then changed the id, the validator objected to the mismatch, and the
+# whole paper was blocked behind an unresolved Citation.
+PIPELINE_OWNED_FIELDS = frozenset({"id", "record_id", "citation_id", "page_number", "source_document_id"})
+
+
+def _scope_ai_concerns(verdict: dict) -> dict:
+    """The validator's verdict with concerns about pipeline-owned fields removed (kept under `scoped_out`); a
+    "suspicious" verdict left with no concern at all becomes "plausible"."""
+    if not isinstance(verdict, dict) or not isinstance(verdict.get("issues"), list):
+        return verdict
+    kept, scoped_out = [], []
+    for issue in verdict["issues"]:
+        path = str((issue or {}).get("field") or "")
+        parts = set(re.split(r"[.\[\]]", path))
+        (scoped_out if path and parts & PIPELINE_OWNED_FIELDS else kept).append(issue)
+    if not scoped_out:
+        return verdict
+    scoped = {**verdict, "issues": kept, "scoped_out": scoped_out}
+    if verdict.get("verdict") == "suspicious" and not kept:
+        scoped["verdict"] = "plausible"
+        scoped["verdict_before_scoping"] = "suspicious"
+    return scoped
 
 
 def _attempt_ai_validation_correction(
@@ -4319,13 +5502,16 @@ def _attempt_ai_validation_correction(
             "errors": [{"field": None, "message": f"AI-Validator-triggered correction attempt: {conv_result.parse_error}"}],
         }
 
-    corrected_payload = _apply_source_pages(paper_id, conv_result.parsed_json)
+    corrected_payload = coordinates.apply_coordinate_transformations(
+        entity_type, _apply_source_pages(paper_id, conv_result.parsed_json)
+    )
 
     ref_errors = [
         {"field": field, "message": _ref_expectation_message(field, expected, corrected_payload.get(field))}
         for field, expected in (known_refs or {}).items()
         if field in corrected_payload and _ref_mismatch(corrected_payload.get(field), expected)
-    ] + _management_link_errors(entity_type, corrected_payload, candidate_context)
+    ] + _management_link_errors(entity_type, corrected_payload, candidate_context) \
+      + _observation_relationship_errors(entity_type, corrected_payload, candidate_context)
     if ref_errors:
         run_store.save_stage_attempt(
             run_id, record_key, "conversion_validation", stage_counts["conversion"],
@@ -4351,6 +5537,184 @@ def _attempt_ai_validation_correction(
 # --------------------------------------------------------------------------- #
 # Per-record control loop
 # --------------------------------------------------------------------------- #
+
+
+_FACT_INDEX_RE = re.compile(r"^facts[\[.](\d+)")
+REGROUNDING_BLOCK_CHARS = 900
+
+
+
+# --------------------------------------------------------------------------- #
+# Verbatim spans (conversion grounding feedback)
+# --------------------------------------------------------------------------- #
+# Real case (Philippe run 20260927T094252_bcb55cd2): b:0028 reads "Chaîne des Puys"; three conversion retries wrote
+# "Chaène des Puys" (î -> è) and the Site ended unresolved. The retry was shown the whole block but told the problem was
+# "most likely the cited anchor"; nothing pointed at the span the value was meant to copy.
+
+_MISMATCH_RE = re.compile(r"^(?P<path>[\w.\[\]]+): value=(?P<value>'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\") is not supported by block (?P<anchor>b:\d+)")
+
+
+def _closest_span(value: str, text: str, min_ratio: float = 0.75) -> Optional[str]:
+    """The span of `text` (whole words, the value's word count +-1) most similar to `value`, or None below `min_ratio`."""
+    import difflib
+    words = list(re.finditer(r"\S+", text or ""))
+    n = len((value or "").split())
+    if not words or not n:
+        return None
+    best, best_ratio = None, 0.0
+    for size in {max(1, n - 1), n, n + 1}:
+        for i in range(0, len(words) - size + 1):
+            span = text[words[i].start():words[i + size - 1].end()].strip(" ,.;:()")
+            ratio = difflib.SequenceMatcher(None, value.lower(), span.lower()).ratio()
+            if ratio > best_ratio:
+                best, best_ratio = span, ratio
+    return best if best_ratio >= min_ratio else None
+
+
+def _only_non_ascii_letters_differ(value: str, span: str) -> bool:
+    """Same length, and every differing position is a non-ASCII letter on both sides ("Chaène" vs "Chaîne") -- a
+    character the model mangled, never a digit, a word or a unit."""
+    if len(value) != len(span) or value == span:
+        return False
+    return all(a == b or (ord(a) > 127 and ord(b) > 127 and a.isalpha() and b.isalpha()) for a, b in zip(value, span))
+
+
+def _mismatches(errors: list[dict]) -> list[tuple[str, str, str]]:
+    """(field path, value, anchor) of every provenance_value_mismatch error."""
+    import ast
+    out = []
+    for error in errors or []:
+        if error.get("code") != "provenance_value_mismatch":
+            continue
+        match = _MISMATCH_RE.match(error.get("message") or "")
+        if not match:
+            continue
+        try:
+            value = ast.literal_eval(match.group("value"))
+        except (ValueError, SyntaxError):
+            continue
+        if isinstance(value, str):
+            out.append((match.group("path"), value, match.group("anchor")))
+    return out
+
+
+def _verbatim_repairs(paper_id: str, payload: dict, errors: list[dict]) -> Optional[tuple[dict, list[dict]]]:
+    """The payload with each mismatched TOP-LEVEL text value replaced by the cited block's own span, when the two
+    differ only in non-ASCII letters; None when no such repair applies. Recorded, never applied to numbers."""
+    try:
+        blocks = _load_rendered_blocks(paper_id)
+    except FileNotFoundError:
+        return None
+    repaired = json.loads(json.dumps(payload))
+    repairs = []
+    for path, value, anchor in _mismatches(errors):
+        field = repaired.get(path) if "." not in path and "[" not in path else None
+        if not (isinstance(field, dict) and field.get("value") == value):
+            continue
+        span = _closest_span(value, blocks.get(anchor, ""), min_ratio=0.8)
+        if span and _only_non_ascii_letters_differ(value, span):
+            field["value"] = span
+            repairs.append({"field": path, "from": value, "to": span, "anchor": anchor,
+                            "reason": "differs from the cited block's text only in non-ASCII letters; the block's own "
+                                      "characters are used"})
+    return (repaired, repairs) if repairs else None
+
+
+def _closest_span_hints(paper_id: str, errors: list[dict]) -> list[str]:
+    try:
+        blocks = _load_rendered_blocks(paper_id)
+    except FileNotFoundError:
+        return []
+    hints = []
+    for path, value, anchor in _mismatches(errors):
+        span = _closest_span(value, blocks.get(anchor, ""))
+        if span and span != value:
+            hints.append(f"- {path}: you wrote {value!r}; block {anchor} contains {span!r}. If that is the value, copy it "
+                         f"character for character (every accent and symbol as it is); if the block does not state it, "
+                         f"cite the block that does or mark the field UNRESOLVED.")
+    return hints
+
+
+def _split_withdrawals(entries: Optional[list[dict]]) -> dict[str, list[dict]]:
+    """Demotions of optional fields and withdrawals of persistently ungrounded fields travel in one list; a record shows
+    them under their own keys (a withdrawn field can be required -- it is never an 'optional demotion')."""
+    entries = entries or []
+    withdrawn = [e for e in entries if e.get("rule") == "persistently_ungrounded_field"]
+    demoted = [e for e in entries if e.get("rule") != "persistently_ungrounded_field"]
+    return {**({"demoted_optional_fields": demoted} if demoted else {}), **({"withdrawn_fields": withdrawn} if withdrawn else {})}
+
+
+GROUNDING_WITHDRAWAL_AFTER = 2
+
+
+def _withdraw_persistently_ungrounded(
+    payload: Any, errors: list[dict], failures: dict[str, int],
+) -> Optional[tuple[dict, list[dict]]]:
+    """Count this attempt's grounding failures per top-level field; when EVERY error is a grounding error on a
+    value-bearing field (never a bare reference, never a shape error) and at least one of those fields has now failed
+    GROUNDING_WITHDRAWAL_AFTER times, return (payload with each failing field UNRESOLVED -- the error as its reason --,
+    withdrawal log). Otherwise None. The value is withdrawn, never replaced: readiness then decides the record's status,
+    and a record with a withdrawn required field is unresolved with the rest of its payload kept."""
+    if not isinstance(payload, dict) or not errors or _link_policy() != "extract_first_withdrawal":
+        return None
+    failing: dict[str, list[str]] = {}
+    for error in errors:
+        path = _error_field(error)
+        top = re.split(r"[.\[]", path)[0] if path else None
+        entry = payload.get(top) if top else None
+        if not str(error.get("code") or "").startswith("provenance_") or not isinstance(entry, dict) or "value" not in entry:
+            return None
+        failing.setdefault(top, []).append(error.get("message") or "")
+    for top in failing:
+        failures[top] = failures.get(top, 0) + 1
+    if not any(failures[top] >= GROUNDING_WITHDRAWAL_AFTER for top in failing):
+        return None
+    reduced = dict(payload)
+    withdrawn = []
+    for top, messages in sorted(failing.items()):
+        entry = payload[top]
+        reduced[top] = {**entry, "value": None, "provenance_label": "UNRESOLVED",
+                        "unresolved_reason": f"withdrawn: the value never matched its cited text ({messages[0]})"[:1000]}
+        withdrawn.append({"field": top, "value": entry.get("value"), "attempts_failed": failures[top], "errors": messages,
+                          "rule": "persistently_ungrounded_field"})
+    return reduced, withdrawn
+
+
+def _regrounding_guidance(paper_id: str, parsed: Any, errors: list[dict]) -> list[dict]:
+    """Phase A4: for facts whose raw_text_excerpt failed (not in the cited block, or null), one extra retry message
+    that quotes the cited blocks verbatim -- so the next attempt copies a contiguous span from the real text, or cites
+    the block that actually states it, or omits a fact the source does not state. Real cases: Daren N fertilization
+    ("as NH₄NO₃" vs "in the form of NH 4 NO 3", and cited the abstract), repeated null excerpts (Paul / Berntson
+    Species, Daren Variables) until the record ended in error."""
+    facts = (parsed or {}).get("facts") if isinstance(parsed, dict) else None
+    if not isinstance(facts, list):
+        return []
+    anchors: list[str] = []
+    null_excerpt = False
+    for error in errors:
+        match = _FACT_INDEX_RE.match(str(error.get("field") or ""))
+        if not match or int(match.group(1)) >= len(facts) or not isinstance(facts[int(match.group(1))], dict):
+            continue
+        fact = facts[int(match.group(1))]
+        null_excerpt = null_excerpt or not isinstance(fact.get("raw_text_excerpt"), str)
+        anchors += [a for a in (fact.get("anchors") or []) if isinstance(a, str)]
+    if not anchors and not null_excerpt:
+        return []
+    try:
+        blocks = _load_rendered_blocks(paper_id)
+    except FileNotFoundError:
+        return []
+    quoted = []
+    for anchor in dict.fromkeys(a.strip("[]") for a in anchors):
+        if anchor in blocks:
+            text = " ".join(blocks[anchor].split())
+            quoted.append(f"[{anchor}] {text[:REGROUNDING_BLOCK_CHARS]}{' ...' if len(text) > REGROUNDING_BLOCK_CHARS else ''}")
+    message = (
+        "raw_text_excerpt must be a STRING copied character-for-character from the block the fact cites (one contiguous "
+        "span; no rewording, no added words, no units or symbols in a different notation). If the cited block does not "
+        "state the fact, cite the block that does -- or omit the fact; never send null. "
+    ) + ("The blocks you cited read exactly:\n" + "\n".join(quoted) if quoted else "")
+    return [{"field": "facts", "message": message}]
 
 
 def _raw_extraction_grounding_errors(paper_id: str, extraction: RawExtraction) -> list[dict]:
@@ -4736,6 +6100,117 @@ def _demote_auxiliary_payload_fields(
     return {k: v for k, v in payload.items() if k not in bad}, demoted
 
 
+# --- Field-level demotion of an unanswered AI-validator concern (Stage 2) --------------------------------------------
+# Before: when the one bounded correction failed (or the corrected record was still flagged), the WHOLE record went
+# unresolved -- although every one of its values had passed deterministic grounding and the concern was about one field.
+# Real cases (Philippe-2007-Six, run 20260925T132905): Site (concern: coordinates missing; correction then paraphrased
+# soil/description) and Variable Na / Jmax (concern about the name; correction paraphrased). And before THAT, the
+# last-valid payload was committed ready with the concern ignored (Felipe run 20260923T132453: Observations ready with
+# temporal_info UNRESOLVED although the table row states the DAP) -- which is why an omission is only tolerated here for
+# the descriptive/context fields below, never for a record's time, value or identity.
+#
+#   concern about a field that HOLDS a value -> that field becomes UNRESOLVED with the concern as its reason: the doubted
+#                                              claim is withdrawn, the rest of the record keeps its grounded values;
+#   concern about a field's LABEL only       -> EXTRACTED is downgraded to INFERRED (value kept, concern = basis);
+#                                              an INFERRED field stays INFERRED (a stronger claim is never granted
+#                                              on the validator's word) with the concern kept open;
+#   concern about an EMPTY field (omission)  -> tolerated only for OMISSION_TOLERATED_FIELDS, kept as an open concern;
+#   concern with no field, about a bare reference, or an omission of any other field -> no demotion (unchanged outcome).
+# The demoted payload goes through the same deterministic validation and readiness; nothing is committed on the
+# validator's word, and no further model call is made.
+OMISSION_TOLERATED_FIELDS: dict[str, frozenset[str]] = {
+    "Site": frozenset({"latitude", "longitude", "elevation", "soil_context", "description", "nearest_city", "country",
+                       "state_or_region"}),
+    "Variable": frozenset({"description", "units", "notes"}),
+    "Method": frozenset({"description"}),
+    "Species": frozenset({"common_name"}),
+    "Crop": frozenset({"common_name", "notes"}),
+    "Citation": frozenset({"persistent_identifier"}),
+    "Treatment": frozenset({"control_status"}),
+    "Observation": frozenset({"notes", "replicate_id"}),
+}
+
+
+_NAMING_STYLE_RE = re.compile(
+    r"\b(omit\w*|lacks?|missing (?:the )?(?:qualifier|word|prefix|context)|qualifier|incomplete|more (?:specific|descriptive|complete)"
+    r"|full(?:er)? (?:name|form|term)|abbreviat\w*|shortened|less specific|does not (?:fully )?(?:reflect|capture))\b", re.I)
+_BRACKET_PAIRS = (("(", ")"), ("[", "]"), ("{", "}"))
+
+
+def _is_naming_style_concern(concern: str) -> bool:
+    return bool(_NAMING_STYLE_RE.search(concern or ""))
+
+
+def _balanced(text: str) -> bool:
+    """False for a truncated name such as "maximum electron transport rate (Jmax" (Philippe run 20260925T132905)."""
+    return all(text.count(a) == text.count(b) for a, b in _BRACKET_PAIRS) and text.count("$") % 2 == 0
+
+
+def _demote_concerned_fields(
+    entity_type: str, payload: dict, ai_validation: dict,
+) -> Optional[tuple[dict, list[dict], list[dict]]]:
+    """(payload with each concerned value-bearing field UNRESOLVED, demotions, open omission concerns), or None when
+    any concern cannot be settled at field level."""
+    issues = [i for i in (ai_validation or {}).get("issues") or [] if isinstance(i, dict)]
+    if not issues or not isinstance(payload, dict):
+        return None
+    demoted_payload = copy.deepcopy(payload)
+    demotions: list[dict] = []
+    open_concerns: list[dict] = []
+    tolerated = OMISSION_TOLERATED_FIELDS.get(entity_type, frozenset())
+    for issue in issues:
+        path = issue.get("field")
+        concern = str(issue.get("concern") or "").strip()
+        if not path or not concern:
+            return None
+        top = re.split(r"[.\[]", str(path))[0]
+        entry = demoted_payload.get(top)
+        if isinstance(entry, dict) and "provenance_label" in entry:
+            label_concern = str(path).endswith((".provenance_label", ".unresolved_reason"))
+            if label_concern and entry.get("provenance_label") == "INFERRED" and entry.get("value") is not None:
+                # Already the weaker claim. A concern about its label or its basis note (real case Felipe-2010-Cultivar
+                # bed_preparation: "should be EXTRACTED rather than INFERRED") asks for a STRONGER claim, which is never
+                # granted on the validator's word: the value stays INFERRED, the concern stays open for review.
+                open_concerns.append({"field": top, "concern": concern, "rule": "label_concern_kept_weaker"})
+                continue
+            if (str(path).endswith(".provenance_label") and entry.get("provenance_label") == "EXTRACTED"
+                    and entry.get("value") is not None):
+                # The concern is about the LABEL, not the value (real case Daren-1997-Canopy Species: genus/epithet
+                # derived from "Panicum virgatum L." but labelled EXTRACTED): downgrade to INFERRED, the weaker claim,
+                # with the concern as its inference basis. The value keeps the grounding it already passed.
+                demotions.append({"field": top, "value": entry.get("value"), "concern": concern,
+                                  "rule": "ai_concern_label_downgraded"})
+                demoted_payload[top] = {
+                    **entry, "provenance_label": "INFERRED",
+                    "unresolved_reason": f"AI validator concern (label downgraded to INFERRED): {concern}"[:1000],
+                }
+                continue
+            if (entity_type in ("Variable", "Method") and top == "name" and isinstance(entry.get("value"), str)
+                    and _is_naming_style_concern(concern) and _balanced(entry["value"])):
+                # Phase A3: a grounded name the validator would merely phrase differently ("omits the qualifier
+                # 'soil'") keeps its value; the concern stays open for review. Real cost before: 16 Felipe Variables
+                # (run 20260926T002842) lost their grounded names. A TRUNCATED value is still withdrawn below.
+                open_concerns.append({"field": top, "concern": concern, "rule": "style_concern_kept"})
+                continue
+            if entry.get("provenance_label") in ("EXTRACTED", "INFERRED") and entry.get("value") is not None:
+                demotions.append({"field": top, "value": entry.get("value"), "concern": concern,
+                                  "rule": "ai_concern_value_withdrawn"})
+                demoted_payload[top] = {
+                    **entry, "value": None, "provenance_label": "UNRESOLVED",
+                    "unresolved_reason": f"AI validator concern (value withdrawn): {concern}"[:1000],
+                }
+                continue
+            if top in tolerated:     # already UNRESOLVED/empty: an omission
+                open_concerns.append({"field": top, "concern": concern, "rule": "omission_tolerated"})
+                continue
+            return None
+        if entry is None and top in tolerated:
+            open_concerns.append({"field": top, "concern": concern, "rule": "omission_tolerated"})
+            continue
+        return None                  # a bare reference, a list/plain field, or an omission of a non-tolerated field
+    return demoted_payload, demotions, open_concerns
+
+
 @dataclass
 class RecordResult:
     status: str  # "ready" | "unresolved" | "error"
@@ -4758,6 +6233,66 @@ def run_record(
     extraction_context: Optional[str] = None,
     known_value: Optional[str] = None,
     candidate_context: Optional[dict[str, Any]] = None,
+    evidence_seeds: Optional[list[str]] = None,
+    evidence_target: Optional[str] = None,
+    evidence_bundle: Optional[Any] = None,
+    pending_prerequisites: Optional[dict[str, dict]] = None,
+) -> RecordResult:
+    """One record, end to end. Stage 4: before extraction, the record's evidence packet (`context_bundle`) is built
+    deterministically from the Document Map -- seeded with the candidate's own anchors, conditioned on its target -- and
+    handed to the extractor; the packet is saved as a stage artifact and its coverage audit travels with the record so
+    an unresolved outcome can say whether the evidence was retrieved, absent, or retrieved but not resolved."""
+    bundle = evidence_bundle   # Phase D: an Observation's packet is composed upstream from its experimental context
+    if bundle is None and entity_type != "Citation":
+        try:
+            bundle = context_bundle.build_context_bundle(
+                paper_id, entity_type, "extraction", target=evidence_target, seed_anchors=evidence_seeds or (),
+                papers_root=_papers_root(),
+            )
+        except Exception as exc:  # a packet is an aid, never a reason to lose the record
+            bundle = None
+            run_store.save_stage_attempt(run_id, f"{entity_type}__{record_id}", "context_bundle_error", 1,
+                                         {"error": f"{type(exc).__name__}: {exc}"})
+    if bundle is not None:
+        run_store.save_stage_attempt(run_id, f"{entity_type}__{record_id}", "context_bundle", 1, bundle.to_dict())
+    result = _run_record_inner(
+        run_id=run_id, paper_id=paper_id, entity_type=entity_type, record_id=record_id, model=model, client=client,
+        invoke=invoke, enable_ai_validation=enable_ai_validation, known_refs=known_refs,
+        extraction_context=extraction_context, known_value=known_value, candidate_context=candidate_context,
+        evidence_packet=bundle.render() if bundle is not None else None,
+        pending_prerequisites=pending_prerequisites,
+    )
+    if pending_prerequisites and isinstance(result.detail, dict) and "pending_links" not in result.detail:
+        payload = result.detail.get("payload") or result.detail.get("last_candidate_payload")
+        links = _pending_refs(payload, pending_prerequisites, entity_type)
+        if links:
+            result.detail["pending_links"] = links
+            run_store.save_final(run_id, f"{entity_type}__{record_id}", result.detail)
+    if bundle is not None and isinstance(result.detail, dict):
+        result.detail["context_bundle"] = {
+            "bundle_id": bundle.bundle_id,
+            "coverage": {entry.concept: entry.status for entry in bundle.coverage},
+        }
+        run_store.save_final(run_id, f"{entity_type}__{record_id}", result.detail)
+    return result
+
+
+def _run_record_inner(
+    *,
+    run_id: str,
+    paper_id: str,
+    entity_type: str,
+    record_id: str,
+    model: str,
+    client: IRServiceClient,
+    invoke: Callable[..., AgentInvocation] = invoke_agent,
+    enable_ai_validation: bool = True,
+    known_refs: Optional[dict[str, str]] = None,
+    extraction_context: Optional[str] = None,
+    known_value: Optional[str] = None,
+    candidate_context: Optional[dict[str, Any]] = None,
+    evidence_packet: Optional[str] = None,
+    pending_prerequisites: Optional[dict[str, dict]] = None,
 ) -> RecordResult:
     record_key = f"{entity_type}__{record_id}"
     stage_counts = {"extraction": 0, "conversion": 0, "ai_validation": 0}
@@ -4792,28 +6327,61 @@ def run_record(
     numbered = 0
     attempt = 0  # every invocation round: the artifact index
     provider_terminal = False
+    # Citation only (see the "Citation: front matter supplied" section): supplied front matter and NOT WRITTEN entries.
+    # Every entity type: a stall gets a targeted final-answer retry (see "No-answer turns: a stall is not an outage").
+    is_citation = entity_type == "Citation"
+    supplied_context = _citation_extraction_note(paper_id) if is_citation else (evidence_packet or "")
+    stalls = 0
+    stall_terminal = False
+    final_answer_nudge = False
+    not_written: list[dict] = []
     while numbered < MAX_EXTRACTION_ATTEMPTS:
         attempt += 1
         stage_counts["extraction"] = attempt
         result = invoke(
             "extractor", model,
-            _extraction_prompt(paper_id, entity_type, record_id, extraction_errors, extraction_context),
+            _extraction_prompt(
+                paper_id, entity_type, record_id, extraction_errors, extraction_context,
+                supplied_context=supplied_context or None, final_answer_nudge=final_answer_nudge,
+            ),
         )
         artifact = result.as_artifact()
 
+        if _ended_without_answer_after_tools(result):
+            # A stall is the model's behaviour, not the provider's: it neither spends the provider budget nor a numbered
+            # attempt, and the next round is a short targeted instruction to answer now -- never the same prompt again.
+            stalls += 1
+            tool_calls = [{"tool": e["tool"], "status": e["status"]} for e in _tool_events(result.stdout)]
+            artifact["validation_errors"] = [{"field": None, "message": "the model used tools and ended without a final answer"}]
+            artifact.update(failure_class="no_final_answer", failure_kind="extraction", numbered_attempt=None, tool_calls=tool_calls)
+            run_store.save_stage_attempt(run_id, record_key, "extraction", attempt, artifact)
+            stall_limit = MAX_CITATION_FINAL_ANSWER_RETRIES if is_citation else MAX_FINAL_ANSWER_RETRIES
+            last_extraction_message = (
+                f"round {attempt}: no final answer after {len(tool_calls)} tool call(s) "
+                f"({stalls} stall(s); {stall_limit} targeted retries allowed)"
+            )
+            stall_terminal = stalls > stall_limit
+            _record_stall(run_id, "extraction", record_key, stall_terminal)
+            if stall_terminal:
+                break
+            final_answer_nudge = True
+            continue
+
         failure = _provider_failure(result)
         if failure:
-            # No answer to correct: the model gets no feedback, the next round repeats the same prompt.
+            # No answer to correct: the model gets no feedback about it. After an outage the same prompt is repeated
+            # after a cooldown; after a failure that is not an outage, immediately, asking for the answer directly.
             if result.had_malformed_tool_call:
                 any_malformed_tool_call_failure = True
             artifact["validation_errors"] = [{"field": None, "message": result.parse_error}]
             artifact.update(failure_class=failure, failure_kind="provider", numbered_attempt=None)
             run_store.save_stage_attempt(run_id, record_key, "extraction", attempt, artifact)
             last_extraction_message = f"round {attempt}: provider failure ({failure}): {result.parse_error}"
-            if provider.failed(failure):
+            if provider.failed(failure, result):
                 provider_terminal = True
                 break
             provider.cooldown()
+            final_answer_nudge = final_answer_nudge or provider.needs_answer_nudge()
             continue
         numbered += 1
 
@@ -4841,6 +6409,7 @@ def run_record(
                 extraction_errors = [
                     {"field": ".".join(str(p) for p in err["loc"]), "message": err["msg"]} for err in exc.errors()
                 ]
+                extraction_errors += _regrounding_guidance(paper_id, result.parsed_json, extraction_errors)
                 artifact["validation_errors"] = extraction_errors
                 run_store.save_stage_attempt(run_id, record_key, "extraction", attempt, artifact)
                 last_extraction_message = f"attempt {attempt}: RawExtraction shape validation failed: {extraction_errors}"
@@ -4869,7 +6438,7 @@ def run_record(
             artifact["dropped_ungrounded_facts"] = shape_dropped + artifact.get("dropped_ungrounded_facts", [])
         if grounding_errors:
             saw_genuine_content_failure = True
-            extraction_errors = grounding_errors
+            extraction_errors = grounding_errors + _regrounding_guidance(paper_id, result.parsed_json, grounding_errors)
             artifact["validation_errors"] = extraction_errors
             run_store.save_stage_attempt(run_id, record_key, "extraction", attempt, artifact)
             last_extraction_message = f"attempt {attempt}: raw evidence grounding failed: {extraction_errors}"
@@ -4896,17 +6465,37 @@ def run_record(
             last_extraction_message = f"attempt {attempt}: known-value cross-check failed (expected {known_value!r})"
             continue
 
+        if is_citation:
+            not_written, written_but_missing = _citation_not_written(paper_id, validated)
+            if written_but_missing:
+                saw_genuine_content_failure = True
+                extraction_errors = written_but_missing
+                artifact["validation_errors"] = extraction_errors
+                run_store.save_stage_attempt(run_id, record_key, "extraction", attempt, artifact)
+                last_extraction_message = f"attempt {attempt}: a DOI written on the first page was not reported"
+                continue
+            if not_written:
+                artifact["not_written"] = not_written
+
         artifact["validation_errors"] = []
         run_store.save_stage_attempt(run_id, record_key, "extraction", attempt, artifact)
         raw_extraction = validated.model_dump()
+        if not_written:
+            # Orchestrator-authored and labelled as such: a semantic "the paper does not write this" state for
+            # Conversion, never a fact and never evidence (all_anchors reads `facts` only).
+            raw_extraction["orchestrator_not_written"] = not_written
         dropped_ungrounded_facts = artifact.get("dropped_ungrounded_facts", [])
         break
 
     if provider.rounds:
         stage_counts["provider_failure_rounds"] = provider.rounds
+    if stalls:
+        stage_counts["final_answer_retries"] = min(stalls, MAX_CITATION_FINAL_ANSWER_RETRIES if is_citation else MAX_FINAL_ANSWER_RETRIES)
     if raw_extraction is None:
         if saw_genuine_content_failure:
             failure_class = None
+        elif stall_terminal:
+            failure_class = "no_final_answer"   # the model's behaviour, disclosed as such -- never a provider failure
         elif any_malformed_tool_call_failure:
             failure_class = "provider_malformed_response"
         else:
@@ -4976,6 +6565,10 @@ def run_record(
     candidate_payload: Optional[dict] = None
     propose_result: Optional[dict] = None
     previous_error_signature: Optional[frozenset] = None
+    conversion_nudge = False            # the round after a no-answer turn asks for the answer now
+    conversion_no_answers = 0
+    conversion_no_answer_last = False
+    grounding_failures: dict[str, int] = {}     # top-level field -> conversion attempts it failed grounding in
     for attempt in range(1, MAX_CONVERSION_LOOP_SAFETY + 1):
         if propose_result is not None:
             # Real Oceologia-1998 Observation runs (Phase C investigation,
@@ -5003,22 +6596,52 @@ def run_record(
             # frees the remaining turn-cap budget rather than spending it on
             # a call very unlikely to produce a different outcome.
             current_signature = _error_signature(last_errors)
-            if current_signature is not None and current_signature == previous_error_signature:
+            if not conversion_no_answer_last and current_signature is not None and current_signature == previous_error_signature:
                 break
             previous_error_signature = current_signature
 
         stage_counts["conversion"] = attempt
         conv_result = invoke(
             "converter", model,
-            _conversion_prompt(paper_id, entity_type, record_id, raw_extraction, last_errors, known_refs, candidate_context),
+            _conversion_prompt(paper_id, entity_type, record_id, raw_extraction, last_errors, known_refs, candidate_context)
+            + (f"\n\n{_final_answer_nudge('conversion')}" if conversion_nudge else ""),
         )
-        run_store.save_stage_attempt(run_id, record_key, "conversion", attempt, conv_result.as_artifact())
+        conv_artifact = conv_result.as_artifact()
+        conversion_no_answer_last = False
+
+        no_answer = "no_final_answer" if _ended_without_answer_after_tools(conv_result) else _provider_failure(conv_result)
+        if no_answer:
+            # No answer at all (a stall or a provider-classed failure): the previous round's real validation feedback is
+            # kept, the next round asks for the answer now, and this round never counts as a stagnating error. Bounded by
+            # MAX_FINAL_ANSWER_RETRIES; an outage (`_outage_evidence`) is waited out first.
+            conversion_no_answers += 1
+            conv_artifact.update(failure_class=no_answer, failure_kind="extraction" if no_answer == "no_final_answer" else "provider")
+            run_store.save_stage_attempt(run_id, record_key, "conversion", attempt, conv_artifact)
+            stage_counts["conversion_no_answer_rounds"] = conversion_no_answers
+            if no_answer == "no_final_answer":
+                _record_stall(run_id, "conversion", record_key, conversion_no_answers > MAX_FINAL_ANSWER_RETRIES)
+            if conversion_no_answers > MAX_FINAL_ANSWER_RETRIES or no_answer == "provider_unavailable":
+                last_errors = last_errors or [{"field": None, "message": f"conversion produced no answer ({no_answer})"}]
+                break
+            if no_answer != "no_final_answer" and _outage_evidence(conv_result):
+                time.sleep(provider_cooldown_seconds(conversion_no_answers))
+            conversion_nudge = True
+            conversion_no_answer_last = True
+            continue
+        run_store.save_stage_attempt(run_id, record_key, "conversion", attempt, conv_artifact)
 
         if conv_result.parsed_json is None:
             last_errors = [{"field": None, "message": f"conversion attempt {attempt}: {conv_result.parse_error}"}]
             continue
 
-        candidate_payload = _apply_source_pages(paper_id, conv_result.parsed_json)
+        # Deterministic, downstream: page numbers from provenance, coordinate decimals from the quoted text.
+        candidate_payload = coordinates.apply_coordinate_transformations(
+            entity_type, _apply_source_pages(paper_id, conv_result.parsed_json)
+        )
+        injected = _inject_fault(entity_type, candidate_payload)
+        if injected is not None:
+            candidate_payload, fault = injected
+            run_store.save_stage_attempt(run_id, record_key, "injected_fault", attempt, fault)
 
         # Deterministic cross-check against known_refs, before spending a
         # propose_record attempt: a bare ExtractedReference field
@@ -5030,7 +6653,8 @@ def run_record(
             {"field": field, "message": _ref_expectation_message(field, expected, candidate_payload.get(field))}
             for field, expected in (known_refs or {}).items()
             if field in candidate_payload and _ref_mismatch(candidate_payload.get(field), expected)
-        ] + _management_link_errors(entity_type, candidate_payload, candidate_context)
+        ] + _management_link_errors(entity_type, candidate_payload, candidate_context) \
+      + _observation_relationship_errors(entity_type, candidate_payload, candidate_context)
         if ref_errors:
             run_store.save_stage_attempt(
                 run_id, record_key, "conversion_validation", attempt,
@@ -5050,6 +6674,40 @@ def run_record(
         last_errors = propose_result.get("errors", [])
         if propose_result.get("forced_flag_unresolved"):
             break
+        # A value that differs from its cited block only in mangled non-ASCII letters takes the block's own characters
+        # (recorded) and is re-proposed -- no model call.
+        verbatim = _verbatim_repairs(paper_id, candidate_payload, last_errors)
+        if verbatim is not None:
+            repaired_payload, repairs = verbatim
+            reproposal = client.propose_record(
+                paper_id=paper_id, entity_type=entity_type, record_id=record_id, payload=repaired_payload, run_id=run_id,
+            )
+            run_store.save_stage_attempt(
+                run_id, record_key, "conversion_verbatim_repair", attempt, {"repairs": repairs, "reproposal": reproposal},
+            )
+            if reproposal.get("valid"):
+                candidate_payload, propose_result = repaired_payload, reproposal
+                break
+            if not reproposal.get("forced_flag_unresolved"):
+                candidate_payload, propose_result = repaired_payload, reproposal
+                last_errors = reproposal.get("errors", [])
+        # A field that keeps failing grounding is withdrawn (UNRESOLVED, the error as its reason) and the rest of the
+        # record re-proposed -- one bad field never costs the grounded ones (Philippe run 20260927T094252_bcb55cd2: the
+        # Site name failed 4 times, the whole Site -- coordinates, elevation, soil all grounded -- went unresolved with
+        # no committed payload, and everything depending on the Site was blocked).
+        withdrawal = _withdraw_persistently_ungrounded(candidate_payload, last_errors, grounding_failures)
+        if withdrawal is not None and (propose_result.get("attempts_remaining") or 0) > 0:
+            reduced_payload, withdrawn = withdrawal
+            reproposal = client.propose_record(
+                paper_id=paper_id, entity_type=entity_type, record_id=record_id, payload=reduced_payload, run_id=run_id,
+            )
+            run_store.save_stage_attempt(
+                run_id, record_key, "conversion_withdrawal", attempt, {"withdrawn": withdrawn, "reproposal": reproposal},
+            )
+            if reproposal.get("valid"):
+                candidate_payload, propose_result = reduced_payload, reproposal
+                demoted_optional_fields.extend(withdrawn)
+                break
         # Fix 3 (conversion side): when EVERY error is about a descriptive optional field, that field is demoted
         # (removed) and logged, and the remainder is re-proposed -- the deterministic validator then proves identity
         # and value grounded. Nothing else about the retry behaviour changes.
@@ -5087,6 +6745,9 @@ def run_record(
 
     # --- Stage 4: AI Validator (Phase 1D: wired -- one bounded correction) ---
     ai_validation: Optional[dict] = None
+    field_demotions: list[dict] = []
+    open_concerns: list[dict] = []
+    settled: Optional[dict] = None
     if enable_ai_validation:
         stage_counts["ai_validation"] = 1
         ai_validation = _run_ai_validation(
@@ -5116,27 +6777,59 @@ def run_record(
                 stage_counts=stage_counts, candidate_context=candidate_context,
             )
             if not correction["ok"]:
-                # The correction itself failed deterministic validation (or
-                # crashed) -- never discard the previously deterministic-
-                # valid payload for that. Fall back to it and commit it,
-                # still carrying its own (suspicious) verdict for
-                # transparency -- this is not silently accepting the failed
-                # correction, it is refusing it and keeping the evidence-
-                # grounded value the deterministic validator already
-                # confirmed. The rejected correction attempt and exactly why
-                # it failed remain on disk under this run_id regardless
-                # (run_store captured it above, unconditionally).
-                candidate_payload = last_known_good_payload
-                ai_validation = last_known_good_ai_validation
+                settled = _settle_by_field_demotion(
+                    client, run_id, record_key, paper_id, entity_type, record_id,
+                    last_known_good_payload, last_known_good_ai_validation, stage_counts,
+                )
+                if settled is not None and not settled["ready"]:
+                    return _finalize_not_ready(
+                        run_id, client, paper_id, entity_type, record_id, record_key, settled["payload"],
+                        settled["readiness"], stage_counts, dropped_ungrounded_facts, demoted_optional_fields,
+                    )
+                if settled is not None:
+                    candidate_payload, ai_validation = settled["payload"], last_known_good_ai_validation
+                    field_demotions, open_concerns = settled["demotions"], settled["open_concerns"]
+                if settled is None:
+                    # The correction itself failed deterministic validation (or
+                    # crashed). The previously deterministic-valid payload is kept
+                    # -- never discarded for that -- but it is NOT committed as
+                    # ready: the AI Validator's concern was never answered, so the
+                    # record is committed as `unresolved` with its payload, the
+                    # concerns and the failed correction's errors as the reason
+                    # (same result shape as `_finalize_not_ready`). Real evidence
+                    # (Felipe-2010-Cultivar, run 20260923T132453_7595c3bf): six
+                    # records were committed ready this way while their final
+                    # verdict was "suspicious" -- two of them with temporal_info
+                    # UNRESOLVED although the table row states the DAP.
+                    return _finalize_suspicious(
+                        run_id, client, paper_id, entity_type, record_id, record_key,
+                        last_known_good_payload, last_known_good_ai_validation,
+                        correction.get("errors") or [], stage_counts, dropped_ungrounded_facts,
+                    )
             else:
                 candidate_payload = correction["payload"]
                 ai_validation = correction["ai_validation"]
+                settled = None
                 if ai_validation.get("verdict") == "suspicious":
+                    settled = _settle_by_field_demotion(
+                        client, run_id, record_key, paper_id, entity_type, record_id,
+                        candidate_payload, ai_validation, stage_counts,
+                    )
+                    if settled is not None and not settled["ready"]:
+                        return _finalize_not_ready(
+                            run_id, client, paper_id, entity_type, record_id, record_key, settled["payload"],
+                            settled["readiness"], stage_counts, dropped_ungrounded_facts, demoted_optional_fields,
+                        )
+                    if settled is not None:
+                        candidate_payload = settled["payload"]
+                        field_demotions, open_concerns = settled["demotions"], settled["open_concerns"]
+                if ai_validation.get("verdict") == "suspicious" and settled is None:
                     # Different from the branch above: HERE the correction
                     # DID pass deterministic validation, so there is no
                     # provenance-truth conflict to refuse -- it's simply
                     # still flagged after the one bounded attempt is
-                    # exhausted (MAX_AI_VALIDATION_CORRECTIONS == 1). Do not
+                    # exhausted (MAX_AI_VALIDATION_CORRECTIONS == 1), and the
+                    # concern could not be settled field by field. Do not
                     # force a value; preserve unresolved semantics exactly
                     # as before.
                     return _finalize_unresolved(
@@ -5149,6 +6842,25 @@ def run_record(
                         }],
                         stage_counts,
                     )
+
+    # --- Extract first, link later: a record referencing a PENDING prerequisite is never ready ---
+    pending_links = _pending_refs(candidate_payload, pending_prerequisites, entity_type)
+    if pending_links:
+        readiness = [{
+            "code": f"{field}_prerequisite_pending",
+            "message": (f"{field} is {ref}, which is {pending_prerequisites[ref]['status']} in this run: every other "
+                        f"value of this record is extracted and validated; it becomes ready once that "
+                        f"{pending_prerequisites[ref]['prerequisite']} is"),
+        } for field, ref in sorted(pending_links.items())]
+        result = _finalize_not_ready(
+            run_id, client, paper_id, entity_type, record_id, record_key, candidate_payload, readiness,
+            stage_counts, dropped_ungrounded_facts, demoted_optional_fields,
+        )
+        result.detail.update(unresolved_cause=causes.BLOCKED_PREREQUISITE, pending_links=pending_links)
+        if ai_validation is not None:
+            result.detail["ai_validation"] = ai_validation
+        run_store.save_final(run_id, record_key, result.detail)
+        return result
 
     # --- Commit ---
     commit_result = client.commit_record(
@@ -5171,16 +6883,49 @@ def run_record(
         final_record["hint_flags"] = hint_flags
     if dropped_ungrounded_facts:
         final_record["dropped_ungrounded_facts"] = dropped_ungrounded_facts
-    if demoted_optional_fields:
-        final_record["demoted_optional_fields"] = demoted_optional_fields
+    final_record.update(_split_withdrawals(demoted_optional_fields))
+    if not_written:
+        final_record["not_written"] = not_written
+    if field_demotions:
+        final_record["field_demotions"] = field_demotions
+    if open_concerns:
+        final_record["open_concerns"] = open_concerns
     run_store.save_final(run_id, record_key, final_record)
     run_store.save_record_manifest(run_id, record_key, {
         "entity_type": entity_type, "record_id": record_id, "status": outcome,
         "attempts": stage_counts,
         **({"dropped_ungrounded_facts": len(dropped_ungrounded_facts)} if dropped_ungrounded_facts else {}),
-        **({"demoted_optional_fields": [d["field"] for d in demoted_optional_fields]} if demoted_optional_fields else {}),
+        **{k: [d["field"] for d in v] for k, v in _split_withdrawals(demoted_optional_fields).items()},
+        **({"field_demotions": [d["field"] for d in field_demotions]} if field_demotions else {}),
+        **({"open_concerns": [c["field"] for c in open_concerns]} if open_concerns else {}),
     })
     return RecordResult(status=outcome, entity_type=entity_type, record_id=record_id, detail=final_record)
+
+
+def _settle_by_field_demotion(
+    client: IRServiceClient, run_id: str, record_key: str, paper_id: str, entity_type: str, record_id: str,
+    payload: dict, ai_validation: dict, stage_counts: dict,
+) -> Optional[dict]:
+    """Apply `_demote_concerned_fields` and re-run the SAME deterministic validation (propose_record) on the result.
+    None when the concerns cannot be settled field by field or the demoted payload is not valid; otherwise
+    {payload, ready, readiness, demotions, open_concerns}. Recorded as its own stage attempt."""
+    demotion = _demote_concerned_fields(entity_type, payload, ai_validation)
+    if demotion is None:
+        return None
+    demoted_payload, demotions, open_concerns = demotion
+    proposal = client.propose_record(
+        paper_id=paper_id, entity_type=entity_type, record_id=record_id, payload=demoted_payload, run_id=run_id,
+    )
+    stage_counts["ai_field_demotion"] = stage_counts.get("ai_field_demotion", 0) + 1
+    run_store.save_stage_attempt(run_id, record_key, "ai_field_demotion", stage_counts["ai_field_demotion"], {
+        "demotions": demotions, "open_concerns": open_concerns, "proposal": proposal,
+    })
+    if not proposal.get("valid"):
+        return None
+    return {
+        "payload": demoted_payload, "ready": bool(proposal.get("ready", True)),
+        "readiness": proposal.get("readiness_issues") or [], "demotions": demotions, "open_concerns": open_concerns,
+    }
 
 
 def _finalize_not_ready(
@@ -5206,12 +6951,48 @@ def _finalize_not_ready(
     }
     if dropped_ungrounded_facts:
         final_record["dropped_ungrounded_facts"] = dropped_ungrounded_facts
-    if demoted_optional_fields:
-        final_record["demoted_optional_fields"] = demoted_optional_fields
+    final_record.update(_split_withdrawals(demoted_optional_fields))
     run_store.save_final(run_id, record_key, final_record)
     run_store.save_record_manifest(run_id, record_key, {
         "entity_type": entity_type, "record_id": record_id, "status": "unresolved", "attempts": stage_counts,
         "not_ready": [issue.get("code") for issue in readiness],
+    })
+    return RecordResult(status="unresolved", entity_type=entity_type, record_id=record_id, detail=final_record)
+
+
+def _finalize_suspicious(
+    run_id: str, client: IRServiceClient, paper_id: str, entity_type: str, record_id: str, record_key: str,
+    candidate_payload: dict, ai_validation: dict, correction_errors: list[dict], stage_counts: dict,
+    dropped_ungrounded_facts: list[dict],
+) -> RecordResult:
+    """A deterministic-valid record the AI Validator judged suspicious, whose one correction attempt failed: committed as
+    `unresolved` with its payload kept (for review), never as ready. The reasons are the validator's concerns and why
+    the correction was rejected."""
+    concerns = [
+        {"field": issue.get("field"), "message": f"AI Validator concern: {issue.get('concern')}"}
+        for issue in (ai_validation.get("issues") or [])
+    ] or [{"field": None, "message": "AI Validator judged this record suspicious."}]
+    last_errors = concerns + [
+        {"field": e.get("field"), "message": f"correction rejected: {e.get('message')}"} for e in correction_errors
+    ]
+    commit_result = client.commit_record(
+        paper_id=paper_id, entity_type=entity_type, record_id=record_id,
+        payload=candidate_payload, status="unresolved",
+        run_metadata={"run_id": run_id, "schema_version": schema_fingerprint(), "ai_validation": ai_validation},
+    )
+    final_record = {
+        "status": "unresolved",
+        "paper_id": paper_id, "entity_type": entity_type, "record_id": record_id,
+        "payload": candidate_payload, "last_candidate_payload": candidate_payload,
+        "last_errors": last_errors, "ai_validation": ai_validation, "commit_result": commit_result,
+        "unresolved_by": "ai_validation",
+    }
+    if dropped_ungrounded_facts:
+        final_record["dropped_ungrounded_facts"] = dropped_ungrounded_facts
+    run_store.save_final(run_id, record_key, final_record)
+    run_store.save_record_manifest(run_id, record_key, {
+        "entity_type": entity_type, "record_id": record_id, "status": "unresolved", "attempts": stage_counts,
+        "unresolved_by": "ai_validation",
     })
     return RecordResult(status="unresolved", entity_type=entity_type, record_id=record_id, detail=final_record)
 
@@ -5498,7 +7279,7 @@ def _resolve_known_refs(
             required_counts[prereq_type] = required_counts.get(prereq_type, 0) + 1
 
     for prereq_type, needed in required_counts.items():
-        ready = _ready_records(this_run_records, prereq_type)
+        ready = _referenceable_records(this_run_records, prereq_type)
         if needed > 1:
             if len(ready) < needed:
                 return None, (
@@ -5518,7 +7299,7 @@ def _resolve_known_refs(
     known_refs: dict[str, str] = {}
     consumed: dict[str, int] = {}
     for field, prereq_type, required in deps:
-        ready = _ready_records(this_run_records, prereq_type)
+        ready = _referenceable_records(this_run_records, prereq_type)
         if required_counts.get(prereq_type, 0) > 1:
             # Multiple DISTINCT slots on THIS entity for the same
             # prerequisite type (e.g. TreatmentPair.treatment_id_1/2, both
@@ -5550,9 +7331,12 @@ def _resolve_known_refs(
                 idx = consumed.get(prereq_type, 0)
                 known_refs[field] = ready[idx]["record_id"]
                 consumed[prereq_type] = idx + 1
-        elif len(ready) == 1:
-            # Exactly one ready record of this type -- byte-identical
-            # resolution to before multi-record types existed.
+        elif len(ready) == 1 and _pool_complete(this_run_records, prereq_type):
+            # Exactly one ready record of this type, and it is the ONLY one the run attempted. When other records of a
+            # multi-record type were attempted and are not referenceable, the one that is ready is not "the" record --
+            # binding to it is binding by elimination (Philippe run 20260926T190955_435c16fa: 2 of 3 PAR Treatments
+            # failed readiness, and all 30 ready Observations, PAR 0-0.1 rows and Year rows included, were bound to the
+            # third). Left to `_apply_candidate_links`, which binds only on the candidate's own verified link.
             known_refs[field] = ready[0]["record_id"]
         # 0 ready -> omit, unchanged from before ("not attempted"/not ready).
         # >1 ready with only a single slot for this type on this entity (a
@@ -5581,6 +7365,86 @@ def _ready_records(this_run_records: dict, prereq_type: str) -> list[dict]:
         return []
     records = available if isinstance(available, list) else [available]
     return [r for r in records if r.get("status") == "ready"]
+
+
+# --- Identity-based prerequisites (Stage 2) ------------------------------------------------------------------------
+# A CONTEXT prerequisite is needed for WHICH thing a record is about, not for its scientific meaning: an Observation made
+# at a site whose coordinates could not be captured is still an observation at that site. Before this, a Site that went
+# unresolved over its coordinates (Philippe-2007-Six, Kathryn-2020-Winter) blocked every Treatment, Observation and
+# Coverage of the paper, and a Species flagged over its epithet blocked every Crop (Daren-1997-Canopy) -- unrelated
+# records lost to one missing detail (replay baseline: 5 of 20 losses).
+#
+# Such a record may be REFERENCED once its identity is established: it was committed with a deterministically valid
+# payload (a `payload` in its detail -- never a payload that failed validation), at least one identity field is
+# EXTRACTED/INFERRED with a value, and no open concern is about an identity field. Treatment and Method are
+# deliberately NOT listed: they are the scientific links of an Observation, so they must still be ready.
+IDENTITY_REFERENCEABLE_FIELDS: dict[str, tuple[str, ...]] = {
+    "Citation": ("title",),
+    "Site": ("name", "latitude", "longitude", "description"),   # grounded coordinates identify a site as well as a name
+    "Species": ("scientific_name",),
+}
+
+
+def _open_concern_fields(detail: dict) -> set[str]:
+    """Top-level payload fields a record's unanswered concerns (AI validator issues, last errors) are about."""
+    fields: set[str] = set()
+    for issue in ((detail.get("ai_validation") or {}).get("issues") or []):
+        path = issue.get("field") if isinstance(issue, dict) else None
+        if path:
+            fields.add(re.split(r"[.\[]", str(path))[0])
+    for error in detail.get("last_errors") or []:
+        path = _error_field(error) if isinstance(error, dict) else None
+        if path:
+            fields.add(re.split(r"[.\[]", str(path))[0])
+    return fields
+
+
+def _identity_established(record: dict, identity_fields: tuple[str, ...]) -> bool:
+    if record.get("status") != "unresolved":
+        return False
+    detail = record.get("detail") or {}
+    payload = detail.get("payload")
+    if not isinstance(payload, dict):
+        return False   # the committed payload never passed deterministic validation
+    in_doubt = _open_concern_fields(detail)
+    # Established by ANY identity field that holds a grounded value and is not itself in doubt: a Site whose name was
+    # withdrawn is still identified by its grounded coordinates, and one whose coordinates are missing by its name.
+    return any(
+        f not in in_doubt and isinstance(payload.get(f), dict)
+        and payload[f].get("provenance_label") in ("EXTRACTED", "INFERRED") and payload[f].get("value") not in (None, "")
+        for f in identity_fields
+    )
+
+
+def _referenceable_records(this_run_records: dict, prereq_type: str) -> list[dict]:
+    """The records of `prereq_type` another record may reference: every ready one, plus -- for a context prerequisite
+    only (IDENTITY_REFERENCEABLE_FIELDS) -- an unresolved one whose identity is established."""
+    identity_fields = IDENTITY_REFERENCEABLE_FIELDS.get(prereq_type)
+    available = this_run_records.get(prereq_type)
+    if available is None:
+        return []
+    records = available if isinstance(available, list) else [available]
+    return [
+        r for r in records
+        if r.get("status") == "ready" or (identity_fields and _identity_established(r, identity_fields))
+    ]
+
+
+def _prerequisite_notes(entity_type: str, this_run_records: dict) -> list[dict]:
+    """The non-ready records this entity type's REQUIRED prerequisites resolve to -- recorded on every dependent, so a
+    reader sees that e.g. an Observation's Site has unresolved fields, never a silently weaker link."""
+    notes = []
+    for field, prereq_type, required in ENTITY_DEPENDENCIES.get(entity_type, []):
+        if not required:
+            continue
+        for record in _referenceable_records(this_run_records, prereq_type):
+            if record.get("status") != "ready":
+                notes.append({
+                    "field": field, "prerequisite": prereq_type, "record_id": record.get("record_id"),
+                    "status": record.get("status"),
+                    "open_fields": sorted(_open_concern_fields(record.get("detail") or {})),
+                })
+    return notes
 
 
 def _candidate_slug_from_record_id(paper_id: str, prereq_type: str, record_id: str) -> str:
@@ -5614,9 +7478,11 @@ def _multi_record_link_pools(
     for field, prereq_type, _required in ENTITY_DEPENDENCIES.get(entity_type, []):
         if prereq_type not in results_store.MULTI_RECORD_ENTITY_TYPES:
             continue
-        ready = _ready_records(this_run_records, prereq_type)
-        if len(ready) <= 1:
-            continue
+        ready = _referenceable_records(this_run_records, prereq_type)
+        if not ready or (len(ready) == 1 and _pool_complete(this_run_records, prereq_type)):
+            continue            # one record and no failed siblings: `_resolve_known_refs` binds it
+        # One ready record of an INCOMPLETE pool is offered too: it is not bound by default any more (that would be
+        # binding by elimination), so a candidate reaches it only through its own link.
         items = []
         for r in ready:
             record_id = r["record_id"]
@@ -5682,6 +7548,115 @@ def _verified_treatment_links(
         verified.append({"record_id": record_id, "name": name})
         decisions.append({**base, "decision": "linked", "name": name})
     return verified, decisions
+
+
+def _experimental_conversion_note(experimental: dict[str, Any]) -> str:
+    """Phase D, Conversion side: the fields the established experimental context determines, stated as instructions.
+    Every one is then CHECKED (`_observation_relationship_errors`); the model does not re-derive any of them."""
+    lines = ["EXPERIMENTAL_CONTEXT (established by the pipeline for this value -- build the record FROM it):"]
+    stats = experimental.get("statistics") or {}
+    variable = experimental.get("variable") or {}
+    if stats:
+        lines.append(f"- value: reported_text {stats['mean_text']!r} (the cell's mean, literally), reported_numeric_value "
+                     f"{stats['mean']}" + (f", reported_units as the source writes them ({variable['header_units']!r} in the header)"
+                                           if variable.get("header_units") else "") + ".")
+        if stats.get("statistic_name"):
+            lines.append(f"- statistical_encoding: statistic_name {stats['statistic_name']!r}, statistic_value "
+                         f"{stats['statistic_value']!r}, EXTRACTED, citing {stats['statistic_source_anchor']} (where the "
+                         f"table says {stats['statistic_source_text']!r}) and the table block.")
+        else:
+            lines.append("- statistical_encoding: leave it out -- the table does not name a statistic for this cell.")
+    method = experimental.get("method") or {}
+    if method.get("status") == "linked" and method.get("record_id"):
+        lines.append(f"- method_id: {method['record_id']} ({method.get('tier')} link).")
+    aggregation = experimental.get("aggregation") or {}
+    if aggregation.get("reported_effect_scope") == "treatment_mean":
+        lines.append("- reported_effect_scope: treatment_mean, aggregated_over_factors: EXTRACTED empty list.")
+    time = experimental.get("time") or {}
+    if time.get("pooled over"):
+        lines.append(f"- temporal_info covers {time['pooled over']}: never one of those levels alone.")
+    return "\n".join(lines)
+
+
+def _observation_relationship_errors(entity_type: str, payload: dict, candidate_context: Optional[dict[str, Any]]) -> list[dict]:
+    """Phase D: the Observation must agree with its established experimental context -- the cell's mean, the
+    statistic the table names, the method the paper-level map linked, the aggregation the layout/pooling shows, the
+    units of its variable, and a pooled time span. Each disagreement is a validation error fed back to Conversion
+    (bounded retry); a record that never agrees stays unresolved -- nothing is overwritten on the model's behalf."""
+    experimental = (candidate_context or {}).get("experimental_context")
+    if entity_type != "Observation" or not isinstance(experimental, dict) or not isinstance(payload, dict):
+        return []
+    errors: list[dict] = []
+
+    def field_value(name: str) -> tuple[Optional[str], Any]:
+        entry = payload.get(name)
+        if isinstance(entry, dict) and "provenance_label" in entry:
+            return entry.get("provenance_label"), entry.get("value")
+        return None, entry
+
+    stats = experimental.get("statistics") or {}
+    label, value = field_value("value")
+    if stats and isinstance(value, dict) and value.get("reported_numeric_value") is not None:
+        if abs(float(value["reported_numeric_value"]) - float(stats["mean"])) > 1e-9 * max(1.0, abs(float(stats["mean"]))):
+            errors.append({"field": "value", "message": (
+                f"value.reported_numeric_value={value['reported_numeric_value']} but the cell's mean is {stats['mean']} "
+                f"(cell text {experimental.get('cell', {}).get('value_text')!r}) -- report the mean, not the SE or a letter")})
+    s_label, encoding = field_value("statistical_encoding")
+    if stats.get("statistic_name"):
+        expected_name, expected_value = stats["statistic_name"], stats["statistic_value"]
+        if not isinstance(encoding, dict) or s_label not in ("EXTRACTED", "INFERRED"):
+            errors.append({"field": "statistical_encoding", "message": (
+                f"the table states {stats['statistic_source_text']!r} ({stats['statistic_source_anchor']}): give "
+                f"statistical_encoding {expected_name!r} = {expected_value!r}")})
+        else:
+            name_ok = _units_key(str(encoding.get("statistic_name"))) == _units_key(expected_name)
+            got = encoding.get("statistic_value")
+            value_ok = (abs(float(got) - float(expected_value)) < 1e-9) if isinstance(expected_value, (int, float)) and \
+                isinstance(got, (int, float)) else _units_key(str(got)) == _units_key(str(expected_value))
+            if not (name_ok and value_ok):
+                errors.append({"field": "statistical_encoding", "message": (
+                    f"statistical_encoding is {encoding!r} but the cell and table give {expected_name!r} = {expected_value!r}")})
+    elif isinstance(encoding, dict) and s_label in ("EXTRACTED", "INFERRED") and encoding.get("statistic_name"):
+        errors.append({"field": "statistical_encoding", "message": (
+            f"statistical_encoding names {encoding.get('statistic_name')!r}, but the table never states which statistic "
+            f"this cell reports -- leave it out rather than assume one")})
+
+    method = experimental.get("method") or {}
+    if method.get("status") == "linked" and method.get("record_id") and payload.get("method_id") not in (None, method["record_id"]):
+        errors.append({"field": "method_id", "message": (
+            f"method_id {payload.get('method_id')!r}, but the paper-level Variable->Method map links this variable to "
+            f"{method['record_id']} ({method.get('reason')})")})
+
+    aggregation = experimental.get("aggregation") or {}
+    _, scope = field_value("reported_effect_scope")
+    if scope and aggregation.get("reported_effect_scope") and scope != aggregation["reported_effect_scope"]:
+        errors.append({"field": "reported_effect_scope", "message": (
+            f"reported_effect_scope {scope!r}, but this value is a {aggregation['reported_effect_scope']} "
+            f"({aggregation.get('basis')})")})
+    over_label, over = field_value("aggregated_over_factors")
+    expected_over = {re.sub(r"\s+", "", f.lower()) for f in aggregation.get("aggregated_over_factors") or []}
+    if expected_over and over_label in ("EXTRACTED", "INFERRED") and isinstance(over, list) \
+            and {re.sub(r"\s+", "", str(f).lower()) for f in over} != expected_over:
+        errors.append({"field": "aggregated_over_factors", "message": (
+            f"aggregated_over_factors {over!r}, but the value is pooled over {aggregation['aggregated_over_factors']!r}")})
+
+    variable = experimental.get("variable") or {}
+    units = (value or {}).get("reported_units") if isinstance(value, dict) else None
+    record_units = variable.get("record_units")
+    if units and record_units and _units_key(units) != _units_key(record_units) and _units_key(record_units) not in _PLACEHOLDER_UNITS:
+        errors.append({"field": "value.reported_units", "message": (
+            f"reported_units {units!r}, but the linked Variable {variable.get('record_id')} is measured in "
+            f"{record_units!r} -- a unit of another variable, or the wrong Variable link")})
+
+    time = experimental.get("time") or {}
+    _, temporal = field_value("temporal_info")
+    if time.get("pooled over") and isinstance(temporal, dict):
+        earliest, latest = str(temporal.get("earliest") or ""), str(temporal.get("latest") or "")
+        levels = [l.strip() for l in str(time["pooled over"]).split(",") if l.strip()]
+        if len(levels) > 1 and earliest[:4] and earliest[:4] == latest[:4] and earliest[:4] in levels:
+            errors.append({"field": "temporal_info", "message": (
+                f"temporal_info narrows a value pooled over {time['pooled over']} to {earliest[:4]} alone")})
+    return errors
 
 
 def _management_link_errors(entity_type: str, payload: dict, candidate_context: Optional[dict[str, Any]]) -> list[dict]:
@@ -5764,7 +7739,7 @@ def _apply_candidate_links(
             continue
         if prereq_type not in results_store.MULTI_RECORD_ENTITY_TYPES:
             continue
-        ready = _ready_records(this_run_records, prereq_type)
+        ready = _referenceable_records(this_run_records, prereq_type)
         if not ready:
             continue
         ready_ids = {r["record_id"] for r in ready}
@@ -5779,10 +7754,141 @@ def _apply_candidate_links(
             # never trust it; fall through to the generic ambiguous
             # handling below exactly as if no link had been given.
 
-        if required:
+        if required and _pool_complete(this_run_records, prereq_type) and not any(r.get("pending") for r in ready):
             resolved[field] = sorted(ready_ids)
-        # optional and still ambiguous -> leave omitted, unchanged from Phase A/B.
+        # optional and still ambiguous -> leave omitted, unchanged from Phase A/B. A required field whose pool is
+        # incomplete is left unresolved too: the right record may be one that failed, so an allowed set of the ready
+        # ones would be a choice by elimination -- `_link_refusals` reports it and the candidate is not attempted.
     return resolved
+
+
+# --------------------------------------------------------------------------- #
+# Ablation controls (off by default: the default policy is the pipeline's normal behaviour)
+# --------------------------------------------------------------------------- #
+# SAGE_LINK_POLICY selects how a failed upstream record affects its dependents:
+#   strict                    -- a prerequisite that is not ready blocks its dependents (no pending links), and a field
+#                                that keeps failing grounding fails the whole record (no withdrawal);
+#   extract_first             -- dependents are extracted with a pending link (never ready), no withdrawal;
+#   extract_first_withdrawal  -- both (the default).
+# SAGE_INJECT_FAULT=site_name corrupts the Site name the converter returns, on every attempt, with an ASCII letter
+# change no repair can undo -- the same upstream failure for every policy under comparison.
+LINK_POLICIES = ("strict", "extract_first", "extract_first_withdrawal")
+
+
+def _link_policy() -> str:
+    policy = os.environ.get("SAGE_LINK_POLICY", "extract_first_withdrawal")
+    if policy not in LINK_POLICIES:
+        raise ValueError(f"SAGE_LINK_POLICY={policy!r}; one of {LINK_POLICIES}")
+    return policy
+
+
+def _inject_fault(entity_type: str, payload: Any) -> Optional[tuple[dict, dict]]:
+    if os.environ.get("SAGE_INJECT_FAULT") != "site_name" or entity_type != "Site" or not isinstance(payload, dict):
+        return None
+    name = payload.get("name")
+    if not (isinstance(name, dict) and isinstance(name.get("value"), str) and re.search(r"[A-Za-z]", name["value"])):
+        return None
+    value = name["value"]
+    i = max(j for j, ch in enumerate(value) if ch.isascii() and ch.isalpha())
+    swapped = value[:i] + ("q" if value[i].lower() != "q" else "x") + value[i + 1:]
+    return {**payload, "name": {**name, "value": swapped}}, {"fault": "site_name", "from": value, "to": swapped}
+
+
+def _with_pending(entity_type: str, this_run_records: dict) -> tuple[dict, dict[str, dict]]:
+    """Extract first, link later. A view of the run's records in which every REQUIRED prerequisite record that was
+    actually attempted but is not referenceable (unresolved or error -- never one that was blocked, i.e. not attempted)
+    stands as a PENDING link target, plus {record_id: {"prerequisite", "status"}} of those records.
+
+    Real case (Philippe run 20260927T094252_bcb55cd2): the Site name failed grounding, the Site was not ready, and
+    Treatment, Coverage, Observation and TreatmentPair were never attempted -- none of them needs a perfect Site to be
+    read from the paper. With the view, dependents are extracted, converted and validated as usual; a record whose
+    reference resolves to a pending target is committed `unresolved` (BLOCKED_PREREQUISITE, `pending_links`) with
+    everything it extracted, never ready. A pending target is reached only by a single-candidate pool or the candidate's
+    own link -- never through an allowed set (`_apply_candidate_links`), so nothing is bound by elimination."""
+    if _link_policy() == "strict":
+        return this_run_records, {}
+    view = dict(this_run_records)
+    pending: dict[str, dict] = {}
+    for _field, prereq_type, required in ENTITY_DEPENDENCIES.get(entity_type, []):
+        if not required:
+            continue
+        records = _all_records(this_run_records, prereq_type)
+        referenceable = {r.get("record_id") for r in _referenceable_records(this_run_records, prereq_type)}
+        shadowed = []
+        for r in records:
+            if r.get("record_id") not in referenceable and r.get("status") in ("unresolved", "error"):
+                pending[r["record_id"]] = {"prerequisite": prereq_type, "status": r.get("status")}
+                shadowed.append({**r, "status": "ready", "pending": True, "pending_status": r.get("status")})
+            else:
+                shadowed.append(r)
+        if shadowed and any(r.get("pending") for r in shadowed):
+            available = this_run_records.get(prereq_type)
+            view[prereq_type] = shadowed if isinstance(available, list) else shadowed[0]
+    return view, pending
+
+
+def _pending_refs(payload: Any, pending: Optional[dict[str, dict]], entity_type: str) -> dict[str, str]:
+    """{field: record_id} of the payload's reference fields (ENTITY_DEPENDENCIES) that point at a pending prerequisite."""
+    if not pending or not isinstance(payload, dict):
+        return {}
+    fields = {f for f, _t, _r in ENTITY_DEPENDENCIES.get(entity_type, [])}
+    out = {}
+    for field, value in payload.items():
+        if field not in fields:
+            continue
+        values = value if isinstance(value, list) else [value]
+        for v in values:
+            if isinstance(v, str) and v in pending:
+                out[field] = v
+    return out
+
+
+def _all_records(this_run_records: dict, prereq_type: str) -> list[dict]:
+    available = this_run_records.get(prereq_type)
+    if available is None:
+        return []
+    return list(available) if isinstance(available, list) else [available]
+
+
+def _pool_complete(this_run_records: dict, prereq_type: str) -> bool:
+    """Every record of `prereq_type` this run attempted is referenceable -- only then can "the ready ones" stand for
+    the type as a whole (a single-record type is always complete: it has one record)."""
+    if prereq_type not in results_store.MULTI_RECORD_ENTITY_TYPES:
+        return True
+    records = _all_records(this_run_records, prereq_type)
+    return len(_referenceable_records(this_run_records, prereq_type)) == len(records)
+
+
+def _link_refusals(paper_id: str, entity_type: str, this_run_records: dict, resolved: dict, candidate: Any) -> list[dict]:
+    """Required multi-record references `_apply_candidate_links` could not establish for this candidate: its own link
+    names no referenceable record, and the pool of that type is incomplete. The candidate is refused with this reason
+    (never bound to whichever record survived) -- BLOCKED_PREREQUISITE when its link names a record that failed,
+    AMBIGUOUS otherwise."""
+    refusals = []
+    linked = getattr(candidate, "linked_candidates", None) or {}
+    for field, prereq_type, required in ENTITY_DEPENDENCIES.get(entity_type, []):
+        if not required or field in resolved or prereq_type not in results_store.MULTI_RECORD_ENTITY_TYPES:
+            continue
+        records = _all_records(this_run_records, prereq_type)
+        ready = _referenceable_records(this_run_records, prereq_type)
+        if _pool_complete(this_run_records, prereq_type) and not any(r.get("pending") for r in ready):
+            continue            # every attempted record is referenceable: the allowed set is not an elimination
+        ready = [r for r in ready if not r.get("pending")]
+        slug = linked.get(field)
+        named = f"{paper_id}_{prereq_type.lower()}_{_sanitize_candidate_id(slug)}" if slug else None
+        failed = next((r for r in records if named and r.get("record_id") == named), None)
+        refusals.append({
+            "field": field, "prerequisite": prereq_type,
+            "cause": causes.BLOCKED_PREREQUISITE if failed else causes.AMBIGUOUS,
+            "message": (
+                f"{field}: this candidate's own link names {named}, which is {failed.get('status')} in this run -- the "
+                f"record is not bound to another {prereq_type} instead" if failed else
+                f"{field}: no link of this candidate names a {prereq_type} of this run, and {len(records) - len(ready)} "
+                f"of the run's {len(records)} {prereq_type} record(s) are not ready -- choosing among the "
+                f"{len(ready)} that are would be a choice by elimination"
+            ),
+        })
+    return refusals
 
 
 def _entity_record_id(paper_id: str, entity_type: str) -> str:
@@ -5795,6 +7901,32 @@ def _entity_record_id(paper_id: str, entity_type: str) -> str:
     if entity_type == "Citation":
         return paper_id
     return f"{paper_id}_{entity_type.lower()}"
+
+
+def _design_section(run_id: str, paper_id: str) -> Optional[dict[str, Any]]:
+    """Phase C: the run's experimental-design summary (factors and levels per table, layouts, sample-size evidence,
+    conflicts) from the table pass already cached for this run -- no model call."""
+    classifications = {key.split("__", 1)[1]: c for key, c in _cached_table_classifications(run_id).items()}
+    if not classifications:
+        return None
+    try:
+        index = evidence_index.build_evidence_index(document_map.build_document_map(paper_id, _papers_root()))
+    except (FileNotFoundError, OSError):
+        return None
+    return design.design_summary(classifications, index)
+
+
+def _outcome_causes(paper_id: str, run_id: str, this_run_records: dict) -> dict[str, dict[str, int]]:
+    """{entity_type: {cause: count}} for every non-ready record of the run -- the Stage 4 taxonomy, so a run's losses
+    read as "12 AMBIGUOUS, 3 NOT_RETRIEVED" instead of "15 unresolved"."""
+    summary: dict[str, dict[str, int]] = {}
+    for entity_type, records in this_run_records.items():
+        for info in (records if isinstance(records, list) else [records]):
+            cause = _entity_result_file(paper_id, entity_type, run_id, info.get("record_id") or "", info).get("unresolved_cause")
+            if cause:
+                summary.setdefault(entity_type, {}).setdefault(cause, 0)
+                summary[entity_type][cause] += 1
+    return summary
 
 
 def _entity_result_file(paper_id: str, entity_type: str, run_id: str, record_id: str, record_info: dict) -> dict:
@@ -5820,6 +7952,17 @@ def _entity_result_file(paper_id: str, entity_type: str, run_id: str, record_id:
         base["reason"] = record_info.get("reason")
     else:  # "error"
         base["reason"] = detail.get("message")
+    if record_info.get("prerequisite_notes"):
+        base["prerequisite_notes"] = record_info["prerequisite_notes"]
+    coverage = (detail.get("context_bundle") or {}).get("coverage")
+    cause = causes.classify(status, detail, record_info.get("reason"), coverage, entity_type)
+    if cause:
+        base["unresolved_cause"] = cause
+    if coverage:
+        base["evidence_coverage"] = coverage
+    for key in ("field_demotions", "open_concerns", "withdrawn_fields", "pending_links"):
+        if detail.get(key):
+            base[key] = detail[key]
     return base
 
 
@@ -5832,8 +7975,10 @@ def run_paper(
     enable_ai_validation: bool = True,
     run_id: Optional[str] = None,
     manifest_extra: Optional[dict] = None,
+    resume_from: Optional[str] = None,
 ) -> dict:
-    """Run one full-paper extraction, exclusively.
+    """Run one full-paper extraction, exclusively. With `resume_from` (an entity type) and the `run_id` of an existing
+    run, only that entity type and the ones depending on it are re-run, inside that run (see `_resume_state`).
 
     Run isolation (infrastructure only -- extraction behavior is unchanged
     and pinned by tests/test_run_characterization.py): the run holds a
@@ -5846,12 +7991,73 @@ def run_paper(
     metadata, see pipeline.run_config) is merged into the run manifest.
 
     See `_run_paper_locked` for the pipeline itself."""
+    if resume_from and not run_id:
+        raise ValueError("resume_from needs the run_id of the run to resume")
     run_id = run_id or _new_run_id()
     with run_lock.paper_run_lock(paper_id, run_id):
         return _run_paper_locked(
             paper_id=paper_id, model=model, client=client, invoke=invoke,
             enable_ai_validation=enable_ai_validation, run_id=run_id, manifest_extra=manifest_extra,
+            resume_from=resume_from,
         )
+
+
+def _resume_state(paper_id: str, run_id: str, order: list[str], resume_from: str) -> tuple[dict[str, Any], dict]:
+    """Re-run one failed step without re-running the paper (a random failure used to cost a whole run: Philippe
+    20260927T094252_bcb55cd2 lost everything after one mangled Site name). Returns (the records of every entity type that
+    is NOT re-run, reloaded exactly as that run produced them, from each record's final.json; the resume note).
+
+    `resume_from` and every entity type depending on it (transitively, required or optional) are re-run under the same
+    run_id, in dependency order; nothing else is touched. Its previous artifacts -- the records of those
+    entity types and any table classification that FAILED (a successful one is reused, a failed one is retried) -- are
+    moved to runs/<run_id>/superseded/<timestamp>/, never deleted."""
+    if resume_from not in order:
+        raise ValueError(f"unknown entity type {resume_from!r}; one of {order}")
+    manifest = run_store.load_run_manifest(run_id)
+    if not isinstance(manifest, dict) or manifest.get("paper_id") != paper_id:
+        raise ValueError(f"run {run_id} is not a run of {paper_id}")
+    rerun = {resume_from}
+    changed = True
+    while changed:                     # every entity type that depends on a re-run one, transitively
+        changed = False
+        for entity_type in order:
+            deps = {t for _f, t, _r in ENTITY_DEPENDENCIES.get(entity_type, [])} | {t for _f, t in OPTIONAL_LINKS.get(entity_type, [])}
+            if entity_type not in rerun and deps & rerun:
+                rerun.add(entity_type)
+                changed = True
+    kept_types = [t for t in order if t not in rerun]
+    records_root = run_store.run_dir(run_id) / "records"
+    stamp = time.strftime("%Y%m%dT%H%M%S")
+    superseded_dir = run_store.run_dir(run_id) / "superseded" / stamp
+    moved = []
+    for key in run_store.list_records(run_id):
+        entity = key.split("__", 1)[0]
+        retry_table = key.startswith("table_classification__") and _load_cached_table_failure(run_id, key) is not None
+        if (entity in order and entity not in kept_types) or retry_table:
+            superseded_dir.mkdir(parents=True, exist_ok=True)
+            (records_root / key).rename(superseded_dir / key)
+            moved.append(key)
+
+    def record_info(entity_type: str, record_id: str, fallback: dict) -> dict:
+        path = run_store.record_dir(run_id, f"{entity_type}__{record_id}") / "final.json"
+        detail = run_store.load_json(path) if path.is_file() else {}
+        status = (detail or {}).get("status") or fallback.get("status")
+        info = {"entity_type": entity_type, "record_id": record_id, "status": status, "detail": detail}
+        if status == "blocked":
+            info["reason"] = (detail or {}).get("reason") or fallback.get("reason")
+        return info
+
+    records: dict[str, Any] = {}
+    for entity_type in kept_types:
+        stored = results_store.load_any_entity_results(paper_id, entity_type, run_id=run_id)
+        infos = [record_info(entity_type, r["record_id"], r) for r in stored if isinstance(r, dict) and r.get("record_id")]
+        if entity_type in results_store.MULTI_RECORD_ENTITY_TYPES:
+            records[entity_type] = infos
+        elif infos:
+            records[entity_type] = infos[0]
+    return records, {"resumed_from": resume_from, "resumed_at": time.time(), "kept": kept_types,
+                     "superseded": {"dir": str(superseded_dir), "records": moved},
+                     "previous_started_at": manifest.get("started_at")}
 
 
 def _run_paper_locked(
@@ -5863,6 +8069,7 @@ def _run_paper_locked(
     enable_ai_validation: bool,
     run_id: str,
     manifest_extra: Optional[dict],
+    resume_from: Optional[str] = None,
 ) -> dict:
     """Run the complete Extraction -> Conversion -> deterministic validation
     -> AI Validator -> commit pipeline for ALL 12 Sage IR entity types for
@@ -5890,6 +8097,9 @@ def _run_paper_locked(
     """
     order = _topological_entity_order()
     this_run_records: dict[str, Any] = {}  # dict per entity_type, or list[dict] for a multi-record type
+    resume_note: Optional[dict] = None
+    if resume_from:
+        this_run_records, resume_note = _resume_state(paper_id, run_id, order, resume_from)
 
     # One model per run, enforced (not merely conventional): every agent call
     # in this run must request `model`, and the calls are counted per agent
@@ -5918,6 +8128,7 @@ def _run_paper_locked(
         "kind": "run-paper", "entity_order": order,
         "started_at": started_at,
         **(manifest_extra or {}),
+        **({"resume": resume_note} if resume_note else {}),
     }
     # The manifest exists from the START of the run (a crashed run used to
     # leave none at all); `run_status` says whether it is still going,
@@ -5928,6 +8139,8 @@ def _run_paper_locked(
 
     try:
         for entity_type in order:
+            if resume_note and entity_type in resume_note["kept"]:
+                continue            # reloaded from the run being resumed
             if entity_type in results_store.MULTI_RECORD_ENTITY_TYPES:
                 record_infos = _run_multi_record_entity(
                     run_id=run_id, paper_id=paper_id, entity_type=entity_type, model=model,
@@ -5947,7 +8160,8 @@ def _run_paper_locked(
 
             record_id = _entity_record_id(paper_id, entity_type)
             record_key = f"{entity_type}__{record_id}"
-            known_refs, blocked_reason = _resolve_known_refs(entity_type, this_run_records)
+            link_view, pending = _with_pending(entity_type, this_run_records)
+            known_refs, blocked_reason = _resolve_known_refs(entity_type, link_view)
 
             if blocked_reason is not None:
                 record_info = {
@@ -5960,12 +8174,15 @@ def _run_paper_locked(
                 result = run_record(
                     run_id=run_id, paper_id=paper_id, entity_type=entity_type, record_id=record_id,
                     model=model, client=client, invoke=invoke, enable_ai_validation=enable_ai_validation,
-                    known_refs=known_refs or None,
+                    known_refs=known_refs or None, pending_prerequisites=pending or None,
                 )
                 record_info = {
                     "entity_type": entity_type, "record_id": record_id,
                     "status": result.status, "detail": result.detail,
                 }
+                prerequisite_notes = _prerequisite_notes(entity_type, this_run_records)
+                if prerequisite_notes:
+                    record_info["prerequisite_notes"] = prerequisite_notes
 
             this_run_records[entity_type] = record_info
             results_store.save_entity_result(
@@ -5990,6 +8207,13 @@ def _run_paper_locked(
         "status": {
             et: (r["status"] if not isinstance(r, list) else [x["status"] for x in r])
             for et, r in this_run_records.items()
+        },
+        "outcome_causes": _outcome_causes(paper_id, run_id, this_run_records),
+        "design": _design_section(run_id, paper_id),
+        "representation_blocked": {
+            "count": len(_REPRESENTATION_BLOCKED.get(run_id, [])), "reason": design.L4_TREATMENT_POOLED,
+            "cells": _REPRESENTATION_BLOCKED.pop(run_id, []),
+            "unidentified_rows": _UNIDENTIFIED_ROWS.pop(run_id, []),
         },
     })
     results_store.set_latest(paper_id, run_id)
@@ -6200,6 +8424,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     run_paper_cmd.add_argument("--ir-service-url", default=DEFAULT_IR_SERVICE_URL)
     run_paper_cmd.add_argument("--no-ai-validation", action="store_true")
     run_paper_cmd.add_argument("--run-id", default=None)
+    run_paper_cmd.add_argument("--resume-run", default=None,
+                               help="Re-run inside this existing run, from --from on (earlier entity types are reused).")
+    run_paper_cmd.add_argument("--from", dest="resume_from", default=None,
+                               help="With --resume-run: the entity type to re-run from (e.g. Site).")
 
     return p
 
@@ -6247,9 +8475,10 @@ def main(argv: Optional[list[str]] = None) -> int:
         try:
             outcome = run_paper(
                 paper_id=args.paper_id, model=cfg.model_ref, client=client, invoke=invoke,
-                enable_ai_validation=not args.no_ai_validation, run_id=args.run_id, manifest_extra=manifest_extra,
+                enable_ai_validation=not args.no_ai_validation, run_id=args.resume_run or args.run_id,
+                manifest_extra=manifest_extra, resume_from=args.resume_from if args.resume_run else None,
             )
-        except run_lock.RunAlreadyActive as exc:
+        except (run_lock.RunAlreadyActive, ValueError) as exc:
             print(f"refusing to start: {exc}")
             return 1
         print(f"\nrun_id: {outcome['run_id']}")

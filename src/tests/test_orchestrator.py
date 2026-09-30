@@ -248,25 +248,31 @@ def test_ai_validation_still_suspicious_after_correction_is_unresolved_not_commi
         run_id="run1", paper_id=PAPER_ID, entity_type="Citation", record_id=PAPER_ID,
         model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=True,
     )
-    assert result.status == "unresolved"
-    assert result.detail["flag_result"]["recorded"] is True
+    # Stage 2 (field-level demotion): never force-committed as it was -- the doubted `year` is WITHDRAWN (UNRESOLVED,
+    # the concern as its reason) and the rest of the record keeps its grounded values. The value 2012 is not committed.
+    year = result.detail["payload"]["year"]
+    assert (year["value"], year["provenance_label"]) == (None, "UNRESOLVED")
+    assert "still implausible" in year["unresolved_reason"]
+    assert result.detail["field_demotions"][0]["field"] == "year" and result.detail["field_demotions"][0]["value"] == 2012
     store_file = env["store_root"] / f"{PAPER_ID}.jsonl"
     entries = [json.loads(l) for l in store_file.read_text().strip().splitlines()]
-    assert entries[-1]["status"] == "unresolved"
+    assert entries[-1]["payload"]["year"]["value"] is None
 
 
-def test_ai_validation_correction_failing_deterministic_validation_falls_back_to_last_known_good(env):
+def test_ai_validation_correction_failing_deterministic_validation_keeps_the_payload_as_unresolved(env):
     # Real observed regression (pecan, Citation): a correction that ITSELF
     # fails deterministic validation must never discard the ORIGINAL
-    # payload, which had already passed that same check -- the AI
-    # Validator's opinion must never override deterministic provenance
-    # truth. This must commit the original payload as "ready", not fall to
-    # "unresolved".
+    # payload, which had already passed that same check. But the Validator's
+    # concern was never answered, so the original is kept as UNRESOLVED, not
+    # committed ready (Felipe-2010-Cultivar, run 20260923T132453_7595c3bf: six
+    # records were committed ready this way while still "suspicious").
     invoke = make_invoke_sequence([
         ("extractor", _inv("extractor", RAW_EXTRACTION)),
         ("converter", _inv("converter", valid_citation_payload())),
+        # A RECORD-level concern (no field): it cannot be settled field by field (Stage 2), so this is exactly the
+        # whole-record path whose protections this test pins.
         ("ir-validator", _inv("ir-validator", {
-            "verdict": "suspicious", "issues": [{"field": "persistent_identifier", "concern": "check this"}],
+            "verdict": "suspicious", "issues": [{"field": None, "concern": "check this"}],
         })),
         ("converter", _inv("converter", invalid_citation_payload_missing_pid())),  # correction fails validation
     ])
@@ -274,8 +280,8 @@ def test_ai_validation_correction_failing_deterministic_validation_falls_back_to
         run_id="run1", paper_id=PAPER_ID, entity_type="Citation", record_id=PAPER_ID,
         model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=True,
     )
-    assert result.status == "ready"
-    # The committed payload is the ORIGINAL valid one, not the failed
+    assert result.status == "unresolved" and result.detail["unresolved_by"] == "ai_validation"
+    # The kept payload is the ORIGINAL valid one, not the failed
     # correction attempt (which had a null persistent_identifier).
     committed_pid, original_pid = result.detail["payload"]["persistent_identifier"], valid_citation_payload()["persistent_identifier"]
     assert (committed_pid["value"], committed_pid["provenance_label"], committed_pid["source"]["locators"]) == (
@@ -285,6 +291,10 @@ def test_ai_validation_correction_failing_deterministic_validation_falls_back_to
     # this is a refusal of the bad correction, not a silent pretense that
     # nothing was ever flagged.
     assert result.detail["ai_validation"]["verdict"] == "suspicious"
+    messages = [e["message"] for e in result.detail["last_errors"]]
+    assert messages[0] == "AI Validator concern: check this"
+    assert any(m.startswith("correction rejected:") for m in messages[1:])
+    assert result.detail["last_candidate_payload"] == result.detail["payload"]    # the review UI reads this key
 
     # The rejected correction attempt itself is still fully on disk for audit.
     record_key = "Citation__" + PAPER_ID
@@ -326,16 +336,15 @@ def test_ai_validation_correction_succeeding_deterministic_validation_commits_co
     assert manifest["attempts"]["conversion"] == 2
 
 
-def test_ai_validation_correction_failure_never_produces_unresolved_for_a_valid_payload(env):
-    # Distinct assertion from the "falls back" test above: explicitly prove
-    # the ir-store's committed entry is "ready", never "unresolved" -- a
-    # failed correction attempt must not leak into the persisted outcome
-    # for a payload that was genuinely deterministic-valid.
+def test_ai_validation_correction_failure_commits_the_valid_payload_as_unresolved_never_ready(env):
+    # The ir-store entry: the ORIGINAL deterministic-valid payload, committed
+    # (not merely flagged) with status "unresolved" -- never "ready" while the
+    # Validator's concern stands, and never the failed correction.
     invoke = make_invoke_sequence([
         ("extractor", _inv("extractor", RAW_EXTRACTION)),
         ("converter", _inv("converter", valid_citation_payload())),
         ("ir-validator", _inv("ir-validator", {
-            "verdict": "suspicious", "issues": [{"field": "author", "concern": "footnote marker?"}],
+            "verdict": "suspicious", "issues": [{"field": None, "concern": "footnote marker?"}],   # record-level
         })),
         ("converter", _inv("converter", invalid_citation_payload_missing_pid())),
     ])
@@ -345,7 +354,9 @@ def test_ai_validation_correction_failure_never_produces_unresolved_for_a_valid_
     )
     store_file = env["store_root"] / f"{PAPER_ID}.jsonl"
     entries = [json.loads(l) for l in store_file.read_text().strip().splitlines()]
-    assert entries[-1]["status"] == "ready"
+    assert entries[-1]["status"] == "unresolved"
+    assert entries[-1]["payload"]["persistent_identifier"]["provenance_label"] == "UNRESOLVED"   # the original, a real ExtractedField
+    assert entries[-1]["ai_validation"]["verdict"] == "suspicious"
 
 
 def test_normal_invalid_payload_without_ai_validation_involvement_still_flags_unresolved(env):
@@ -2621,7 +2632,10 @@ def _build_run_paper_invoke_sequence():
         if entity_type in results_store_module.MULTI_RECORD_ENTITY_TYPES:
             enumeration_result = {
                 "entity_type": entity_type,
-                "candidates": [{"candidate_id": "x", "description": "The single reported variable.", "anchors": ["b:0003"]}],
+                # A Crop's own evidence must name its Species (Phase A2: no binding by elimination) -- b:0001 holds the
+                # fixture Species' name "A. Author".
+                "candidates": [{"candidate_id": "x", "description": "The single reported variable.",
+                                "anchors": ["b:0003", "b:0001"] if entity_type == "Crop" else ["b:0003"]}],
             }
             items.append(("extractor", _inv("extractor", enumeration_result)))
             record_id = f"{PAPER_ID}_{entity_type.lower()}_x"
@@ -2863,3 +2877,64 @@ def test_health_endpoint_reports_schema_fingerprint(env):
     body = resp.json()
     assert body["status"] == "ok"
     assert "schema_fingerprint" in body and len(body["schema_fingerprint"]) == 16
+
+
+# --------------------------------------------------------------------- #
+# Stage 2: an unanswered concern is settled field by field (run_record end to end)
+# --------------------------------------------------------------------- #
+
+
+def test_a_failed_correction_withdraws_only_the_concerned_value_and_commits_the_rest(env):
+    # The correction fails deterministic validation (the Philippe Site / Variable pattern). Before Stage 2 the whole
+    # record went unresolved; now the doubted `author` is withdrawn and the grounded rest is committed. The failed
+    # correction itself is never committed, and no extra model call is made.
+    invoke = make_invoke_sequence([
+        ("extractor", _inv("extractor", RAW_EXTRACTION)),
+        ("converter", _inv("converter", valid_citation_payload())),
+        ("ir-validator", _inv("ir-validator", {
+            "verdict": "suspicious", "issues": [{"field": "author", "concern": "footnote marker in the author list"}],
+        })),
+        ("converter", _inv("converter", invalid_citation_payload_missing_pid())),   # correction fails validation
+    ])
+    result = orchestrator.run_record(
+        run_id="run1", paper_id=PAPER_ID, entity_type="Citation", record_id=PAPER_ID,
+        model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=True,
+    )
+    assert result.status == "ready"
+    payload = result.detail["payload"]
+    assert (payload["author"]["value"], payload["author"]["provenance_label"]) == (None, "UNRESOLVED")
+    assert "footnote marker" in payload["author"]["unresolved_reason"]
+    assert payload["title"]["value"] == "A Title"
+    assert payload["persistent_identifier"]["provenance_label"] == "UNRESOLVED"     # the original, not the failed correction
+    assert result.detail["field_demotions"] == [{"field": "author", "value": "A. Author",
+                                                 "concern": "footnote marker in the author list",
+                                                 "rule": "ai_concern_value_withdrawn"}]
+    assert result.detail["ai_validation"]["verdict"] == "suspicious"                # kept for transparency
+    record_key = "Citation__" + PAPER_ID
+    stage = run_store.record_dir("run1", record_key) / "ai_field_demotion" / "attempt1.json"
+    assert run_store.load_json(stage)["proposal"]["valid"] is True
+    manifest = run_store.load_json(run_store.record_dir("run1", record_key) / "record_manifest.json")
+    assert manifest["attempts"]["conversion"] == 2 and manifest["attempts"]["ai_validation"] == 1
+    assert manifest["field_demotions"] == ["author"]
+
+
+def test_an_omission_concern_on_a_descriptive_field_is_committed_with_an_open_concern(env):
+    invoke = make_invoke_sequence([
+        ("extractor", _inv("extractor", RAW_EXTRACTION)),
+        ("converter", _inv("converter", valid_citation_payload())),
+        ("ir-validator", _inv("ir-validator", {
+            "verdict": "suspicious", "issues": [{"field": "persistent_identifier", "concern": "a DOI may be printed"}],
+        })),
+        ("converter", _inv("converter", invalid_citation_payload_missing_pid())),
+    ])
+    result = orchestrator.run_record(
+        run_id="run1", paper_id=PAPER_ID, entity_type="Citation", record_id=PAPER_ID,
+        model="test-model", client=env["client"], invoke=invoke, enable_ai_validation=True,
+    )
+    assert result.status == "ready"
+    assert result.detail["open_concerns"] == [{"field": "persistent_identifier", "concern": "a DOI may be printed",
+                                               "rule": "omission_tolerated"}]
+    assert "field_demotions" not in result.detail
+    result_file = orchestrator._entity_result_file(PAPER_ID, "Citation", "run1", PAPER_ID,
+                                                   {"status": result.status, "detail": result.detail})
+    assert result_file["open_concerns"] == result.detail["open_concerns"]

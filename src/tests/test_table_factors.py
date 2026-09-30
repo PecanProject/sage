@@ -351,7 +351,8 @@ def test_a_representable_pooled_table_yields_aggregated_mean_context_and_only_th
 
 
 def test_an_unpooled_table_has_no_context():
-    assert all(c.context == {} for c in orchestrator._table_classification_to_candidates(_crop_time_site_table(), {}))
+    # Only the cell's identity (Phase D) -- no pooling, no aggregation.
+    assert all(set(c.context) == {"cell"} for c in orchestrator._table_classification_to_candidates(_crop_time_site_table(), {}))
 
 
 def test_values_pooled_over_the_site_are_not_representable_and_generate_nothing_L2():

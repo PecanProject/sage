@@ -282,7 +282,10 @@ def test_run_extraction_with_ui_progress_still_maps_catastrophic_failure_to_erro
 def _healthy_orchestrator(monkeypatch):
     from pipeline import orchestrator
 
+    from pipeline import run_config
+
     monkeypatch.setattr(orchestrator, "check_health", lambda url: (True, "ir_service healthy"))
+    monkeypatch.setattr(run_config, "check_opencode", lambda: (True, "/snap/bin/opencode (1.18.27)"))
     return orchestrator
 
 
@@ -314,3 +317,60 @@ def test_a_missing_or_invalid_run_config_stops_extraction_with_a_readable_error(
 
 def test_the_launcher_has_no_model_default_of_its_own():
     assert not hasattr(marker_pipeline, "_DEFAULT_EXTRACTION_MODEL")
+
+
+# --------------------------------------------------------------------- #
+# Pre-flight (deployment): a broken environment is reported up front and
+# no extraction run is started (real case: the public-URL service PATH had
+# no /snap/bin, so every run's Citation died with "opencode executable not
+# found" and blocked every other entity type).
+# --------------------------------------------------------------------- #
+
+
+def test_preflight_fails_clearly_when_opencode_is_missing(monkeypatch):
+    from pipeline import orchestrator, run_config
+
+    monkeypatch.setattr(run_config, "check_opencode", lambda: (False, "opencode executable not found: not on PATH"))
+    monkeypatch.setattr(orchestrator, "check_health", lambda url: (True, "ir_service healthy"))
+    ok, message = marker_pipeline.preflight()
+    assert ok is False and "opencode executable not found" in message
+
+
+def test_preflight_fails_clearly_when_the_ir_service_is_stale(monkeypatch):
+    from pipeline import orchestrator, run_config
+
+    monkeypatch.setattr(run_config, "check_opencode", lambda: (True, "/snap/bin/opencode (1.18.27)"))
+    monkeypatch.setattr(orchestrator, "check_health", lambda url: (False, "ir_service is running STALE schema/validator code"))
+    ok, message = marker_pipeline.preflight()
+    assert ok is False and "STALE" in message
+
+
+def test_failed_preflight_stops_before_marker_and_starts_no_run(monkeypatch, tmp_path):
+    from pipeline import orchestrator, run_config
+
+    monkeypatch.setenv("IR_RUNS_ROOT", str(tmp_path / "runs"))
+    monkeypatch.setattr(run_config, "check_opencode", lambda: (False, "opencode executable not found"))
+    monkeypatch.setattr(orchestrator, "check_health", lambda url: (True, "ok"))
+    started = []
+    monkeypatch.setattr(marker_pipeline, "run_marker_for_paper", lambda *a, **k: started.append("marker"))
+    monkeypatch.setattr(orchestrator, "run_paper", lambda **k: started.append("run_paper"))
+
+    events = list(marker_pipeline.process_single_paper_full("SomePaper"))
+
+    assert events == [{"stage": "preflight", "status": "error", "message": "Pre-flight failed: opencode executable not found"}]
+    assert started == []
+    assert not (tmp_path / "runs").exists()          # no run directory, no manifest, no failed results
+
+
+def test_extraction_itself_rechecks_preflight_and_starts_no_run(monkeypatch, tmp_path):
+    from pipeline import orchestrator, run_config
+
+    monkeypatch.setenv("IR_RUNS_ROOT", str(tmp_path / "runs"))
+    monkeypatch.setattr(run_config, "check_opencode", lambda: (False, "opencode executable not found"))
+    monkeypatch.setattr(orchestrator, "check_health", lambda url: (True, "ok"))
+    monkeypatch.setattr(orchestrator, "run_paper", lambda **k: (_ for _ in ()).throw(AssertionError("must not start")))
+
+    events = list(marker_pipeline._run_extraction_for_paper("SomePaper", None))
+
+    assert len(events) == 1 and events[0]["ok"] is False and events[0]["run_outcome"] == "failed"
+    assert "opencode executable not found" in events[0]["error"]

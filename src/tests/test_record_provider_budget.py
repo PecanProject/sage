@@ -188,4 +188,5 @@ def test_the_completed_run_manifest_carries_provider_failures(env):
         invoke=make_invoke_sequence(_build_run_paper_invoke_sequence()), enable_ai_validation=False,
     )
     manifest = run_store.load_run_manifest(outcome["run_id"])
-    assert manifest["provider_failures"] == {"total_rounds": 0, "by_stage": {}, "by_class": {}, "terminal": [], "outage_mode": []}
+    assert manifest["provider_failures"] == {"total_rounds": 0, "by_stage": {}, "by_class": {}, "terminal": [], "outage_mode": [],
+                                             "model_no_answer": {"total_rounds": 0, "by_stage": {}, "terminal": []}}

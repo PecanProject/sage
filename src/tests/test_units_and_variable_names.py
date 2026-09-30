@@ -239,7 +239,12 @@ def test_the_pipeline_hands_the_hints_to_extraction_and_conversion_context(tmp_p
     orchestrator._run_multi_record_entity(run_id="r", paper_id="Daren-1997-Canopy", entity_type="Observation", model="m", client=None,
                                           invoke=None, enable_ai_validation=False, this_run_records={})
     [(context, candidate_context)] = seen
-    assert candidate_context == {"variable_name_hint": "Total yield", "units_hint": "kg DI"}
+    # The hints reach Conversion unchanged. Phase D adds the cell identity and the composed experimental context
+    # (which carries the same header units, still unverified -- the value's units must match the source).
+    assert {k: candidate_context[k] for k in ("variable_name_hint", "units_hint")} == {
+        "variable_name_hint": "Total yield", "units_hint": "kg DI"}
+    assert candidate_context["experimental_context"]["variable"]["header_units"] == "kg DI"
+    assert set(candidate_context) == {"variable_name_hint", "units_hint", "cell", "experimental_context"}
     assert "unverified hints" in context and "'kg DI'" in context
 
 

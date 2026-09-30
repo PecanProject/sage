@@ -32,6 +32,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import shutil
 import subprocess
 import time
 from dataclasses import dataclass
@@ -204,12 +206,68 @@ def git_state(repo_root: Optional[Path | str] = None) -> dict[str, Any]:
     }
 
 
+# --------------------------------------------------------------------------- #
+# The `opencode` executable
+# --------------------------------------------------------------------------- #
+
+# Where the snap package installs it. A systemd service (the public deployment) gets its own PATH, which may not
+# contain /snap/bin -- real case: every extraction started from the public URL on 2026-09-22 died at Citation's first
+# call with "opencode executable not found", while the same code worked from an interactive shell.
+OPENCODE_FALLBACK_PATH = "/snap/bin/opencode"
+
+
+def resolve_opencode_bin() -> Optional[str]:
+    """The `opencode` executable to run: `OPENCODE_BIN` when set (used as given, even if it is broken -- an explicit
+    setting is never silently overridden), else the first `opencode` on PATH, else `OPENCODE_FALLBACK_PATH` when it
+    is executable. None when none is found."""
+    explicit = os.environ.get("OPENCODE_BIN", "").strip()
+    if explicit:
+        return explicit
+    on_path = shutil.which("opencode")
+    if on_path:
+        return on_path
+    if os.path.isfile(OPENCODE_FALLBACK_PATH) and os.access(OPENCODE_FALLBACK_PATH, os.X_OK):
+        return OPENCODE_FALLBACK_PATH
+    return None
+
+
+def opencode_bin_for_subprocess() -> str:
+    """`resolve_opencode_bin()`, or the bare name "opencode" when nothing was found, so the subprocess call fails
+    exactly as before (FileNotFoundError -> the `provider_unavailable` class) instead of raising something new."""
+    return resolve_opencode_bin() or "opencode"
+
+
 def opencode_cli_version() -> Optional[str]:
     try:
-        out = subprocess.run(["opencode", "--version"], capture_output=True, text=True, timeout=15)
+        out = subprocess.run([opencode_bin_for_subprocess(), "--version"], capture_output=True, text=True, timeout=15)
     except (OSError, subprocess.SubprocessError):
         return None
     return (out.stdout or "").strip() or None
+
+
+def check_opencode() -> tuple[bool, str]:
+    """Pre-flight: is there an `opencode` executable that actually runs? Resolves it (`resolve_opencode_bin`),
+    checks it is an executable file, and runs `opencode --version`. (True, "<path> (<version>)") or (False, reason)."""
+    path = resolve_opencode_bin()
+    if path is None:
+        return False, (
+            f"opencode executable not found: not on PATH ({os.environ.get('PATH', '')}) and not at "
+            f"{OPENCODE_FALLBACK_PATH}. Install it, add its directory to the service PATH, or set OPENCODE_BIN."
+        )
+    resolved = shutil.which(path) if os.sep not in path else path
+    if not resolved or not os.path.isfile(resolved) or not os.access(resolved, os.X_OK):
+        return False, f"opencode executable {path!r} does not exist or is not executable (OPENCODE_BIN={os.environ.get('OPENCODE_BIN')!r})."
+    try:
+        out = subprocess.run([resolved, "--version"], capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return False, f"opencode at {resolved} could not be run: {type(exc).__name__}: {exc}"
+    version = (out.stdout or "").strip()
+    if out.returncode != 0 or not version:
+        return False, (
+            f"opencode at {resolved} failed to report its version (exit {out.returncode}): "
+            f"{(out.stderr or out.stdout or '').strip()[-300:]}"
+        )
+    return True, f"{resolved} ({version})"
 
 
 # --------------------------------------------------------------------------- #

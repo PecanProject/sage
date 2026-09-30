@@ -1,0 +1,169 @@
+{
+  "paper_id": "Felipe-2010-Cultivar",
+  "verified_against": "docproc/paper/Felipe-2010-Cultivar.pdf (pdftotext) and content.md; hand-selected, never copied from a run",
+  "expectations": [
+    {
+      "id": "citation.doi",
+      "entity_type": "Citation",
+      "concept": "DOI printed in the page header",
+      "status": "upstream_absent",
+      "pattern": "10\\.1007/s13165",
+      "pdf_literals": [
+        "DOI 10.1007/s13165-010-0002-z"
+      ],
+      "note": "Printed in the PDF page header; content.md has no DOI (Marker page-header blocks empty). Class A, not a retrieval failure."
+    },
+    {
+      "id": "site.location",
+      "entity_type": "Site",
+      "concept": "farm location",
+      "anchors": [
+        "b:0026"
+      ],
+      "literals": [
+        "Yolo County, California"
+      ],
+      "outcome": {
+        "field": [
+          "state_or_region",
+          "nearest_city",
+          "description",
+          "name"
+        ],
+        "contains_any": [
+          "Yolo",
+          "California"
+        ]
+      }
+    },
+    {
+      "id": "species.tomato",
+      "entity_type": "Species",
+      "concept": "tomato binomial (both synonyms)",
+      "anchors": [
+        "b:0026"
+      ],
+      "literals": [
+        "Lycopersicon esculentum Mill. = Solanum lycopersicum L."
+      ],
+      "outcome": {
+        "field": "scientific_name",
+        "contains_any": [
+          "lycopersicum",
+          "esculentum"
+        ]
+      }
+    },
+    {
+      "id": "species.mustard",
+      "entity_type": "Species",
+      "concept": "mustard cover crop binomial",
+      "anchors": [
+        "b:0028"
+      ],
+      "literals": [
+        "Brassica nigra [L.] Koch"
+      ],
+      "outcome": {
+        "field": "scientific_name",
+        "contains_any": [
+          "Brassica nigra"
+        ]
+      }
+    },
+    {
+      "id": "management.compost",
+      "entity_type": "Management",
+      "concept": "compost 17 Mg per ha",
+      "anchors": [
+        "b:0028"
+      ],
+      "literals": [
+        "compost applied at a rate of 17 Mg per ha"
+      ]
+    },
+    {
+      "id": "management.mcc_planting",
+      "entity_type": "Management",
+      "concept": "mustard cover crop planted November 3",
+      "anchors": [
+        "b:0028"
+      ],
+      "literals": [
+        "was planted on November 3"
+      ]
+    },
+    {
+      "id": "management.mowing",
+      "entity_type": "Management",
+      "concept": "cover crop mowed April 26, 2006",
+      "anchors": [
+        "b:0029"
+      ],
+      "literals": [
+        "The cover crop was mowed on April 26, 2006"
+      ],
+      "outcome": {
+        "field": "date",
+        "contains_any": [
+          "2006-04-26",
+          "April 26, 2006"
+        ]
+      }
+    },
+    {
+      "id": "treatment.mixtures",
+      "entity_type": "Treatment",
+      "concept": "1-cv / 3-cv / 5-cv mixtures as subplot treatments",
+      "anchors": [
+        "b:0030"
+      ],
+      "literals": [
+        "The cultivar mixtures (subplot treatments) consisted of",
+        "(1-cv)",
+        "(3-cv)",
+        "(5-cv)"
+      ]
+    },
+    {
+      "id": "method.par_accupar",
+      "entity_type": "Method",
+      "concept": "PAR interception with AccuPAR-80",
+      "anchors": [
+        "b:0041"
+      ],
+      "literals": [
+        "AccuPAR-80"
+      ],
+      "outcome": {
+        "field": "description",
+        "contains_any": [
+          "AccuPAR"
+        ]
+      }
+    },
+    {
+      "id": "variable.table1_par_units",
+      "entity_type": "Variable",
+      "concept": "PAR intercepted (%) as a Table 1 variable row",
+      "anchors": [
+        "b:0069"
+      ],
+      "literals": [
+        "PAR intercepted (%)",
+        "Shoot biomass (g m -2 )"
+      ]
+    },
+    {
+      "id": "design.split_plot",
+      "entity_type": "Study",
+      "concept": "RCBD split-plot",
+      "anchors": [
+        "b:0045"
+      ],
+      "literals": [
+        "complete randomized block design with a split-plot treatment structure"
+      ]
+    }
+  ]
+}

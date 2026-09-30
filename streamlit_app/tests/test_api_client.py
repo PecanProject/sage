@@ -186,12 +186,93 @@ def test_list_extracted_papers_independent_of_stored_pdf_presence(tmp_path, monk
     assert len(rows) == 1
     assert rows[0]["paper_id"] == "pecan"
     assert rows[0]["has_pdf"] is False  # confirmed: no PDF, still listed
+    assert rows[0]["review_run_is_latest"] is True  # legacy-only results: nothing newer, so not "an earlier run"
 
 
-def test_list_extracted_papers_omits_results_dirs_with_nothing_ready_or_unresolved(tmp_path, monkeypatch):
+def _write_run(results_root, paper_id: str, run_id: str, statuses: dict, latest: bool = False, mtime: float = 0.0):
+    """A run-scoped results set (results/<paper>/<run_id>/, as orchestrator.run_paper writes it): one single-record
+    entity file per {entity_type: status}, each carrying its run id; optionally the LATEST pointer."""
+    import os
+
+    for entity_type, status in statuses.items():
+        results_store.save_entity_result(paper_id, entity_type, {
+            "paper_id": paper_id, "entity_type": entity_type, "record_id": f"{paper_id}_{entity_type.lower()}",
+            "run_id": run_id, "status": status, "payload": None,
+            "reason": f"{entity_type} failed: opencode executable not found" if status == "error" else None,
+        }, run_id=run_id)
+    marker = results_store.mark_run_results(paper_id, run_id)
+    if mtime:
+        os.utime(marker, (mtime, mtime))
+    if latest:
+        results_store.set_latest(paper_id, run_id)
+
+
+def test_list_extracted_papers_lists_every_results_dir_even_with_nothing_to_review(tmp_path, monkeypatch):
+    # Every paper in results/ must be listed (user requirement): one whose only run failed is shown with the
+    # reason, not hidden.
     monkeypatch.setenv("IR_RESULTS_ROOT", str(tmp_path / "results"))
-    _write_single_result(tmp_path / "results", "all_errors", "Citation", "all_errors", "error")
-    assert api_client.list_extracted_papers() == []
+    _set_paper_dirs(monkeypatch, tmp_path)
+    _write_run(tmp_path / "results", "failed_only", "run1", {"Citation": "error", "Site": "blocked"}, latest=True)
+
+    rows = api_client.list_extracted_papers()
+
+    assert [r["paper_id"] for r in rows] == ["failed_only"]
+    assert rows[0]["reviewable"] is False
+    assert rows[0]["failure"].startswith("Citation: Citation failed")
+    assert rows[0]["summary"] is None
+
+
+def test_failed_latest_run_does_not_hide_earlier_legacy_results(tmp_path, monkeypatch):
+    # Real case (Oceologia-1998 / Paul-1998-Foliar): LATEST points at a run that failed at Citation, while the
+    # legacy flat layout still holds the real, reviewable results. The paper is listed and opens on those.
+    monkeypatch.setenv("IR_RESULTS_ROOT", str(tmp_path / "results"))
+    monkeypatch.setenv("IR_CORRECTIONS_ROOT", str(tmp_path / "corrections"))
+    _set_paper_dirs(monkeypatch, tmp_path)
+    _write_single_result(tmp_path / "results", "oceo", "Citation", "oceo", "ready")
+    _write_run(tmp_path / "results", "oceo", "val_run", {"Citation": "error", "Site": "blocked"}, latest=True)
+
+    assert api_client.is_extracted("oceo") is True
+    assert api_client.default_review_run("oceo") == results_store.LEGACY_RUN
+    row = api_client.list_extracted_papers()[0]
+    assert row["reviewable"] is True and row["review_run"] == results_store.LEGACY_RUN
+    assert row["review_run_is_latest"] is False
+    assert api_client.get_review_data("oceo")["Citation"][0]["status"] == "ready"
+    # the failed latest run stays reachable, explicitly
+    assert api_client.get_review_data("oceo", "val_run")["Citation"][0]["status"] == "error"
+    runs = api_client.list_result_runs("oceo")
+    assert [r["run_id"] for r in runs] == ["val_run", results_store.LEGACY_RUN]
+    assert [r["reviewable"] for r in runs] == [False, True] and runs[0]["is_latest"] is True
+
+
+def test_default_review_run_prefers_latest_then_newest_reviewable_run(tmp_path, monkeypatch):
+    monkeypatch.setenv("IR_RESULTS_ROOT", str(tmp_path / "results"))
+    root = tmp_path / "results"
+    _write_run(root, "p", "old_good", {"Citation": "ready"}, mtime=1000)
+    _write_run(root, "p", "newer_good", {"Citation": "ready"}, mtime=2000)
+    _write_run(root, "p", "latest_failed", {"Citation": "error"}, latest=True, mtime=3000)
+    assert api_client.default_review_run("p") == "newer_good"
+
+    results_store.set_latest("p", "old_good")
+    assert api_client.default_review_run("p") == "old_good"     # a reviewable LATEST always wins
+
+
+def test_correction_is_tagged_with_the_reviewed_records_own_run(tmp_path, monkeypatch):
+    # A correction made while reviewing an earlier run belongs to THAT run's record, and is read back there --
+    # never to the (failed) latest run.
+    monkeypatch.setenv("IR_RESULTS_ROOT", str(tmp_path / "results"))
+    monkeypatch.setenv("IR_CORRECTIONS_ROOT", str(tmp_path / "corrections"))
+    root = tmp_path / "results"
+    path = root / "p" / "Citation.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({"paper_id": "p", "entity_type": "Citation", "record_id": "p", "run_id": "legacy_run_7",
+                                "status": "ready", "payload": {"id": "p"}}))
+    _write_run(root, "p", "latest_failed", {"Citation": "error"}, latest=True)
+
+    entry = api_client.submit_correction("p", "Citation", "p", "approve", run_id=results_store.LEGACY_RUN)
+
+    assert entry["run_id"] == "legacy_run_7"
+    assert len(api_client.get_corrections("p", "Citation", "p", run_id=results_store.LEGACY_RUN)) == 1
+    assert api_client.get_corrections("p", "Citation", "p_citation", run_id="latest_failed") == []
 
 
 def test_rename_extracted_paper_moves_results_and_ir_store(tmp_path, monkeypatch):

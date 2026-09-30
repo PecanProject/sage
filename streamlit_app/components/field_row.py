@@ -27,6 +27,11 @@ COL_WIDTHS = [0.36, 0.38, 0.06, 0.10, 0.10]
 NO_SOURCE_TEXT = "Pipeline-generated: no source text"
 
 
+def _submit(*args, **kwargs):
+    """Record a review action against the results set currently under review (see workspace's run picker)."""
+    return api_client.submit_correction(*args, run_id=st.session_state.get("review_run"), **kwargs)
+
+
 def _short(value, length: int = 220) -> str:
     text = "" if value is None else str(value)
     text = " ".join(text.split())
@@ -125,7 +130,7 @@ def render_field_detail(paper_id: str, entity_type: str, record_id: str, field_n
             "", key=f"approve_{widget_id}", icon=":material/check_box:", type="primary" if approved else "secondary",
             help="Approve — confirms the paper does not state this" if unresolved else "Approve this value",
         ):
-            api_client.submit_correction(paper_id, entity_type, record_id, approve_action(field), field_name=field_name)
+            _submit(paper_id, entity_type, record_id, approve_action(field), field_name=field_name)
             state.set_message(f"Approved {entity_type}.{field_name}")
             st.rerun()
 
@@ -160,7 +165,7 @@ def _render_edit_tabs(paper_id, entity_type, record_id, field_name, field, widge
             key=f"correctval_{widget_id}",
         )
         if st.button("Save correction", key=f"savecorrect_{widget_id}"):
-            result = api_client.submit_correction(
+            result = _submit(
                 paper_id, entity_type, record_id, "correct_value", field_name=field_name, payload={"new_value": new_value},
             )
             issues = result["payload"].get("revalidation_issues") or []
@@ -173,7 +178,7 @@ def _render_edit_tabs(paper_id, entity_type, record_id, field_name, field, widge
     with note_tab:
         note = st.text_area("Note", key=f"note_{widget_id}", label_visibility="collapsed", placeholder="Your reasoning or a note…")
         if st.button("Save note", key=f"savenote_{widget_id}", disabled=not note.strip()):
-            api_client.submit_correction(paper_id, entity_type, record_id, "note", field_name=field_name, payload={"note": note})
+            _submit(paper_id, entity_type, record_id, "note", field_name=field_name, payload={"note": note})
             state.set_message("Note saved.")
             st.rerun()
 
@@ -184,7 +189,7 @@ def _render_edit_tabs(paper_id, entity_type, record_id, field_name, field, widge
             preview = provenance_adapter.resolve_anchor(paper_id, new_anchor.strip())
             st.caption(f"Resolves to PDF page {preview['page']}." if preview else "This anchor does not resolve to a known page/region.")
         if st.button("Save new evidence location", key=f"saverelocate_{widget_id}", disabled=not new_anchor.strip()):
-            api_client.submit_correction(
+            _submit(
                 paper_id, entity_type, record_id, "relocate_evidence", field_name=field_name,
                 payload={"new_locators": [{"kind": "text", "block_anchor": new_anchor.strip()}]},
             )
@@ -197,7 +202,7 @@ def _render_edit_tabs(paper_id, entity_type, record_id, field_name, field, widge
         instruction = st.text_area("Instruction", key=f"agentnote_{widget_id}", label_visibility="collapsed",
                                     placeholder="e.g. Take the year from the copyright line, not the submission date")
         if st.button("Save instruction", key=f"saveagent_{widget_id}", disabled=not instruction.strip()):
-            api_client.submit_correction(
+            _submit(
                 paper_id, entity_type, record_id, "note", field_name=field_name,
                 payload={"note": instruction, "audience": "agent"},
             )

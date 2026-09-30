@@ -11,6 +11,8 @@ PANE_RATIO = 0.42  # PDF 42% / Review 58%
 
 
 def render(paper_id: str):
+    if st.session_state.get("review_run") is None:
+        st.session_state.review_run = api_client.default_review_run(paper_id)
     _render_overview_line(paper_id)
 
     left, right = st.columns([PANE_RATIO, 1 - PANE_RATIO])
@@ -26,7 +28,8 @@ def _render_overview_line(paper_id: str):
         if st.button("← Library", key="back_to_library"):
             state.go_to_library()
             st.rerun()
-    summary = api_client.review_summary(paper_id)
+    run_id = st.session_state.review_run
+    summary = api_client.review_summary(paper_id, run_id)
     with top[1]:
         st.markdown(
             f'<div class="overview-line"><b>{paper_id}</b> &nbsp;·&nbsp; '
@@ -35,9 +38,38 @@ def _render_overview_line(paper_id: str):
             f'{summary["remaining"]} remaining</div>',
             unsafe_allow_html=True,
         )
+    _render_run_picker(paper_id, run_id)
     if st.session_state.get("last_message"):
         st.info(st.session_state.last_message)
         st.session_state.last_message = None
+
+
+def _run_label(run: dict) -> str:
+    counts = run["counts"]
+    parts = [f"{counts[k]} {k}" for k in ("ready", "unresolved", "error", "blocked") if counts.get(k)]
+    return f"{run['label']} — {', '.join(parts) or 'no records'}"
+
+
+def _render_run_picker(paper_id: str, run_id):
+    """Which results set is under review. Every run of the paper is listed (the legacy flat layout too), so a failed
+    latest run never hides earlier results; the default is `api_client.default_review_run`."""
+    runs = api_client.list_result_runs(paper_id)
+    if not runs:
+        return
+    ids = [r["run_id"] for r in runs]
+    labels = {r["run_id"]: _run_label(r) for r in runs}
+    chosen = st.selectbox(
+        "Extraction run", options=ids, index=ids.index(run_id) if run_id in ids else 0,
+        format_func=lambda rid: labels[rid], key=f"run_picker_{paper_id}",
+    )
+    if chosen != run_id:
+        state.set_review_run(chosen)
+        st.rerun()
+    current = next(r for r in runs if r["run_id"] == chosen)
+    if not current["reviewable"]:
+        st.warning("This run has no ready or unresolved records to review -- the records below show why it stopped.")
+    elif not current["is_latest"] and any(r["is_latest"] for r in runs):
+        st.caption("Showing an earlier run: the latest run has nothing to review, or you selected this one.")
 
 
 def _render_pdf_pane(paper_id: str):
@@ -83,7 +115,7 @@ def _render_entity(paper_id: str, entity_type: str, data: dict, heading: bool = 
 
 
 def _render_data_pane(paper_id: str):
-    data = api_client.get_review_data(paper_id)
+    data = api_client.get_review_data(paper_id, st.session_state.review_run)
     with st.container(height=PANE_HEIGHT, key="data_pane", border=True):
         for entity_type in api_client.ENTITY_TYPES:
             if entity_type not in DEEMPHASIZED_ENTITY_TYPES:

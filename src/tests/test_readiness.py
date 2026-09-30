@@ -100,10 +100,14 @@ def test_synthetic_the_unresolved_label_alone_makes_a_field_unresolved_even_with
 
 def test_synthetic_the_readiness_scope_is_observation_plus_the_demonstrated_core_identities():
     """Scope after correction-pass Fix 7 (was: Observation only). Identity fields only; nothing else is ever required."""
-    assert validators.READINESS_REQUIRED_FIELDS == {"Observation": ("value", "variable_name"), "Variable": ("name",), "Method": ("name",)}
+    # Treatment added in Phase A5 on real evidence (Kathryn-2020-Winter run 20260925T225646: Treatments "4" with no name
+    # and "mean" with neither name nor definition were committed READY); protocol Section 6.3's minimum.
+    assert validators.READINESS_REQUIRED_FIELDS == {
+        "Observation": ("value", "variable_name"), "Variable": ("name",), "Method": ("name",),
+        "Treatment": ("name", "definition")}
     assert validators.READINESS_ANY_OF_FIELDS == {"Crop": (("cultivar", "common_name"),)}
     # no evidence yet for these, so they are still never blocked by readiness
-    for entity in ("Site", "Treatment", "Management", "Citation", "Species", "Coverage", "Study", "TreatmentPair"):
+    for entity in ("Site", "Management", "Citation", "Species", "Coverage", "Study", "TreatmentPair"):
         assert validators.readiness_issues(entity, {"name": UNRESOLVED, "value": UNRESOLVED}) == []
 
 

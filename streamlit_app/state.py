@@ -40,10 +40,13 @@ def init_state():
         st.session_state.last_message = None
     if "marker_run_result" not in st.session_state:
         st.session_state.marker_run_result = None
+    if "review_run" not in st.session_state:
+        st.session_state.review_run = None  # results set under review: a run id, the legacy sentinel, or None (default)
 
 
-def open_paper(paper_id: str):
+def open_paper(paper_id: str, run_id: str | None = None):
     st.session_state.paper_id = paper_id
+    st.session_state.review_run = run_id
     st.session_state.nav = "review"
     st.session_state.expanded_records = set()
     st.session_state.active_locators = []
@@ -53,6 +56,15 @@ def open_paper(paper_id: str):
 def go_to_library():
     st.session_state.nav = "library"
     st.session_state.paper_id = None
+    st.session_state.review_run = None
+
+
+def set_review_run(run_id: str | None):
+    """Switch the results set under review; the record/PDF selection belongs to the old one, so it is cleared."""
+    st.session_state.review_run = run_id
+    st.session_state.expanded_records = set()
+    st.session_state.active_locators = []
+    st.session_state.active_locator_index = 0
 
 
 def is_record_expanded(key: tuple[str, str]) -> bool:

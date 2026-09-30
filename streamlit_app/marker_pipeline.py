@@ -263,6 +263,32 @@ def process_all_papers(timeout: int = 1800) -> dict[str, Any]:
     return {"ok": conversion_result["ok"], "marker": marker_result, "conversion": conversion_result}
 
 
+def preflight() -> tuple[bool, str]:
+    """Everything an extraction run needs from its environment, checked BEFORE anything starts, so a broken
+    deployment is reported as one clear message instead of as a run whose Citation dies and blocks every other
+    entity type (real case: the public-URL runs of 2026-09-22 -- the service PATH had no /snap/bin, so `opencode` was
+    never found). Checks, in order: the `opencode` executable exists and runs (`run_config.check_opencode`), and the
+    IR service is reachable and running the current schema/validator code (`orchestrator.check_health`).
+    (True, summary) or (False, the first failure's reason). Never starts a run and never writes results."""
+    from pipeline import orchestrator, run_config
+
+    ok, opencode_msg = run_config.check_opencode()
+    if not ok:
+        return False, f"Pre-flight failed: {opencode_msg}"
+    ok, health_msg = orchestrator.check_health(orchestrator.DEFAULT_IR_SERVICE_URL)
+    if not ok:
+        return False, f"Pre-flight failed: {health_msg}"
+    return True, f"opencode: {opencode_msg}; {health_msg}"
+
+
+def _preflight_event() -> Optional[dict[str, Any]]:
+    """The UI's pre-flight stage: None when the environment is ready, else the terminal error event to show."""
+    ok, message = preflight()
+    if ok:
+        return None
+    return {"stage": "preflight", "status": "error", "message": message}
+
+
 def _needs_extraction(paper_id: str) -> bool:
     """True unless this paper has a genuinely completed extraction.
 
@@ -374,9 +400,10 @@ def _run_extraction_for_paper(paper_id: str, model: Optional[str]) -> Iterator[d
     import httpx
     from pipeline import orchestrator
 
-    ok, msg = orchestrator.check_health(orchestrator.DEFAULT_IR_SERVICE_URL)
+    # Re-checked right here (not only at the start of the session): Marker may have run for many minutes since.
+    ok, msg = preflight()
     if not ok:
-        yield {"ok": False, "step": "extraction", "error": msg}
+        yield {"ok": False, "step": "extraction", "error": msg, "run_outcome": "failed"}
         return
 
     # Run isolation: one active run per paper. A second Extract click (or a
@@ -519,6 +546,10 @@ def process_all_papers_full(model: str | None = None, timeout: int = 1800) -> It
     Marker conversion was skipped for an already-converted PDF -- those
     are independent stages with independent staleness checks.
     """
+    failed = _preflight_event()
+    if failed:
+        yield failed
+        return
     yield {"stage": "marker", "status": "running", "message": "Processing PDF(s) with Marker..."}
     marker_result = run_marker(timeout=timeout)
     if not marker_result["ok"]:
@@ -576,6 +607,10 @@ def process_single_paper_full(paper_id: str, model: str | None = None, timeout: 
     silently skipped just because a PREVIOUS extraction already exists,
     unlike process_all_papers_full's "only if it still needs it" batch
     default."""
+    failed = _preflight_event()
+    if failed:
+        yield failed
+        return
     yield {"stage": "marker", "status": "running", "message": f"Processing {paper_id} with Marker..."}
     marker_result = run_marker_for_paper(paper_id, timeout=timeout)
     if not marker_result["ok"]:

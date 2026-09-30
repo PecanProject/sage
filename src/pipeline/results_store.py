@@ -45,6 +45,9 @@ DEFAULT_RESULTS_ROOT = Path(os.environ.get("IR_RESULTS_ROOT", "results"))
 
 LATEST_FILENAME = "LATEST"
 RUN_MARKER_FILENAME = "_run.json"
+# Pass as `run_id` to READ the legacy flat `results/<paper_id>/<Entity>...` files explicitly, even when a LATEST
+# pointer exists (a paper extracted before run isolation, then re-run, keeps its older results there).
+LEGACY_RUN = "__legacy__"
 
 
 def _results_root() -> Path:
@@ -149,9 +152,33 @@ def list_run_ids(paper_id: str) -> list[str]:
     return sorted(p.name for p in directory.iterdir() if p.is_dir() and (p / RUN_MARKER_FILENAME).is_file())
 
 
+def list_run_ids_newest_first(paper_id: str) -> list[str]:
+    """`list_run_ids`, newest run first (by when the run's marker file was written, at run start; ties by name)."""
+    directory = paper_dir(paper_id)
+    return sorted(
+        list_run_ids(paper_id),
+        key=lambda rid: ((directory / rid / RUN_MARKER_FILENAME).stat().st_mtime, rid),
+        reverse=True,
+    )
+
+
+def has_legacy_results(paper_id: str) -> bool:
+    """True when the paper has entity results in the legacy flat layout (`results/<paper_id>/<Entity>.json` or
+    `results/<paper_id>/<Entity>/`), written before per-run directories existed."""
+    from pipeline.ir_schema import ENTITY_MODELS
+
+    directory = paper_dir(paper_id)
+    return any(
+        (directory / f"{entity_type}.json").is_file() or (directory / entity_type).is_dir()
+        for entity_type in ENTITY_MODELS
+    )
+
+
 def _read_base(paper_id: str, run_id: Optional[str]) -> Path:
     """Directory READERS look in: the given run's, else LATEST's, else the
-    legacy flat directory."""
+    legacy flat directory (`LEGACY_RUN` asks for the legacy flat directory explicitly)."""
+    if run_id == LEGACY_RUN:
+        return paper_dir(paper_id)
     if run_id is not None:
         return run_results_dir(paper_id, run_id)
     latest = latest_run_id(paper_id)

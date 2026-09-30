@@ -1,0 +1,50 @@
+{
+ "b:0001": {
+  "block_type": "Picture",
+  "page_id": "page_0",
+  "section_path": [],
+  "rendered_in_content_md": true
+ },
+ "b:0002": {
+  "block_type": "Picture",
+  "page_id": "page_0",
+  "section_path": [],
+  "rendered_in_content_md": true
+ },
+ "b:0003": {
+  "block_type": "Picture",
+  "page_id": "page_0",
+  "section_path": [],
+  "rendered_in_content_md": true
+ },
+ "b:0004": {
+  "block_type": "Text",
+  "page_id": "page_0",
+  "section_path": [],
+  "rendered_in_content_md": true
+ },
+ "b:0005": {
+  "block_type": "Text",
+  "page_id": "page_0",
+  "section_path": [],
+  "rendered_in_content_md": true
+ },
+ "b:0006": {
+  "block_type": "Text",
+  "page_id": "page_0",
+  "section_path": [],
+  "rendered_in_content_md": true
+ },
+ "b:0007": {
+  "block_type": "Text",
+  "page_id": "page_0",
+  "section_path": [],
+  "rendered_in_content_md": true
+ },
+ "b:0008": {
+  "block_type": "Text",
+  "page_id": "page_0",
+  "section_path": [],
+  "rendered_in_content_md": true
+ }
+}

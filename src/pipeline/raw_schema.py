@@ -25,7 +25,16 @@ from __future__ import annotations
 
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+def _blank_to_none(value: Any) -> Any:
+    """An OPTIONAL free-text field given as "" or whitespace means "not provided": None, never a value and never a
+    reason to reject the whole answer. Real evidence (Smulker-2012-Assessment, run 20260924T063634_43cf5bc7): Step B
+    wrote `units: ""` for a variable with no units, `min_length=1` rejected it, and tables b:0043 and b:0239 failed their
+    attempts on it (hiding a second, separate defect in the same answers). Applied to Optional fields only; required fields keep min_length=1, and a non-empty value
+    is validated exactly as before."""
+    return None if isinstance(value, str) and not value.strip() else value
 
 
 class RawFact(BaseModel):
@@ -231,6 +240,8 @@ class TimeLevel(BaseModel):
     site: Optional[str] = Field(default=None, min_length=1, description="Set only when the paper dates this level differently per site.")
     date_text: Optional[str] = Field(default=None, min_length=1, description="Literal source text giving the day/month, e.g. '9 June'.")
     year_text: Optional[str] = Field(default=None, min_length=1, description="Literal source text giving the year, e.g. '1993'.")
+
+    _blank_optional = field_validator("site", "date_text", "year_text", mode="before")(_blank_to_none)
     anchors: list[str] = Field(min_length=1, description="content.md blocks the date/year text was read from.")
 
     @model_validator(mode="after")
@@ -278,6 +289,8 @@ class TableVariable(BaseModel):
         default=None, min_length=1,
         description="How the paper's Methods says THIS variable was measured -- only when it says so; never invented.",
     )
+
+    _blank_optional = field_validator("variable_name", "units", "method_hint", mode="before")(_blank_to_none)
 
 
 class TableValueColumn(BaseModel):
@@ -328,6 +341,10 @@ class TableValueColumn(BaseModel):
                     "row-encoded factor_values['Treatment']-style columns in a different table -- a paper can use "
                     "either shape, and this field is simply absent (None) for the existing row-encoded case.",
     )
+
+    _blank_optional = field_validator(
+        "variable_name_hint", "variable", "units_hint", "site_hint", "method_hint", "treatment_level_hint", mode="before",
+    )(_blank_to_none)
 
 
 class TableRowGroup(BaseModel):

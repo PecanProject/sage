@@ -80,6 +80,28 @@
      }
     },
     "entity_type": "Citation",
+    "not_written": [
+     {
+      "checked_anchors": [
+       "b:0001",
+       "b:0002",
+       "b:0003",
+       "b:0004"
+      ],
+      "field": "journal",
+      "reason": "Not written in the paper's text (front matter checked)"
+     },
+     {
+      "checked_anchors": [
+       "b:0001",
+       "b:0002",
+       "b:0003",
+       "b:0004"
+      ],
+      "field": "persistent_identifier",
+      "reason": "Not written in the paper's text (front matter checked)"
+     }
+    ],
     "paper_id": "orch_test_paper",
     "payload": {
      "author": {
@@ -226,6 +248,12 @@
        "status": "ready"
       }
      },
+     "context_bundle": {
+      "bundle_id": "3cda2f3a87b2",
+      "coverage": {
+       "cultivars": "NOT_FOUND_AFTER_FULL_SEARCH"
+      }
+     },
      "entity_type": "Crop",
      "paper_id": "orch_test_paper",
      "payload": {
@@ -310,6 +338,12 @@
        "run_id": "<RUN>",
        "schema_version": "<SCHEMA>",
        "status": "ready"
+      }
+     },
+     "context_bundle": {
+      "bundle_id": "ec575fdde9ea",
+      "coverage": {
+       "event_dates": "FOUND"
       }
      },
      "entity_type": "Management",
@@ -410,6 +444,13 @@
        "run_id": "<RUN>",
        "schema_version": "<SCHEMA>",
        "status": "ready"
+      }
+     },
+     "context_bundle": {
+      "bundle_id": "a807b0ca4c87",
+      "coverage": {
+       "instrument": "NOT_FOUND_AFTER_FULL_SEARCH",
+       "procedure": "NOT_FOUND_AFTER_FULL_SEARCH"
       }
      },
      "entity_type": "Method",
@@ -581,6 +622,10 @@
        "status": "ready"
       }
      },
+     "context_bundle": {
+      "bundle_id": "daf8ecb3847d",
+      "coverage": {}
+     },
      "entity_type": "Observation",
      "paper_id": "orch_test_paper",
      "payload": {
@@ -734,6 +779,17 @@
        "status": "ready"
       }
      },
+     "context_bundle": {
+      "bundle_id": "c000e3cdf73d",
+      "coverage": {
+       "climate": "NOT_FOUND_AFTER_FULL_SEARCH",
+       "coordinates": "ABSENT_BY_PATTERN",
+       "elevation": "ABSENT_BY_PATTERN",
+       "region": "NOT_FOUND_AFTER_FULL_SEARCH",
+       "site_name": "NOT_FOUND_AFTER_FULL_SEARCH",
+       "soil": "NOT_FOUND_AFTER_FULL_SEARCH"
+      }
+     },
      "entity_type": "Site",
      "paper_id": "orch_test_paper",
      "payload": {
@@ -826,6 +882,13 @@
        "status": "ready"
       }
      },
+     "context_bundle": {
+      "bundle_id": "5773bd35f79e",
+      "coverage": {
+       "common_names": "NOT_FOUND_AFTER_FULL_SEARCH",
+       "scientific_names": "ABSENT_BY_PATTERN"
+      }
+     },
      "entity_type": "Species",
      "paper_id": "orch_test_paper",
      "payload": {
@@ -904,6 +967,13 @@
        "run_id": "<RUN>",
        "schema_version": "<SCHEMA>",
        "status": "ready"
+      }
+     },
+     "context_bundle": {
+      "bundle_id": "eac1a72488e3",
+      "coverage": {
+       "design": "NOT_FOUND_AFTER_FULL_SEARCH",
+       "sample_size": "NOT_FOUND_AFTER_FULL_SEARCH"
       }
      },
      "entity_type": "Study",
@@ -987,6 +1057,12 @@
        "run_id": "<RUN>",
        "schema_version": "<SCHEMA>",
        "status": "ready"
+      }
+     },
+     "context_bundle": {
+      "bundle_id": "e235824e6d2d",
+      "coverage": {
+       "design": "FOUND"
       }
      },
      "entity_type": "Treatment",
@@ -1090,6 +1166,13 @@
        "run_id": "<RUN>",
        "schema_version": "<SCHEMA>",
        "status": "ready"
+      }
+     },
+     "context_bundle": {
+      "bundle_id": "b1b10acd2b7f",
+      "coverage": {
+       "definition": "NOT_FOUND_AFTER_FULL_SEARCH",
+       "units": "NOT_FOUND_AFTER_FULL_SEARCH"
       }
      },
      "entity_type": "Variable",
@@ -1211,6 +1294,28 @@
    "final_text": "{\"paper_id\": \"orch_test_paper\", \"entity_type\": \"Citation\", \"record_id\": \"orch_test_paper\", \"facts\": [{\"field_name\": \"x\", \"raw_value\": \"A Title\", \"raw_text_excerpt\": \"A Title\", \"anchors\": [\"b:0003\"]}]}",
    "had_malformed_tool_call": false,
    "model": "test-model",
+   "not_written": [
+    {
+     "checked_anchors": [
+      "b:0001",
+      "b:0002",
+      "b:0003",
+      "b:0004"
+     ],
+     "field": "journal",
+     "reason": "Not written in the paper's text (front matter checked)"
+    },
+    {
+     "checked_anchors": [
+      "b:0001",
+      "b:0002",
+      "b:0003",
+      "b:0004"
+     ],
+     "field": "persistent_identifier",
+     "reason": "Not written in the paper's text (front matter checked)"
+    }
+   ],
    "parse_error": null,
    "parsed_json": {
     "entity_type": "Citation",
@@ -1312,6 +1417,28 @@
     }
    },
    "entity_type": "Citation",
+   "not_written": [
+    {
+     "checked_anchors": [
+      "b:0001",
+      "b:0002",
+      "b:0003",
+      "b:0004"
+     ],
+     "field": "journal",
+     "reason": "Not written in the paper's text (front matter checked)"
+    },
+    {
+     "checked_anchors": [
+      "b:0001",
+      "b:0002",
+      "b:0003",
+      "b:0004"
+     ],
+     "field": "persistent_identifier",
+     "reason": "Not written in the paper's text (front matter checked)"
+    }
+   ],
    "paper_id": "orch_test_paper",
    "payload": {
     "author": {
@@ -1508,9 +1635,37 @@
    "record_id": "orch_test_paper_coverage_x",
    "status": "ready"
   },
+  "Crop__enumeration/context_bundle/attempt1.json": {
+   "bundle_id": "f4881c2c0cb7",
+   "coverage": [
+    {
+     "anchors": [],
+     "concept": "cultivars",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    }
+   ],
+   "document_hash": "4c34cac8b85b4550",
+   "entity_type": "Crop",
+   "experimental_context": null,
+   "items": [],
+   "negative_evidence": [],
+   "paper_id": "orch_test_paper",
+   "retrieval_metadata": {
+    "budget": 7000,
+    "chars": 0,
+    "dropped_for_budget": [],
+    "seed_anchors": []
+   },
+   "strategy_version": "1",
+   "target": null,
+   "task": "enumeration",
+   "terminology": {}
+  },
   "Crop__enumeration/enumeration/attempt1.json": {
    "agent": "extractor",
-   "final_text": "{\"entity_type\": \"Crop\", \"candidates\": [{\"candidate_id\": \"x\", \"description\": \"The single reported variable.\", \"anchors\": [\"b:0003\"]}]}",
+   "final_text": "{\"entity_type\": \"Crop\", \"candidates\": [{\"candidate_id\": \"x\", \"description\": \"The single reported variable.\", \"anchors\": [\"b:0003\", \"b:0001\"]}]}",
    "had_malformed_tool_call": false,
    "model": "test-model",
    "parse_error": null,
@@ -1518,7 +1673,8 @@
     "candidates": [
      {
       "anchors": [
-       "b:0003"
+       "b:0003",
+       "b:0001"
       ],
       "candidate_id": "x",
       "description": "The single reported variable."
@@ -1531,6 +1687,116 @@
    "stderr": "",
    "stdout": "{}",
    "validation_errors": []
+  },
+  "Crop__enumeration/species_links/attempt1.json": {
+   "decisions": [
+    {
+     "anchors": [
+      "b:0003",
+      "b:0001",
+      "b:0002",
+      "b:0004",
+      "b:0002"
+     ],
+     "candidate_id": "x",
+     "decision": "species_evidenced",
+     "species_ids": [
+      "orch_test_paper_species_x"
+     ]
+    }
+   ]
+  },
+  "Crop__orch_test_paper_crop_x/context_bundle/attempt1.json": {
+   "bundle_id": "3cda2f3a87b2",
+   "coverage": [
+    {
+     "anchors": [],
+     "concept": "cultivars",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    }
+   ],
+   "document_hash": "4c34cac8b85b4550",
+   "entity_type": "Crop",
+   "experimental_context": null,
+   "items": [
+    {
+     "anchor": "b:0001",
+     "block_type": "Text",
+     "evidence_type": "primary",
+     "level": 0,
+     "page": null,
+     "reasons": [
+      "candidate anchor"
+     ],
+     "region": "front_matter",
+     "relation": null,
+     "section": "A. Author",
+     "text": "A. Author",
+     "truncated": false
+    },
+    {
+     "anchor": "b:0003",
+     "block_type": "Text",
+     "evidence_type": "primary",
+     "level": 0,
+     "page": null,
+     "reasons": [
+      "candidate anchor"
+     ],
+     "region": "front_matter",
+     "relation": null,
+     "section": "A Title",
+     "text": "A Title",
+     "truncated": false
+    },
+    {
+     "anchor": "b:0002",
+     "block_type": "Text",
+     "evidence_type": "supporting",
+     "level": 1,
+     "page": null,
+     "reasons": [
+      "reading-order neighbour"
+     ],
+     "region": "front_matter",
+     "relation": "neighbour_of:b:0003",
+     "section": "A. Author",
+     "text": "Published in 2012.",
+     "truncated": false
+    },
+    {
+     "anchor": "b:0004",
+     "block_type": "Text",
+     "evidence_type": "supporting",
+     "level": 1,
+     "page": null,
+     "reasons": [
+      "reading-order neighbour"
+     ],
+     "region": "front_matter",
+     "relation": "neighbour_of:b:0003",
+     "section": "A Title",
+     "text": "Reported as a treatment_mean summary statistic.",
+     "truncated": false
+    }
+   ],
+   "negative_evidence": [],
+   "paper_id": "orch_test_paper",
+   "retrieval_metadata": {
+    "budget": 7000,
+    "chars": 81,
+    "dropped_for_budget": [],
+    "seed_anchors": [
+     "b:0003",
+     "b:0001"
+    ]
+   },
+   "strategy_version": "1",
+   "target": null,
+   "task": "extraction",
+   "terminology": {}
   },
   "Crop__orch_test_paper_crop_x/conversion/attempt1.json": {
    "agent": "converter",
@@ -1633,6 +1899,12 @@
      "status": "ready"
     }
    },
+   "context_bundle": {
+    "bundle_id": "3cda2f3a87b2",
+    "coverage": {
+     "cultivars": "NOT_FOUND_AFTER_FULL_SEARCH"
+    }
+   },
    "entity_type": "Crop",
    "paper_id": "orch_test_paper",
    "payload": {
@@ -1668,6 +1940,52 @@
    "record_id": "orch_test_paper_crop_x",
    "status": "ready"
   },
+  "Management__enumeration/context_bundle/attempt1.json": {
+   "bundle_id": "bea03c5fa3c4",
+   "coverage": [
+    {
+     "anchors": [
+      "b:0002"
+     ],
+     "concept": "event_dates",
+     "level": 2,
+     "note": null,
+     "status": "FOUND"
+    }
+   ],
+   "document_hash": "4c34cac8b85b4550",
+   "entity_type": "Management",
+   "experimental_context": null,
+   "items": [
+    {
+     "anchor": "b:0002",
+     "block_type": "Text",
+     "evidence_type": "supporting",
+     "level": 2,
+     "page": null,
+     "reasons": [
+      "signal:date(2012)"
+     ],
+     "region": "front_matter",
+     "relation": "concept:event_dates",
+     "section": "A. Author",
+     "text": "Published in 2012.",
+     "truncated": false
+    }
+   ],
+   "negative_evidence": [],
+   "paper_id": "orch_test_paper",
+   "retrieval_metadata": {
+    "budget": 7000,
+    "chars": 18,
+    "dropped_for_budget": [],
+    "seed_anchors": []
+   },
+   "strategy_version": "1",
+   "target": null,
+   "task": "enumeration",
+   "terminology": {}
+  },
   "Management__enumeration/enumeration/attempt1.json": {
    "agent": "extractor",
    "final_text": "{\"entity_type\": \"Management\", \"candidates\": [{\"candidate_id\": \"x\", \"description\": \"The single reported variable.\", \"anchors\": [\"b:0003\"]}]}",
@@ -1691,6 +2009,84 @@
    "stderr": "",
    "stdout": "{}",
    "validation_errors": []
+  },
+  "Management__orch_test_paper_management_x/context_bundle/attempt1.json": {
+   "bundle_id": "ec575fdde9ea",
+   "coverage": [
+    {
+     "anchors": [
+      "b:0002"
+     ],
+     "concept": "event_dates",
+     "level": 1,
+     "note": null,
+     "status": "FOUND"
+    }
+   ],
+   "document_hash": "4c34cac8b85b4550",
+   "entity_type": "Management",
+   "experimental_context": null,
+   "items": [
+    {
+     "anchor": "b:0003",
+     "block_type": "Text",
+     "evidence_type": "primary",
+     "level": 0,
+     "page": null,
+     "reasons": [
+      "candidate anchor"
+     ],
+     "region": "front_matter",
+     "relation": null,
+     "section": "A Title",
+     "text": "A Title",
+     "truncated": false
+    },
+    {
+     "anchor": "b:0002",
+     "block_type": "Text",
+     "evidence_type": "supporting",
+     "level": 1,
+     "page": null,
+     "reasons": [
+      "reading-order neighbour"
+     ],
+     "region": "front_matter",
+     "relation": "neighbour_of:b:0003",
+     "section": "A. Author",
+     "text": "Published in 2012.",
+     "truncated": false
+    },
+    {
+     "anchor": "b:0004",
+     "block_type": "Text",
+     "evidence_type": "supporting",
+     "level": 1,
+     "page": null,
+     "reasons": [
+      "reading-order neighbour"
+     ],
+     "region": "front_matter",
+     "relation": "neighbour_of:b:0003",
+     "section": "A Title",
+     "text": "Reported as a treatment_mean summary statistic.",
+     "truncated": false
+    }
+   ],
+   "negative_evidence": [],
+   "paper_id": "orch_test_paper",
+   "retrieval_metadata": {
+    "budget": 7000,
+    "chars": 72,
+    "dropped_for_budget": [],
+    "seed_anchors": [
+     "b:0003"
+    ]
+   },
+   "strategy_version": "1",
+   "target": null,
+   "task": "extraction",
+   "terminology": {}
   },
   "Management__orch_test_paper_management_x/conversion/attempt1.json": {
    "agent": "converter",
@@ -1833,6 +2229,12 @@
      "status": "ready"
     }
    },
+   "context_bundle": {
+    "bundle_id": "ec575fdde9ea",
+    "coverage": {
+     "event_dates": "FOUND"
+    }
+   },
    "entity_type": "Management",
    "paper_id": "orch_test_paper",
    "payload": {
@@ -1888,6 +2290,41 @@
    "record_id": "orch_test_paper_management_x",
    "status": "ready"
   },
+  "Method__enumeration/context_bundle/attempt1.json": {
+   "bundle_id": "77880a38f140",
+   "coverage": [
+    {
+     "anchors": [],
+     "concept": "procedure",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    },
+    {
+     "anchors": [],
+     "concept": "instrument",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    }
+   ],
+   "document_hash": "4c34cac8b85b4550",
+   "entity_type": "Method",
+   "experimental_context": null,
+   "items": [],
+   "negative_evidence": [],
+   "paper_id": "orch_test_paper",
+   "retrieval_metadata": {
+    "budget": 14000,
+    "chars": 0,
+    "dropped_for_budget": [],
+    "seed_anchors": []
+   },
+   "strategy_version": "1",
+   "target": null,
+   "task": "enumeration",
+   "terminology": {}
+  },
   "Method__enumeration/enumeration/attempt1.json": {
    "agent": "extractor",
    "final_text": "{\"entity_type\": \"Method\", \"candidates\": [{\"candidate_id\": \"x\", \"description\": \"The single reported variable.\", \"anchors\": [\"b:0003\"]}]}",
@@ -1911,6 +2348,89 @@
    "stderr": "",
    "stdout": "{}",
    "validation_errors": []
+  },
+  "Method__orch_test_paper_method_x/context_bundle/attempt1.json": {
+   "bundle_id": "a807b0ca4c87",
+   "coverage": [
+    {
+     "anchors": [],
+     "concept": "procedure",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    },
+    {
+     "anchors": [],
+     "concept": "instrument",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    }
+   ],
+   "document_hash": "4c34cac8b85b4550",
+   "entity_type": "Method",
+   "experimental_context": null,
+   "items": [
+    {
+     "anchor": "b:0003",
+     "block_type": "Text",
+     "evidence_type": "primary",
+     "level": 0,
+     "page": null,
+     "reasons": [
+      "candidate anchor"
+     ],
+     "region": "front_matter",
+     "relation": null,
+     "section": "A Title",
+     "text": "A Title",
+     "truncated": false
+    },
+    {
+     "anchor": "b:0002",
+     "block_type": "Text",
+     "evidence_type": "supporting",
+     "level": 1,
+     "page": null,
+     "reasons": [
+      "reading-order neighbour"
+     ],
+     "region": "front_matter",
+     "relation": "neighbour_of:b:0003",
+     "section": "A. Author",
+     "text": "Published in 2012.",
+     "truncated": false
+    },
+    {
+     "anchor": "b:0004",
+     "block_type": "Text",
+     "evidence_type": "supporting",
+     "level": 1,
+     "page": null,
+     "reasons": [
+      "reading-order neighbour"
+     ],
+     "region": "front_matter",
+     "relation": "neighbour_of:b:0003",
+     "section": "A Title",
+     "text": "Reported as a treatment_mean summary statistic.",
+     "truncated": false
+    }
+   ],
+   "negative_evidence": [],
+   "paper_id": "orch_test_paper",
+   "retrieval_metadata": {
+    "budget": 9000,
+    "chars": 72,
+    "dropped_for_budget": [],
+    "seed_anchors": [
+     "b:0003"
+    ]
+   },
+   "strategy_version": "1",
+   "target": null,
+   "task": "extraction",
+   "terminology": {}
   },
   "Method__orch_test_paper_method_x/conversion/attempt1.json": {
    "agent": "converter",
@@ -2041,6 +2561,13 @@
      "status": "ready"
     }
    },
+   "context_bundle": {
+    "bundle_id": "a807b0ca4c87",
+    "coverage": {
+     "instrument": "NOT_FOUND_AFTER_FULL_SEARCH",
+     "procedure": "NOT_FOUND_AFTER_FULL_SEARCH"
+    }
+   },
    "entity_type": "Method",
    "paper_id": "orch_test_paper",
    "payload": {
@@ -2113,6 +2640,87 @@
    "stderr": "",
    "stdout": "{}",
    "validation_errors": []
+  },
+  "Observation__orch_test_paper_observation_x/context_bundle/attempt1.json": {
+   "bundle_id": "daf8ecb3847d",
+   "coverage": [],
+   "document_hash": "4c34cac8b85b4550",
+   "entity_type": "Observation",
+   "experimental_context": {
+    "aggregation": {
+     "aggregated_over_factors": [],
+     "basis": "cell mean",
+     "reported_effect_scope": "treatment_mean"
+    },
+    "design": {
+     "conflicts": null,
+     "factors": null,
+     "layout": null
+    },
+    "method": {
+     "name": "A Title",
+     "reason": "resolved by the existing linker",
+     "record_id": "orch_test_paper_method_x",
+     "status": "linked",
+     "tier": "single_or_linked"
+    },
+    "site": "orch_test_paper_site_x (A Title)",
+    "treatment": {
+     "candidates": null,
+     "definition": "A Title",
+     "levels": {},
+     "name": "A Title",
+     "record_id": "orch_test_paper_treatment_x"
+    },
+    "variable": {
+     "header_units": null,
+     "label": null,
+     "name": "A Title",
+     "record_id": "orch_test_paper_variable_x",
+     "record_units": null
+    }
+   },
+   "items": [
+    {
+     "anchor": "b:0003",
+     "block_type": "Text",
+     "evidence_type": "variable",
+     "level": 2,
+     "page": null,
+     "reasons": [
+      "variable link evidence"
+     ],
+     "region": "front_matter",
+     "relation": "variable_evidence",
+     "section": "A Title",
+     "text": "A Title",
+     "truncated": false
+    },
+    {
+     "anchor": "b:0001",
+     "block_type": "Text",
+     "evidence_type": "treatment",
+     "level": 2,
+     "page": null,
+     "reasons": [
+      "treatment link evidence"
+     ],
+     "region": "front_matter",
+     "relation": "treatment_evidence",
+     "section": "A. Author",
+     "text": "A. Author",
+     "truncated": false
+    }
+   ],
+   "negative_evidence": [],
+   "paper_id": "orch_test_paper",
+   "retrieval_metadata": {
+    "chars": 16
+   },
+   "strategy_version": "1",
+   "target": null,
+   "task": "extraction",
+   "terminology": {}
   },
   "Observation__orch_test_paper_observation_x/conversion/attempt1.json": {
    "agent": "converter",
@@ -2393,6 +3001,10 @@
      "status": "ready"
     }
    },
+   "context_bundle": {
+    "bundle_id": "daf8ecb3847d",
+    "coverage": {}
+   },
    "entity_type": "Observation",
    "paper_id": "orch_test_paper",
    "payload": {
@@ -2517,6 +3129,72 @@
    "record_id": "orch_test_paper_observation_x",
    "status": "ready"
   },
+  "Site__enumeration/context_bundle/attempt1.json": {
+   "bundle_id": "693df77f83e0",
+   "coverage": [
+    {
+     "anchors": [],
+     "concept": "site_name",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    },
+    {
+     "anchors": [],
+     "concept": "coordinates",
+     "level": null,
+     "note": "a scan of every block for coordinate found none",
+     "status": "ABSENT_BY_PATTERN"
+    },
+    {
+     "anchors": [],
+     "concept": "elevation",
+     "level": null,
+     "note": "a scan of every block for elevation found none",
+     "status": "ABSENT_BY_PATTERN"
+    },
+    {
+     "anchors": [],
+     "concept": "soil",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    },
+    {
+     "anchors": [],
+     "concept": "climate",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    },
+    {
+     "anchors": [],
+     "concept": "region",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    }
+   ],
+   "document_hash": "4c34cac8b85b4550",
+   "entity_type": "Site",
+   "experimental_context": null,
+   "items": [],
+   "negative_evidence": [
+    "coordinates: a scan of every block for coordinate found none",
+    "elevation: a scan of every block for elevation found none"
+   ],
+   "paper_id": "orch_test_paper",
+   "retrieval_metadata": {
+    "budget": 7000,
+    "chars": 0,
+    "dropped_for_budget": [],
+    "seed_anchors": []
+   },
+   "strategy_version": "1",
+   "target": null,
+   "task": "enumeration",
+   "terminology": {}
+  },
   "Site__enumeration/enumeration/attempt1.json": {
    "agent": "extractor",
    "final_text": "{\"entity_type\": \"Site\", \"candidates\": [{\"candidate_id\": \"x\", \"description\": \"The single reported variable.\", \"anchors\": [\"b:0003\"]}]}",
@@ -2540,6 +3218,120 @@
    "stderr": "",
    "stdout": "{}",
    "validation_errors": []
+  },
+  "Site__orch_test_paper_site_x/context_bundle/attempt1.json": {
+   "bundle_id": "c000e3cdf73d",
+   "coverage": [
+    {
+     "anchors": [],
+     "concept": "site_name",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    },
+    {
+     "anchors": [],
+     "concept": "coordinates",
+     "level": null,
+     "note": "a scan of every block for coordinate found none",
+     "status": "ABSENT_BY_PATTERN"
+    },
+    {
+     "anchors": [],
+     "concept": "elevation",
+     "level": null,
+     "note": "a scan of every block for elevation found none",
+     "status": "ABSENT_BY_PATTERN"
+    },
+    {
+     "anchors": [],
+     "concept": "soil",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    },
+    {
+     "anchors": [],
+     "concept": "climate",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    },
+    {
+     "anchors": [],
+     "concept": "region",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    }
+   ],
+   "document_hash": "4c34cac8b85b4550",
+   "entity_type": "Site",
+   "experimental_context": null,
+   "items": [
+    {
+     "anchor": "b:0003",
+     "block_type": "Text",
+     "evidence_type": "primary",
+     "level": 0,
+     "page": null,
+     "reasons": [
+      "candidate anchor"
+     ],
+     "region": "front_matter",
+     "relation": null,
+     "section": "A Title",
+     "text": "A Title",
+     "truncated": false
+    },
+    {
+     "anchor": "b:0002",
+     "block_type": "Text",
+     "evidence_type": "supporting",
+     "level": 1,
+     "page": null,
+     "reasons": [
+      "reading-order neighbour"
+     ],
+     "region": "front_matter",
+     "relation": "neighbour_of:b:0003",
+     "section": "A. Author",
+     "text": "Published in 2012.",
+     "truncated": false
+    },
+    {
+     "anchor": "b:0004",
+     "block_type": "Text",
+     "evidence_type": "supporting",
+     "level": 1,
+     "page": null,
+     "reasons": [
+      "reading-order neighbour"
+     ],
+     "region": "front_matter",
+     "relation": "neighbour_of:b:0003",
+     "section": "A Title",
+     "text": "Reported as a treatment_mean summary statistic.",
+     "truncated": false
+    }
+   ],
+   "negative_evidence": [
+    "coordinates: a scan of every block for coordinate found none",
+    "elevation: a scan of every block for elevation found none"
+   ],
+   "paper_id": "orch_test_paper",
+   "retrieval_metadata": {
+    "budget": 7000,
+    "chars": 72,
+    "dropped_for_budget": [],
+    "seed_anchors": [
+     "b:0003"
+    ]
+   },
+   "strategy_version": "1",
+   "target": null,
+   "task": "extraction",
+   "terminology": {}
   },
   "Site__orch_test_paper_site_x/conversion/attempt1.json": {
    "agent": "converter",
@@ -2638,6 +3430,17 @@
      "status": "ready"
     }
    },
+   "context_bundle": {
+    "bundle_id": "c000e3cdf73d",
+    "coverage": {
+     "climate": "NOT_FOUND_AFTER_FULL_SEARCH",
+     "coordinates": "ABSENT_BY_PATTERN",
+     "elevation": "ABSENT_BY_PATTERN",
+     "region": "NOT_FOUND_AFTER_FULL_SEARCH",
+     "site_name": "NOT_FOUND_AFTER_FULL_SEARCH",
+     "soil": "NOT_FOUND_AFTER_FULL_SEARCH"
+    }
+   },
    "entity_type": "Site",
    "paper_id": "orch_test_paper",
    "payload": {
@@ -2671,6 +3474,43 @@
    "record_id": "orch_test_paper_site_x",
    "status": "ready"
   },
+  "Species__enumeration/context_bundle/attempt1.json": {
+   "bundle_id": "d6758bb343c0",
+   "coverage": [
+    {
+     "anchors": [],
+     "concept": "scientific_names",
+     "level": null,
+     "note": "a scan of every block for binomial found none",
+     "status": "ABSENT_BY_PATTERN"
+    },
+    {
+     "anchors": [],
+     "concept": "common_names",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    }
+   ],
+   "document_hash": "4c34cac8b85b4550",
+   "entity_type": "Species",
+   "experimental_context": null,
+   "items": [],
+   "negative_evidence": [
+    "scientific_names: a scan of every block for binomial found none"
+   ],
+   "paper_id": "orch_test_paper",
+   "retrieval_metadata": {
+    "budget": 7000,
+    "chars": 0,
+    "dropped_for_budget": [],
+    "seed_anchors": []
+   },
+   "strategy_version": "1",
+   "target": null,
+   "task": "enumeration",
+   "terminology": {}
+  },
   "Species__enumeration/enumeration/attempt1.json": {
    "agent": "extractor",
    "final_text": "{\"entity_type\": \"Species\", \"candidates\": [{\"candidate_id\": \"x\", \"description\": \"The single reported variable.\", \"anchors\": [\"b:0003\"]}]}",
@@ -2694,6 +3534,91 @@
    "stderr": "",
    "stdout": "{}",
    "validation_errors": []
+  },
+  "Species__orch_test_paper_species_x/context_bundle/attempt1.json": {
+   "bundle_id": "5773bd35f79e",
+   "coverage": [
+    {
+     "anchors": [],
+     "concept": "scientific_names",
+     "level": null,
+     "note": "a scan of every block for binomial found none",
+     "status": "ABSENT_BY_PATTERN"
+    },
+    {
+     "anchors": [],
+     "concept": "common_names",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    }
+   ],
+   "document_hash": "4c34cac8b85b4550",
+   "entity_type": "Species",
+   "experimental_context": null,
+   "items": [
+    {
+     "anchor": "b:0003",
+     "block_type": "Text",
+     "evidence_type": "primary",
+     "level": 0,
+     "page": null,
+     "reasons": [
+      "candidate anchor"
+     ],
+     "region": "front_matter",
+     "relation": null,
+     "section": "A Title",
+     "text": "A Title",
+     "truncated": false
+    },
+    {
+     "anchor": "b:0002",
+     "block_type": "Text",
+     "evidence_type": "supporting",
+     "level": 1,
+     "page": null,
+     "reasons": [
+      "reading-order neighbour"
+     ],
+     "region": "front_matter",
+     "relation": "neighbour_of:b:0003",
+     "section": "A. Author",
+     "text": "Published in 2012.",
+     "truncated": false
+    },
+    {
+     "anchor": "b:0004",
+     "block_type": "Text",
+     "evidence_type": "supporting",
+     "level": 1,
+     "page": null,
+     "reasons": [
+      "reading-order neighbour"
+     ],
+     "region": "front_matter",
+     "relation": "neighbour_of:b:0003",
+     "section": "A Title",
+     "text": "Reported as a treatment_mean summary statistic.",
+     "truncated": false
+    }
+   ],
+   "negative_evidence": [
+    "scientific_names: a scan of every block for binomial found none"
+   ],
+   "paper_id": "orch_test_paper",
+   "retrieval_metadata": {
+    "budget": 7000,
+    "chars": 72,
+    "dropped_for_budget": [],
+    "seed_anchors": [
+     "b:0003"
+    ]
+   },
+   "strategy_version": "1",
+   "target": null,
+   "task": "extraction",
+   "terminology": {}
   },
   "Species__orch_test_paper_species_x/conversion/attempt1.json": {
    "agent": "converter",
@@ -2852,6 +3777,13 @@
      "status": "ready"
     }
    },
+   "context_bundle": {
+    "bundle_id": "5773bd35f79e",
+    "coverage": {
+     "common_names": "NOT_FOUND_AFTER_FULL_SEARCH",
+     "scientific_names": "ABSENT_BY_PATTERN"
+    }
+   },
    "entity_type": "Species",
    "paper_id": "orch_test_paper",
    "payload": {
@@ -2915,6 +3847,41 @@
    "record_id": "orch_test_paper_species_x",
    "status": "ready"
   },
+  "Study__enumeration/context_bundle/attempt1.json": {
+   "bundle_id": "841cbfbcf23b",
+   "coverage": [
+    {
+     "anchors": [],
+     "concept": "design",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    },
+    {
+     "anchors": [],
+     "concept": "sample_size",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    }
+   ],
+   "document_hash": "4c34cac8b85b4550",
+   "entity_type": "Study",
+   "experimental_context": null,
+   "items": [],
+   "negative_evidence": [],
+   "paper_id": "orch_test_paper",
+   "retrieval_metadata": {
+    "budget": 7000,
+    "chars": 0,
+    "dropped_for_budget": [],
+    "seed_anchors": []
+   },
+   "strategy_version": "1",
+   "target": null,
+   "task": "enumeration",
+   "terminology": {}
+  },
   "Study__enumeration/enumeration/attempt1.json": {
    "agent": "extractor",
    "final_text": "{\"entity_type\": \"Study\", \"candidates\": [{\"candidate_id\": \"x\", \"description\": \"The single reported variable.\", \"anchors\": [\"b:0003\"]}]}",
@@ -2938,6 +3905,89 @@
    "stderr": "",
    "stdout": "{}",
    "validation_errors": []
+  },
+  "Study__orch_test_paper_study_x/context_bundle/attempt1.json": {
+   "bundle_id": "eac1a72488e3",
+   "coverage": [
+    {
+     "anchors": [],
+     "concept": "design",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    },
+    {
+     "anchors": [],
+     "concept": "sample_size",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    }
+   ],
+   "document_hash": "4c34cac8b85b4550",
+   "entity_type": "Study",
+   "experimental_context": null,
+   "items": [
+    {
+     "anchor": "b:0003",
+     "block_type": "Text",
+     "evidence_type": "primary",
+     "level": 0,
+     "page": null,
+     "reasons": [
+      "candidate anchor"
+     ],
+     "region": "front_matter",
+     "relation": null,
+     "section": "A Title",
+     "text": "A Title",
+     "truncated": false
+    },
+    {
+     "anchor": "b:0002",
+     "block_type": "Text",
+     "evidence_type": "supporting",
+     "level": 1,
+     "page": null,
+     "reasons": [
+      "reading-order neighbour"
+     ],
+     "region": "front_matter",
+     "relation": "neighbour_of:b:0003",
+     "section": "A. Author",
+     "text": "Published in 2012.",
+     "truncated": false
+    },
+    {
+     "anchor": "b:0004",
+     "block_type": "Text",
+     "evidence_type": "supporting",
+     "level": 1,
+     "page": null,
+     "reasons": [
+      "reading-order neighbour"
+     ],
+     "region": "front_matter",
+     "relation": "neighbour_of:b:0003",
+     "section": "A Title",
+     "text": "Reported as a treatment_mean summary statistic.",
+     "truncated": false
+    }
+   ],
+   "negative_evidence": [],
+   "paper_id": "orch_test_paper",
+   "retrieval_metadata": {
+    "budget": 7000,
+    "chars": 72,
+    "dropped_for_budget": [],
+    "seed_anchors": [
+     "b:0003"
+    ]
+   },
+   "strategy_version": "1",
+   "target": null,
+   "task": "extraction",
+   "terminology": {}
   },
   "Study__orch_test_paper_study_x/conversion/attempt1.json": {
    "agent": "converter",
@@ -3012,6 +4062,13 @@
      "status": "ready"
     }
    },
+   "context_bundle": {
+    "bundle_id": "eac1a72488e3",
+    "coverage": {
+     "design": "NOT_FOUND_AFTER_FULL_SEARCH",
+     "sample_size": "NOT_FOUND_AFTER_FULL_SEARCH"
+    }
+   },
    "entity_type": "Study",
    "paper_id": "orch_test_paper",
    "payload": {
@@ -3032,6 +4089,52 @@
    "entity_type": "Study",
    "record_id": "orch_test_paper_study_x",
    "status": "ready"
+  },
+  "Treatment__enumeration/context_bundle/attempt1.json": {
+   "bundle_id": "81b9d145f4e0",
+   "coverage": [
+    {
+     "anchors": [
+      "b:0004"
+     ],
+     "concept": "design",
+     "level": 2,
+     "note": null,
+     "status": "FOUND"
+    }
+   ],
+   "document_hash": "4c34cac8b85b4550",
+   "entity_type": "Treatment",
+   "experimental_context": null,
+   "items": [
+    {
+     "anchor": "b:0004",
+     "block_type": "Text",
+     "evidence_type": "supporting",
+     "level": 2,
+     "page": null,
+     "reasons": [
+      "phrase:'treatment'"
+     ],
+     "region": "front_matter",
+     "relation": "concept:design",
+     "section": "A Title",
+     "text": "Reported as a treatment_mean summary statistic.",
+     "truncated": false
+    }
+   ],
+   "negative_evidence": [],
+   "paper_id": "orch_test_paper",
+   "retrieval_metadata": {
+    "budget": 14000,
+    "chars": 47,
+    "dropped_for_budget": [],
+    "seed_anchors": []
+   },
+   "strategy_version": "1",
+   "target": null,
+   "task": "enumeration",
+   "terminology": {}
   },
   "Treatment__enumeration/enumeration/attempt1.json": {
    "agent": "extractor",
@@ -3056,6 +4159,84 @@
    "stderr": "",
    "stdout": "{}",
    "validation_errors": []
+  },
+  "Treatment__orch_test_paper_treatment_x/context_bundle/attempt1.json": {
+   "bundle_id": "e235824e6d2d",
+   "coverage": [
+    {
+     "anchors": [
+      "b:0004"
+     ],
+     "concept": "design",
+     "level": 1,
+     "note": null,
+     "status": "FOUND"
+    }
+   ],
+   "document_hash": "4c34cac8b85b4550",
+   "entity_type": "Treatment",
+   "experimental_context": null,
+   "items": [
+    {
+     "anchor": "b:0003",
+     "block_type": "Text",
+     "evidence_type": "primary",
+     "level": 0,
+     "page": null,
+     "reasons": [
+      "candidate anchor"
+     ],
+     "region": "front_matter",
+     "relation": null,
+     "section": "A Title",
+     "text": "A Title",
+     "truncated": false
+    },
+    {
+     "anchor": "b:0002",
+     "block_type": "Text",
+     "evidence_type": "supporting",
+     "level": 1,
+     "page": null,
+     "reasons": [
+      "reading-order neighbour"
+     ],
+     "region": "front_matter",
+     "relation": "neighbour_of:b:0003",
+     "section": "A. Author",
+     "text": "Published in 2012.",
+     "truncated": false
+    },
+    {
+     "anchor": "b:0004",
+     "block_type": "Text",
+     "evidence_type": "supporting",
+     "level": 1,
+     "page": null,
+     "reasons": [
+      "reading-order neighbour"
+     ],
+     "region": "front_matter",
+     "relation": "neighbour_of:b:0003",
+     "section": "A Title",
+     "text": "Reported as a treatment_mean summary statistic.",
+     "truncated": false
+    }
+   ],
+   "negative_evidence": [],
+   "paper_id": "orch_test_paper",
+   "retrieval_metadata": {
+    "budget": 9000,
+    "chars": 72,
+    "dropped_for_budget": [],
+    "seed_anchors": [
+     "b:0003"
+    ]
+   },
+   "strategy_version": "1",
+   "target": null,
+   "task": "extraction",
+   "terminology": {}
   },
   "Treatment__orch_test_paper_treatment_x/conversion/attempt1.json": {
    "agent": "converter",
@@ -3220,6 +4401,12 @@
      "status": "ready"
     }
    },
+   "context_bundle": {
+    "bundle_id": "e235824e6d2d",
+    "coverage": {
+     "design": "FOUND"
+    }
+   },
    "entity_type": "Treatment",
    "paper_id": "orch_test_paper",
    "payload": {
@@ -3286,6 +4473,41 @@
    "record_id": "orch_test_paper_treatment_x",
    "status": "ready"
   },
+  "Variable__enumeration/context_bundle/attempt1.json": {
+   "bundle_id": "fb466d73105f",
+   "coverage": [
+    {
+     "anchors": [],
+     "concept": "definition",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    },
+    {
+     "anchors": [],
+     "concept": "units",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    }
+   ],
+   "document_hash": "4c34cac8b85b4550",
+   "entity_type": "Variable",
+   "experimental_context": null,
+   "items": [],
+   "negative_evidence": [],
+   "paper_id": "orch_test_paper",
+   "retrieval_metadata": {
+    "budget": 9000,
+    "chars": 0,
+    "dropped_for_budget": [],
+    "seed_anchors": []
+   },
+   "strategy_version": "1",
+   "target": null,
+   "task": "enumeration",
+   "terminology": {}
+  },
   "Variable__enumeration/enumeration/attempt1.json": {
    "agent": "extractor",
    "final_text": "{\"entity_type\": \"Variable\", \"candidates\": [{\"candidate_id\": \"x\", \"description\": \"The single reported variable.\", \"anchors\": [\"b:0003\"]}]}",
@@ -3309,6 +4531,89 @@
    "stderr": "",
    "stdout": "{}",
    "validation_errors": []
+  },
+  "Variable__orch_test_paper_variable_x/context_bundle/attempt1.json": {
+   "bundle_id": "b1b10acd2b7f",
+   "coverage": [
+    {
+     "anchors": [],
+     "concept": "definition",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    },
+    {
+     "anchors": [],
+     "concept": "units",
+     "level": null,
+     "note": "searched every region except the references; absence is not proven",
+     "status": "NOT_FOUND_AFTER_FULL_SEARCH"
+    }
+   ],
+   "document_hash": "4c34cac8b85b4550",
+   "entity_type": "Variable",
+   "experimental_context": null,
+   "items": [
+    {
+     "anchor": "b:0003",
+     "block_type": "Text",
+     "evidence_type": "primary",
+     "level": 0,
+     "page": null,
+     "reasons": [
+      "candidate anchor"
+     ],
+     "region": "front_matter",
+     "relation": null,
+     "section": "A Title",
+     "text": "A Title",
+     "truncated": false
+    },
+    {
+     "anchor": "b:0002",
+     "block_type": "Text",
+     "evidence_type": "supporting",
+     "level": 1,
+     "page": null,
+     "reasons": [
+      "reading-order neighbour"
+     ],
+     "region": "front_matter",
+     "relation": "neighbour_of:b:0003",
+     "section": "A. Author",
+     "text": "Published in 2012.",
+     "truncated": false
+    },
+    {
+     "anchor": "b:0004",
+     "block_type": "Text",
+     "evidence_type": "supporting",
+     "level": 1,
+     "page": null,
+     "reasons": [
+      "reading-order neighbour"
+     ],
+     "region": "front_matter",
+     "relation": "neighbour_of:b:0003",
+     "section": "A Title",
+     "text": "Reported as a treatment_mean summary statistic.",
+     "truncated": false
+    }
+   ],
+   "negative_evidence": [],
+   "paper_id": "orch_test_paper",
+   "retrieval_metadata": {
+    "budget": 9000,
+    "chars": 72,
+    "dropped_for_budget": [],
+    "seed_anchors": [
+     "b:0003"
+    ]
+   },
+   "strategy_version": "1",
+   "target": "x",
+   "task": "extraction",
+   "terminology": {}
   },
   "Variable__orch_test_paper_variable_x/conversion/attempt1.json": {
    "agent": "converter",
@@ -3405,6 +4710,13 @@
      "run_id": "<RUN>",
      "schema_version": "<SCHEMA>",
      "status": "ready"
+    }
+   },
+   "context_bundle": {
+    "bundle_id": "b1b10acd2b7f",
+    "coverage": {
+     "definition": "NOT_FOUND_AFTER_FULL_SEARCH",
+     "units": "NOT_FOUND_AFTER_FULL_SEARCH"
     }
    },
    "entity_type": "Variable",
@@ -3536,6 +4848,9 @@
    {
     "ai_validation": null,
     "entity_type": "Crop",
+    "evidence_coverage": {
+     "cultivars": "NOT_FOUND_AFTER_FULL_SEARCH"
+    },
     "paper_id": "orch_test_paper",
     "payload": {
      "citation_id": "orch_test_paper",
@@ -3566,6 +4881,9 @@
    {
     "ai_validation": null,
     "entity_type": "Management",
+    "evidence_coverage": {
+     "event_dates": "FOUND"
+    },
     "paper_id": "orch_test_paper",
     "payload": {
      "citation_id": "orch_test_paper",
@@ -3616,6 +4934,10 @@
    {
     "ai_validation": null,
     "entity_type": "Method",
+    "evidence_coverage": {
+     "instrument": "NOT_FOUND_AFTER_FULL_SEARCH",
+     "procedure": "NOT_FOUND_AFTER_FULL_SEARCH"
+    },
     "paper_id": "orch_test_paper",
     "payload": {
      "citation_id": "orch_test_paper",
@@ -3779,6 +5101,14 @@
    {
     "ai_validation": null,
     "entity_type": "Site",
+    "evidence_coverage": {
+     "climate": "NOT_FOUND_AFTER_FULL_SEARCH",
+     "coordinates": "ABSENT_BY_PATTERN",
+     "elevation": "ABSENT_BY_PATTERN",
+     "region": "NOT_FOUND_AFTER_FULL_SEARCH",
+     "site_name": "NOT_FOUND_AFTER_FULL_SEARCH",
+     "soil": "NOT_FOUND_AFTER_FULL_SEARCH"
+    },
     "paper_id": "orch_test_paper",
     "payload": {
      "id": "orch_test_paper_site_x",
@@ -3807,6 +5137,10 @@
    {
     "ai_validation": null,
     "entity_type": "Species",
+    "evidence_coverage": {
+     "common_names": "NOT_FOUND_AFTER_FULL_SEARCH",
+     "scientific_names": "ABSENT_BY_PATTERN"
+    },
     "paper_id": "orch_test_paper",
     "payload": {
      "genus": {
@@ -3865,6 +5199,10 @@
    {
     "ai_validation": null,
     "entity_type": "Study",
+    "evidence_coverage": {
+     "design": "NOT_FOUND_AFTER_FULL_SEARCH",
+     "sample_size": "NOT_FOUND_AFTER_FULL_SEARCH"
+    },
     "paper_id": "orch_test_paper",
     "payload": {
      "citation_ids": [
@@ -3881,6 +5219,9 @@
    {
     "ai_validation": null,
     "entity_type": "Treatment",
+    "evidence_coverage": {
+     "design": "FOUND"
+    },
     "paper_id": "orch_test_paper",
     "payload": {
      "citation_id": "orch_test_paper",
@@ -3947,13 +5288,18 @@
     "reason": "requires 2 distinct Treatment records; only 1 'ready' Treatment record(s) exist in this run",
     "record_id": "orch_test_paper_treatmentpair",
     "run_id": "<RUN>",
-    "status": "blocked"
+    "status": "blocked",
+    "unresolved_cause": "BLOCKED_PREREQUISITE"
    }
   ],
   "Variable": [
    {
     "ai_validation": null,
     "entity_type": "Variable",
+    "evidence_coverage": {
+     "definition": "NOT_FOUND_AFTER_FULL_SEARCH",
+     "units": "NOT_FOUND_AFTER_FULL_SEARCH"
+    },
     "paper_id": "orch_test_paper",
     "payload": {
      "id": "orch_test_paper_variable_x",

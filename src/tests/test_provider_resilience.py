@@ -80,7 +80,10 @@ def test_a_record_survives_a_burst_of_empty_and_malformed_rounds_and_uses_no_num
     assert result.status == "ready"
     manifest = run_store.load_json(run_store.record_dir("run1", KEY) / "record_manifest.json")
     assert manifest["attempts"]["provider_failure_rounds"] == N - 1 and manifest["attempts"]["extraction"] == N   # N-1 failed + the answer
-    assert sleeps == [orchestrator.provider_cooldown_seconds(k) for k in range(1, N)] [: N - 1]
+    # Only the empty rounds (no response events at all: evidence of an outage) are waited out; a harmony-format leak is a
+    # model formatting failure, so the next round goes at once (with the "answer now" instruction).
+    empty_rounds = [k for k in range(1, N) if (k - 1) % 2 == 0]
+    assert sleeps == [orchestrator.provider_cooldown_seconds(k) for k in empty_rounds]
     assert sum(sleeps) > 60
 
 

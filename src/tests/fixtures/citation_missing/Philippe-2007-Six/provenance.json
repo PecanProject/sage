@@ -1,0 +1,63 @@
+{
+ "b:0001": {
+  "block_type": "PageHeader",
+  "page_id": "page_0",
+  "section_path": [],
+  "rendered_in_content_md": false
+ },
+ "b:0002": {
+  "block_type": "PageHeader",
+  "page_id": "page_0",
+  "section_path": [],
+  "rendered_in_content_md": false
+ },
+ "b:0003": {
+  "block_type": "SectionHeader",
+  "page_id": "page_0",
+  "section_path": [
+   "Six-year time course of light-use efficiency, carbon gain and growth of beech saplings ( Fagus sylvatica ) planted under a Scots pine ( Pinus sylvestris ) shelterwood"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0004": {
+  "block_type": "Text",
+  "page_id": "page_0",
+  "section_path": [
+   "Six-year time course of light-use efficiency, carbon gain and growth of beech saplings ( Fagus sylvatica ) planted under a Scots pine ( Pinus sylvestris ) shelterwood"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0005": {
+  "block_type": "Text",
+  "page_id": "page_0",
+  "section_path": [
+   "Six-year time course of light-use efficiency, carbon gain and growth of beech saplings ( Fagus sylvatica ) planted under a Scots pine ( Pinus sylvestris ) shelterwood"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0006": {
+  "block_type": "Text",
+  "page_id": "page_0",
+  "section_path": [
+   "Six-year time course of light-use efficiency, carbon gain and growth of beech saplings ( Fagus sylvatica ) planted under a Scots pine ( Pinus sylvestris ) shelterwood"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0007": {
+  "block_type": "Text",
+  "page_id": "page_0",
+  "section_path": [
+   "Six-year time course of light-use efficiency, carbon gain and growth of beech saplings ( Fagus sylvatica ) planted under a Scots pine ( Pinus sylvestris ) shelterwood"
+  ],
+  "rendered_in_content_md": true
+ },
+ "b:0008": {
+  "block_type": "SectionHeader",
+  "page_id": "page_0",
+  "section_path": [
+   "Six-year time course of light-use efficiency, carbon gain and growth of beech saplings ( Fagus sylvatica ) planted under a Scots pine ( Pinus sylvestris ) shelterwood",
+   "Introduction"
+  ],
+  "rendered_in_content_md": true
+ }
+}
