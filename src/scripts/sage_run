@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Thin convenience wrapper around `python -m pipeline.orchestrator`, so a
+# extraction/conversion/validation run never requires manually constructing
+# an `opencode run ...` command. Run from the project root.
+#
+# Examples:
+#   scripts/sage_run health
+#   scripts/sage_run run --paper-id pecan --entity-type Citation --record-id pecan
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
+exec python3 -m pipeline.orchestrator "$@"
