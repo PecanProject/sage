@@ -27,7 +27,9 @@ src/.opencode/
 # Pipeline runtime output and real paper data -- regenerable / user data,
 # never source code (see src/pipeline/*_store.py's own "authoritative on
 # disk, re-read on demand" docstrings for why these are never committed).
-src/docproc/
+# src/docproc/ holds the Marker-adapter SOURCE (tracked); only the Marker output and the papers it reads are data.
+src/docproc/marker_json/
+src/docproc/paper/
 src/paper/
 src/results/
 src/runs/
