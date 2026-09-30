@@ -96,7 +96,7 @@ def test_a_burst_one_round_longer_than_the_budget_is_still_a_disclosed_provider_
 
 def test_enumeration_survives_a_burst(env, sleeps):
     good = {"entity_type": "Variable", "candidates": [{"candidate_id": "lai", "description": "Leaf area index.", "anchors": ["b:0001"]}]}
-    sequence = [("extractor", _empty_invocation())] * (N - 1) + [("extractor", _inv("e", good))]
+    sequence = [("reader", _empty_invocation())] * (N - 1) + [("reader", _inv("e", good))]
     candidates, error = orchestrator.run_enumeration(
         run_id="run1", paper_id=PAPER_ID, entity_type="Variable", model="test-model", invoke=make_invoke_sequence(sequence))
     assert error is None and [c.candidate_id for c in candidates] == ["lai"]

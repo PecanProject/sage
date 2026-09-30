@@ -10,7 +10,7 @@ systems, a treatment level applied at several sites, mixture levels under Q2) mu
 from __future__ import annotations
 
 from pipeline import orchestrator
-from pipeline.raw_schema import MIXTURE_LEVEL_RULE
+from pipeline.raw_schema import DESIGN_FACTOR_RULE, MIXTURE_LEVEL_RULE
 
 GUIDANCE = orchestrator._ENTITY_IDENTITY_GUIDANCE["Treatment"]
 # the prompt a Treatment enumeration gets when NO table provides Treatment coverage
@@ -64,7 +64,8 @@ def test_the_approved_mixture_and_q2_granularity_rules_are_unchanged():
 
 
 def test_the_always_on_guidance_and_the_dimension_block_agree():
-    """Both must say that crop/time/site are not Treatments, so neither prompt contradicts the other."""
+    """Both must say that crop/site are not Treatments and time is one only when assigned as a design factor."""
     with_block = orchestrator._enumeration_prompt("p", "Treatment", covered_conditions=[], declare_dimensions=True)
     assert with_block.startswith(NO_TABLE_PROMPT)
-    assert "none of these is a 'treatment'" in with_block and "none of them is a Treatment" in GUIDANCE
+    assert "neither is a 'treatment'" in with_block and DESIGN_FACTOR_RULE in with_block
+    assert "none of them is a Treatment" in GUIDANCE and "unless the paper assigns it to plots as a design factor" in GUIDANCE

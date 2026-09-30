@@ -138,7 +138,7 @@ BAD_ENUM = {"entity_type": "Variable", "candidates": [{"candidate_id": "lai"}]} 
 def _enumerate(env, sequence, run_id="run1"):
     return orchestrator.run_enumeration(
         run_id=run_id, paper_id=PAPER_ID, entity_type="Variable", model="test-model",
-        invoke=make_invoke_sequence([("extractor", i) for i in sequence]),
+        invoke=make_invoke_sequence([("reader", i) for i in sequence]),
     )
 
 

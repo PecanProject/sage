@@ -1,0 +1,1170 @@
+{
+ "classifications": {
+  "b_0119": {
+   "table_role": "treatment_response",
+   "applicable": true,
+   "aggregation_scope": "cell_level",
+   "factors": [
+    {
+     "name": "Population",
+     "dimension": "crop",
+     "encoding": "rows"
+    },
+    {
+     "name": "Maturity",
+     "dimension": "time",
+     "encoding": "rows"
+    },
+    {
+     "name": "Site",
+     "dimension": "site",
+     "encoding": "columns"
+    }
+   ],
+   "context_levels": {},
+   "pooled_factors": [],
+   "reason": null,
+   "table_anchors": [
+    "b:0119",
+    "b:0178"
+   ],
+   "unit_hint_flags": [],
+   "method_hint_flags": [],
+   "time_levels": [],
+   "variables": [
+    {
+     "label": "Total yield",
+     "variable_name": "total_yield",
+     "units": null,
+     "method_hint": "dried in a forced‑draft oven at 55 °C"
+    },
+    {
+     "label": "Leaf blade dry wt.",
+     "variable_name": "leaf_blade_dry_weight",
+     "units": null,
+     "method_hint": "dried in a forced‑draft oven at 55 °C"
+    },
+    {
+     "label": "Leaf sheath dry wt.",
+     "variable_name": "leaf_sheath_dry_weight",
+     "units": null,
+     "method_hint": "dried in a forced‑draft oven at 55 °C"
+    },
+    {
+     "label": "Stem dry wt.",
+     "variable_name": "stem_dry_weight",
+     "units": null,
+     "method_hint": "dried in a forced‑draft oven at 55 °C"
+    }
+   ],
+   "value_columns": [
+    {
+     "value_column_id": "total_yield_ames",
+     "variable_name_hint": "Total yield",
+     "variable": "total_yield",
+     "units_hint": null,
+     "site_hint": "Ames",
+     "method_hint": "dried in a forced‑draft oven at 55 °C",
+     "factor_levels": {
+      "Site": "Ames"
+     },
+     "treatment_level_hint": null
+    },
+    {
+     "value_column_id": "total_yield_mead",
+     "variable_name_hint": "Total yield",
+     "variable": "total_yield",
+     "units_hint": null,
+     "site_hint": "Mead",
+     "method_hint": "dried in a forced‑draft oven at 55 °C",
+     "factor_levels": {
+      "Site": "Mead"
+     },
+     "treatment_level_hint": null
+    },
+    {
+     "value_column_id": "leaf_blade_ames",
+     "variable_name_hint": "Leaf blade dry wt.",
+     "variable": "Leaf blade dry wt.",
+     "units_hint": null,
+     "site_hint": "Ames",
+     "method_hint": "dried in a forced‑draft oven at 55 °C",
+     "factor_levels": {
+      "Site": "Ames"
+     },
+     "treatment_level_hint": null
+    },
+    {
+     "value_column_id": "leaf_blade_mead",
+     "variable_name_hint": "Leaf blade dry wt.",
+     "variable": "Leaf blade dry wt.",
+     "units_hint": null,
+     "site_hint": "Mead",
+     "method_hint": "dried in a forced‑draft oven at 55 °C",
+     "factor_levels": {
+      "Site": "Mead"
+     },
+     "treatment_level_hint": null
+    },
+    {
+     "value_column_id": "leaf_sheath_ames",
+     "variable_name_hint": "Leaf sheath dry wt.",
+     "variable": "Leaf sheath dry wt.",
+     "units_hint": null,
+     "site_hint": "Ames",
+     "method_hint": "dried in a forced‑draft oven at 55 °C",
+     "factor_levels": {
+      "Site": "Ames"
+     },
+     "treatment_level_hint": null
+    },
+    {
+     "value_column_id": "leaf_sheath_mead",
+     "variable_name_hint": "Leaf sheath dry wt.",
+     "variable": "Leaf sheath dry wt.",
+     "units_hint": null,
+     "site_hint": "Mead",
+     "method_hint": "dried in a forced‑draft oven at 55 °C",
+     "factor_levels": {
+      "Site": "Mead"
+     },
+     "treatment_level_hint": null
+    },
+    {
+     "value_column_id": "stem_ames",
+     "variable_name_hint": "Stem dry wt.",
+     "variable": "Stem dry wt.",
+     "units_hint": null,
+     "site_hint": "Ames",
+     "method_hint": "dried in a forced‑draft oven at 55 °C",
+     "factor_levels": {
+      "Site": "Ames"
+     },
+     "treatment_level_hint": null
+    },
+    {
+     "value_column_id": "stem_mead",
+     "variable_name_hint": "Stem dry wt.",
+     "variable": "Stem dry wt.",
+     "units_hint": null,
+     "site_hint": "Mead",
+     "method_hint": "dried in a forced‑draft oven at 55 °C",
+     "factor_levels": {
+      "Site": "Mead"
+     },
+     "treatment_level_hint": null
+    }
+   ],
+   "row_groups": [
+    {
+     "row_group_id": "trailblazer_vegetative",
+     "factor_values": {
+      "Population": "Trailblazer",
+      "Maturity": "Vegetative"
+     },
+     "source_table_anchor": "b:0119",
+     "cells": {
+      "total_yield_ames": "0.19",
+      "total_yield_mead": "0.30",
+      "leaf_blade_ames": "0.13",
+      "leaf_blade_mead": "0.06",
+      "leaf_sheath_ames": "0.06",
+      "leaf_sheath_mead": "0.11",
+      "stem_ames": "0",
+      "stem_mead": "0.01"
+     }
+    },
+    {
+     "row_group_id": "trailblazer_elongating",
+     "factor_values": {
+      "Population": "Trailblazer",
+      "Maturity": "Elongating"
+     },
+     "source_table_anchor": "b:0119",
+     "cells": {
+      "total_yield_ames": "0.90",
+      "total_yield_mead": "1.26",
+      "leaf_blade_ames": "0.38",
+      "leaf_blade_mead": "0.25",
+      "leaf_sheath_ames": "0.25",
+      "leaf_sheath_mead": "0.29",
+      "stem_ames": "0.27",
+      "stem_mead": "0.56"
+     }
+    },
+    {
+     "row_group_id": "trailblazer_reproductive",
+     "factor_values": {
+      "Population": "Trailblazer",
+      "Maturity": "Reproductive"
+     },
+     "source_table_anchor": "b:0119",
+     "cells": {
+      "total_yield_ames": "1.16",
+      "total_yield_mead": "1.09",
+      "leaf_blade_ames": "0.34",
+      "leaf_blade_mead": "0.22",
+      "leaf_sheath_ames": "0.34",
+      "leaf_sheath_mead": "0.23",
+      "stem_ames": "0.60",
+      "stem_mead": "0.56"
+     }
+    },
+    {
+     "row_group_id": "pathfinder_vegetative",
+     "factor_values": {
+      "Population": "Pathfinder",
+      "Maturity": "Vegetative"
+     },
+     "source_table_anchor": "b:0119",
+     "cells": {
+      "total_yield_ames": "0.23",
+      "total_yield_mead": "0.29",
+      "leaf_blade_ames": "0.15",
+      "leaf_blade_mead": "0.08",
+      "leaf_sheath_ames": "0.08",
+      "leaf_sheath_mead": "0.10",
+      "stem_ames": "0",
+      "stem_mead": "0.02"
+     }
+    },
+    {
+     "row_group_id": "pathfinder_elongating",
+     "factor_values": {
+      "Population": "Pathfinder",
+      "Maturity": "Elongating"
+     },
+     "source_table_anchor": "b:0119",
+     "cells": {
+      "total_yield_ames": "0.91",
+      "total_yield_mead": "1.32",
+      "leaf_blade_ames": "0.34",
+      "leaf_blade_mead": "0.22",
+      "leaf_sheath_ames": "0.22",
+      "leaf_sheath_mead": "0.28",
+      "stem_ames": "0.35",
+      "stem_mead": "0.66"
+     }
+    },
+    {
+     "row_group_id": "pathfinder_reproductive",
+     "factor_values": {
+      "Population": "Pathfinder",
+      "Maturity": "Reproductive"
+     },
+     "source_table_anchor": "b:0119",
+     "cells": {
+      "total_yield_ames": "1.23",
+      "total_yield_mead": "1.42",
+      "leaf_blade_ames": "0.37",
+      "leaf_blade_mead": "0.25",
+      "leaf_sheath_ames": "0.25",
+      "leaf_sheath_mead": "0.26",
+      "stem_ames": "0.61",
+      "stem_mead": "0.87"
+     }
+    },
+    {
+     "row_group_id": "cave-in-rock_vegetative",
+     "factor_values": {
+      "Population": "Cave-in-Rock",
+      "Maturity": "Vegetative"
+     },
+     "source_table_anchor": "b:0119",
+     "cells": {
+      "total_yield_ames": "0.22",
+      "total_yield_mead": "0.57",
+      "leaf_blade_ames": "0.12",
+      "leaf_blade_mead": "0.33",
+      "leaf_sheath_ames": "0.07",
+      "leaf_sheath_mead": "0.23",
+      "stem_ames": "0.03",
+      "stem_mead": "0.01"
+     }
+    },
+    {
+     "row_group_id": "pathfinder_hydmdc2_vegetative",
+     "factor_values": {
+      "Population": "Pathfinder HYDMDC2",
+      "Maturity": "Vegetative"
+     },
+     "source_table_anchor": "b:0178",
+     "cells": {
+      "total_yield_ames": "0.18",
+      "total_yield_mead": "0.19",
+      "leaf_blade_ames": "0.12",
+      "leaf_blade_mead": "0.11",
+      "leaf_sheath_ames": "0.05",
+      "leaf_sheath_mead": "0.06",
+      "stem_ames": "0.01",
+      "stem_mead": "0.02"
+     }
+    },
+    {
+     "row_group_id": "pathfinder_hydmdc2_elongating",
+     "factor_values": {
+      "Population": "Pathfinder HYDMDC2",
+      "Maturity": "Elongating"
+     },
+     "source_table_anchor": "b:0178",
+     "cells": {
+      "total_yield_ames": "0.90",
+      "total_yield_mead": "1.56",
+      "leaf_blade_ames": "0.38",
+      "leaf_blade_mead": "0.51",
+      "leaf_sheath_ames": "0.24",
+      "leaf_sheath_mead": "0.31",
+      "stem_ames": "0.28",
+      "stem_mead": "0.74"
+     }
+    },
+    {
+     "row_group_id": "pathfinder_hydmdc2_reproductive",
+     "factor_values": {
+      "Population": "Pathfinder HYDMDC2",
+      "Maturity": "Reproductive"
+     },
+     "source_table_anchor": "b:0178",
+     "cells": {
+      "total_yield_ames": "1.28",
+      "total_yield_mead": "2.41",
+      "leaf_blade_ames": "0.39",
+      "leaf_blade_mead": "0.55",
+      "leaf_sheath_ames": "0.22",
+      "leaf_sheath_mead": "0.39",
+      "stem_ames": "0.67",
+      "stem_mead": "1.47"
+     }
+    },
+    {
+     "row_group_id": "ey-ff_hdm_dc3_vegetative",
+     "factor_values": {
+      "Population": "Ey × FF HDMDC3",
+      "Maturity": "Vegetative"
+     },
+     "source_table_anchor": "b:0178",
+     "cells": {
+      "total_yield_ames": "0.11",
+      "total_yield_mead": "0.18",
+      "leaf_blade_ames": "0.08",
+      "leaf_blade_mead": "0.12",
+      "leaf_sheath_ames": "0.03",
+      "leaf_sheath_mead": "0.05",
+      "stem_ames": "0",
+      "stem_mead": "0.01"
+     }
+    },
+    {
+     "row_group_id": "ey-ff_hdm_dc3_elongating",
+     "factor_values": {
+      "Population": "Ey × FF HDMDC3",
+      "Maturity": "Elongating"
+     },
+     "source_table_anchor": "b:0178",
+     "cells": {
+      "total_yield_ames": "0.72",
+      "total_yield_mead": "1.32",
+      "leaf_blade_ames": "0.32",
+      "leaf_blade_mead": "0.54",
+      "leaf_sheath_ames": "0.19",
+      "leaf_sheath_mead": "0.44",
+      "stem_ames": "0.21",
+      "stem_mead": "0.74"
+     }
+    },
+    {
+     "row_group_id": "ey-ff_hdm_dc3_reproductive",
+     "factor_values": {
+      "Population": "Ey × FF HDMDC3",
+      "Maturity": "Reproductive"
+     },
+     "source_table_anchor": "b:0178",
+     "cells": {
+      "total_yield_ames": "0.87",
+      "total_yield_mead": "1.48",
+      "leaf_blade_ames": "0.22",
+      "leaf_blade_mead": "0.29",
+      "leaf_sheath_ames": "0.19",
+      "leaf_sheath_mead": "0.30",
+      "stem_ames": "0.46",
+      "stem_mead": "0.89"
+     }
+    },
+    {
+     "row_group_id": "ey-ff_ldm_dc1_vegetative",
+     "factor_values": {
+      "Population": "Ey × FF LDMDC1",
+      "Maturity": "Vegetative"
+     },
+     "source_table_anchor": "b:0178",
+     "cells": {
+      "total_yield_ames": "0.24",
+      "total_yield_mead": "0.33",
+      "leaf_blade_ames": "0.16",
+      "leaf_blade_mead": "0.19",
+      "leaf_sheath_ames": "0.08",
+      "leaf_sheath_mead": "0.11",
+      "stem_ames": "0",
+      "stem_mead": "0.01"
+     }
+    },
+    {
+     "row_group_id": "ey-ff_ldm_dc1_elongating",
+     "factor_values": {
+      "Population": "Ey × FF LDMDC1",
+      "Maturity": "Elongating"
+     },
+     "source_table_anchor": "b:0178",
+     "cells": {
+      "total_yield_ames": "0.92",
+      "total_yield_mead": "1.20",
+      "leaf_blade_ames": "0.37",
+      "leaf_blade_mead": "0.40",
+      "leaf_sheath_ames": "0.23",
+      "leaf_sheath_mead": "0.24",
+      "stem_ames": "0.32",
+      "stem_mead": "0.56"
+     }
+    },
+    {
+     "row_group_id": "ey-ff_ldm_dc1_reproductive_1",
+     "factor_values": {
+      "Population": "Ey × FF LDMDC1",
+      "Maturity": "Reproductive"
+     },
+     "source_table_anchor": "b:0178",
+     "cells": {
+      "total_yield_ames": "1.22",
+      "total_yield_mead": "1.33",
+      "leaf_blade_ames": "0.39",
+      "leaf_blade_mead": "0.24",
+      "leaf_sheath_ames": "0.24",
+      "leaf_sheath_mead": "0.24",
+      "stem_ames": "0.59",
+      "stem_mead": "0.85"
+     }
+    },
+    {
+     "row_group_id": "ey-ff_ldm_dc1_reproductive_2",
+     "factor_values": {
+      "Population": "Ey × FF LDMDC1",
+      "Maturity": "Reproductive"
+     },
+     "source_table_anchor": "b:0178",
+     "cells": {
+      "total_yield_ames": "2.16",
+      "total_yield_mead": "2.20",
+      "leaf_blade_ames": "0.54",
+      "leaf_blade_mead": "0.53",
+      "leaf_sheath_ames": "0.34",
+      "leaf_sheath_mead": "0.35",
+      "stem_ames": "1.28",
+      "stem_mead": "1.32"
+     }
+    }
+   ]
+  },
+  "b_0607": {
+   "table_role": "treatment_response",
+   "applicable": true,
+   "aggregation_scope": "cell_level",
+   "factors": [
+    {
+     "name": "Population",
+     "dimension": "crop",
+     "encoding": "rows"
+    },
+    {
+     "name": "Maturity",
+     "dimension": "time",
+     "encoding": "rows"
+    },
+    {
+     "name": "Site",
+     "dimension": "site",
+     "encoding": "columns"
+    }
+   ],
+   "context_levels": {},
+   "pooled_factors": [],
+   "reason": null,
+   "table_anchors": [
+    "b:0607",
+    "b:0656"
+   ],
+   "unit_hint_flags": [
+    {
+     "scope": "variable",
+     "key": "Leaf blade width",
+     "units_hint": "cm",
+     "reason": "not found in the table, its caption or its notes"
+    },
+    {
+     "scope": "variable",
+     "key": "Leaf blade length",
+     "units_hint": "cm",
+     "reason": "not found in the table, its caption or its notes"
+    },
+    {
+     "scope": "variable",
+     "key": "Stem internode length",
+     "units_hint": "cm",
+     "reason": "not found in the table, its caption or its notes"
+    },
+    {
+     "scope": "column",
+     "key": "lbw_ames",
+     "units_hint": "cm",
+     "reason": "not found in the table, its caption or its notes"
+    },
+    {
+     "scope": "column",
+     "key": "lbw_mead",
+     "units_hint": "cm",
+     "reason": "not found in the table, its caption or its notes"
+    },
+    {
+     "scope": "column",
+     "key": "lbl_ames",
+     "units_hint": "cm",
+     "reason": "not found in the table, its caption or its notes"
+    },
+    {
+     "scope": "column",
+     "key": "lbl_mead",
+     "units_hint": "cm",
+     "reason": "not found in the table, its caption or its notes"
+    },
+    {
+     "scope": "column",
+     "key": "sil_ames",
+     "units_hint": "cm",
+     "reason": "not found in the table, its caption or its notes"
+    },
+    {
+     "scope": "column",
+     "key": "sil_mead",
+     "units_hint": "cm",
+     "reason": "not found in the table, its caption or its notes"
+    }
+   ],
+   "method_hint_flags": [
+    {
+     "scope": "variable",
+     "key": "Leaf blade width",
+     "method_hint": "leaf blade width measured from freshly harvested leaves with a ruler",
+     "reason": "no prose block of the paper contains this hint's significant words (or it has none)"
+    },
+    {
+     "scope": "variable",
+     "key": "Leaf blade length",
+     "method_hint": "leaf blade length measured from freshly harvested leaves with a ruler",
+     "reason": "no prose block of the paper contains this hint's significant words (or it has none)"
+    },
+    {
+     "scope": "column",
+     "key": "lbw_ames",
+     "method_hint": "leaf blade width measured from freshly harvested leaves with a ruler",
+     "reason": "no prose block of the paper contains this hint's significant words (or it has none)"
+    },
+    {
+     "scope": "column",
+     "key": "lbw_mead",
+     "method_hint": "leaf blade width measured from freshly harvested leaves with a ruler",
+     "reason": "no prose block of the paper contains this hint's significant words (or it has none)"
+    },
+    {
+     "scope": "column",
+     "key": "lbl_ames",
+     "method_hint": "leaf blade length measured from freshly harvested leaves with a ruler",
+     "reason": "no prose block of the paper contains this hint's significant words (or it has none)"
+    },
+    {
+     "scope": "column",
+     "key": "lbl_mead",
+     "method_hint": "leaf blade length measured from freshly harvested leaves with a ruler",
+     "reason": "no prose block of the paper contains this hint's significant words (or it has none)"
+    }
+   ],
+   "time_levels": [],
+   "variables": [
+    {
+     "label": "Leaf blade width",
+     "variable_name": "leaf_blade_width",
+     "units": "cm",
+     "method_hint": null
+    },
+    {
+     "label": "Leaf blade length",
+     "variable_name": "leaf_blade_length",
+     "units": "cm",
+     "method_hint": null
+    },
+    {
+     "label": "Stem internode length",
+     "variable_name": "stem_internode_length",
+     "units": "cm",
+     "method_hint": "stem internode length measured from the midpoint of the first palpable node to the midpoint of the second palpable node"
+    }
+   ],
+   "value_columns": [
+    {
+     "value_column_id": "lbw_ames",
+     "variable_name_hint": "Leaf blade width",
+     "variable": "leaf_blade_width",
+     "units_hint": "cm",
+     "site_hint": "Ames",
+     "method_hint": null,
+     "factor_levels": {
+      "Site": "Ames"
+     },
+     "treatment_level_hint": null
+    },
+    {
+     "value_column_id": "lbw_mead",
+     "variable_name_hint": "Leaf blade width",
+     "variable": "leaf_blade_width",
+     "units_hint": "cm",
+     "site_hint": "Mead",
+     "method_hint": null,
+     "factor_levels": {
+      "Site": "Mead"
+     },
+     "treatment_level_hint": null
+    },
+    {
+     "value_column_id": "lbl_ames",
+     "variable_name_hint": "Leaf blade length",
+     "variable": "leaf_blade_length",
+     "units_hint": "cm",
+     "site_hint": "Ames",
+     "method_hint": null,
+     "factor_levels": {
+      "Site": "Ames"
+     },
+     "treatment_level_hint": null
+    },
+    {
+     "value_column_id": "lbl_mead",
+     "variable_name_hint": "Leaf blade length",
+     "variable": "leaf_blade_length",
+     "units_hint": "cm",
+     "site_hint": "Mead",
+     "method_hint": null,
+     "factor_levels": {
+      "Site": "Mead"
+     },
+     "treatment_level_hint": null
+    },
+    {
+     "value_column_id": "sil_ames",
+     "variable_name_hint": "Stem internode length",
+     "variable": "stem_internode_length",
+     "units_hint": "cm",
+     "site_hint": "Ames",
+     "method_hint": "stem internode length measured from the midpoint of the first palpable node to the midpoint of the second palpable node",
+     "factor_levels": {
+      "Site": "Ames"
+     },
+     "treatment_level_hint": null
+    },
+    {
+     "value_column_id": "sil_mead",
+     "variable_name_hint": "Stem internode length",
+     "variable": "stem_internode_length",
+     "units_hint": "cm",
+     "site_hint": "Mead",
+     "method_hint": "stem internode length measured from the midpoint of the first palpable node to the midpoint of the second palpable node",
+     "factor_levels": {
+      "Site": "Mead"
+     },
+     "treatment_level_hint": null
+    }
+   ],
+   "row_groups": [
+    {
+     "row_group_id": "r1",
+     "factor_values": {
+      "Population": "Trailblazer",
+      "Maturity": "Vegetative"
+     },
+     "source_table_anchor": "b:0607",
+     "cells": {
+      "lbw_ames": "5.0",
+      "lbw_mead": "6.3",
+      "lbl_ames": "22.3",
+      "lbl_mead": "25.1",
+      "sil_ames": "0",
+      "sil_mead": "9.8"
+     }
+    },
+    {
+     "row_group_id": "r2",
+     "factor_values": {
+      "Population": "Trailblazer",
+      "Maturity": "Elongating"
+     },
+     "source_table_anchor": "b:0607",
+     "cells": {
+      "lbw_ames": "4.9",
+      "lbw_mead": "6.2",
+      "lbl_ames": "44.3",
+      "lbl_mead": "43.4",
+      "sil_ames": "14.7",
+      "sil_mead": "15.6"
+     }
+    },
+    {
+     "row_group_id": "r3",
+     "factor_values": {
+      "Population": "Trailblazer",
+      "Maturity": "Reproductive"
+     },
+     "source_table_anchor": "b:0607",
+     "cells": {
+      "lbw_ames": "6.4",
+      "lbw_mead": "7.2",
+      "lbl_ames": "44.2",
+      "lbl_mead": "45.6",
+      "sil_ames": "18.9",
+      "sil_mead": null
+     }
+    },
+    {
+     "row_group_id": "r4",
+     "factor_values": {
+      "Population": "Pathfinder",
+      "Maturity": "Vegetative"
+     },
+     "source_table_anchor": "b:0607",
+     "cells": {
+      "lbw_ames": "5.2",
+      "lbw_mead": "5.8",
+      "lbl_ames": "23.2",
+      "lbl_mead": "23.7",
+      "sil_ames": "0",
+      "sil_mead": "9.2"
+     }
+    },
+    {
+     "row_group_id": "r5",
+     "factor_values": {
+      "Population": "Pathfinder",
+      "Maturity": "Elongating"
+     },
+     "source_table_anchor": "b:0607",
+     "cells": {
+      "lbw_ames": "4.6",
+      "lbw_mead": "4.6",
+      "lbl_ames": "41.2",
+      "lbl_mead": "27.4",
+      "sil_ames": "17.4",
+      "sil_mead": "19.2"
+     }
+    },
+    {
+     "row_group_id": "r6",
+     "factor_values": {
+      "Population": "Pathfinder",
+      "Maturity": "Reproductive"
+     },
+     "source_table_anchor": "b:0607",
+     "cells": {
+      "lbw_ames": "6.2",
+      "lbw_mead": "6.8",
+      "lbl_ames": "41.1",
+      "lbl_mead": "45.3",
+      "sil_ames": "19.5",
+      "sil_mead": null
+     }
+    },
+    {
+     "row_group_id": "r7",
+     "factor_values": {
+      "Population": "Cave-in-Rock",
+      "Maturity": "Vegetative"
+     },
+     "source_table_anchor": "b:0607",
+     "cells": {
+      "lbw_ames": "6.8",
+      "lbw_mead": "7.4",
+      "lbl_ames": "22.4",
+      "lbl_mead": "19.0",
+      "sil_ames": "0",
+      "sil_mead": "0"
+     }
+    },
+    {
+     "row_group_id": "r8",
+     "factor_values": {
+      "Population": "Pathfinder HYDMDC2",
+      "Maturity": "Vegetative"
+     },
+     "source_table_anchor": "b:0656",
+     "cells": {
+      "lbw_ames": "5.1",
+      "lbw_mead": "6.4",
+      "lbl_ames": "23.2",
+      "lbl_mead": "21.0",
+      "sil_ames": "0",
+      "sil_mead": "0"
+     }
+    },
+    {
+     "row_group_id": "r9",
+     "factor_values": {
+      "Population": "Pathfinder HYDMDC2",
+      "Maturity": "Elongating"
+     },
+     "source_table_anchor": "b:0656",
+     "cells": {
+      "lbw_ames": "4.7",
+      "lbw_mead": "5.0",
+      "lbl_ames": "42.8",
+      "lbl_mead": "42.1",
+      "sil_ames": "15.8",
+      "sil_mead": "11.4"
+     }
+    },
+    {
+     "row_group_id": "r10",
+     "factor_values": {
+      "Population": "Pathfinder HYDMDC2",
+      "Maturity": "Reproductive"
+     },
+     "source_table_anchor": "b:0656",
+     "cells": {
+      "lbw_ames": "5.8",
+      "lbw_mead": "7.0",
+      "lbl_ames": "38.4",
+      "lbl_mead": "43.4",
+      "sil_ames": "19.1",
+      "sil_mead": "16.3"
+     }
+    },
+    {
+     "row_group_id": "r11",
+     "factor_values": {
+      "Population": "Ey × FF HDMDC3",
+      "Maturity": "Vegetative"
+     },
+     "source_table_anchor": "b:0656",
+     "cells": {
+      "lbw_ames": "4.6",
+      "lbw_mead": "6.6",
+      "lbl_ames": "19.4",
+      "lbl_mead": "22.7",
+      "sil_ames": "0",
+      "sil_mead": "0"
+     }
+    },
+    {
+     "row_group_id": "r12",
+     "factor_values": {
+      "Population": "Ey × FF HDMDC3",
+      "Maturity": "Elongating"
+     },
+     "source_table_anchor": "b:0656",
+     "cells": {
+      "lbw_ames": "5.6",
+      "lbw_mead": "7.3",
+      "lbl_ames": "43.6",
+      "lbl_mead": "37.3",
+      "sil_ames": "14.4",
+      "sil_mead": "8.5"
+     }
+    },
+    {
+     "row_group_id": "r13",
+     "factor_values": {
+      "Population": "Ey × FF HDMDC3",
+      "Maturity": "Reproductive"
+     },
+     "source_table_anchor": "b:0656",
+     "cells": {
+      "lbw_ames": "7.3",
+      "lbw_mead": "7.0",
+      "lbl_ames": "43.8",
+      "lbl_mead": "40.2",
+      "sil_ames": "17.7",
+      "sil_mead": "16.9"
+     }
+    },
+    {
+     "row_group_id": "r14",
+     "factor_values": {
+      "Population": "Ey × FF LDMDC1",
+      "Maturity": "Vegetative"
+     },
+     "source_table_anchor": "b:0656",
+     "cells": {
+      "lbw_ames": "4.8",
+      "lbw_mead": "5.8",
+      "lbl_ames": "23.1",
+      "lbl_mead": "28.0",
+      "sil_ames": "0",
+      "sil_mead": "0"
+     }
+    },
+    {
+     "row_group_id": "r15",
+     "factor_values": {
+      "Population": "Ey × FF LDMDC1",
+      "Maturity": "Elongating"
+     },
+     "source_table_anchor": "b:0656",
+     "cells": {
+      "lbw_ames": "4.8",
+      "lbw_mead": "4.7",
+      "lbl_ames": "45.8",
+      "lbl_mead": "36.7",
+      "sil_ames": "16.3",
+      "sil_mead": "11.0"
+     }
+    },
+    {
+     "row_group_id": "r16",
+     "factor_values": {
+      "Population": "Ey × FF LDMDC1",
+      "Maturity": "Reproductive"
+     },
+     "source_table_anchor": "b:0656",
+     "cells": {
+      "lbw_ames": "6.2",
+      "lbw_mead": "7.7",
+      "lbl_ames": "40.4",
+      "lbl_mead": "43.7",
+      "sil_ames": "18.3",
+      "sil_mead": "19.4"
+     }
+    },
+    {
+     "row_group_id": "r17",
+     "factor_values": {
+      "Population": "Ey × FF LDMDC1",
+      "Maturity": "Elongating"
+     },
+     "source_table_anchor": "b:0656",
+     "cells": {
+      "lbw_ames": "6.6",
+      "lbw_mead": "6.7",
+      "lbl_ames": "35.8",
+      "lbl_mead": "34.5",
+      "sil_ames": "9.6",
+      "sil_mead": "10.4"
+     }
+    },
+    {
+     "row_group_id": "r18",
+     "factor_values": {
+      "Population": "Ey × FF LDMDC1",
+      "Maturity": "Reproductive"
+     },
+     "source_table_anchor": "b:0656",
+     "cells": {
+      "lbw_ames": "7.9",
+      "lbw_mead": "7.0",
+      "lbl_ames": "42.3",
+      "lbl_mead": "47.2",
+      "sil_ames": "14.8",
+      "sil_mead": "14.7"
+     }
+    }
+   ]
+  },
+  "b_0761": {
+   "table_role": "treatment_response",
+   "applicable": true,
+   "aggregation_scope": "cell_level",
+   "factors": [
+    {
+     "name": "Location",
+     "dimension": "site",
+     "encoding": "rows"
+    },
+    {
+     "name": "Maturity",
+     "dimension": "time",
+     "encoding": "rows"
+    },
+    {
+     "name": "Population",
+     "dimension": "crop",
+     "encoding": "rows"
+    }
+   ],
+   "context_levels": {},
+   "pooled_factors": [],
+   "reason": null,
+   "table_anchors": [
+    "b:0761"
+   ],
+   "unit_hint_flags": [],
+   "method_hint_flags": [],
+   "time_levels": [],
+   "variables": [],
+   "value_columns": [
+    {
+     "value_column_id": "lai",
+     "variable_name_hint": "Leaf area index",
+     "variable": null,
+     "units_hint": null,
+     "site_hint": null,
+     "method_hint": "LI-COR LAI-2000 leaf area analyzer",
+     "factor_levels": {},
+     "treatment_level_hint": null
+    },
+    {
+     "value_column_id": "mta",
+     "variable_name_hint": "Mean tilt angle",
+     "variable": null,
+     "units_hint": null,
+     "site_hint": null,
+     "method_hint": null,
+     "factor_levels": {},
+     "treatment_level_hint": null
+    }
+   ],
+   "row_groups": [
+    {
+     "row_group_id": "r1",
+     "factor_values": {
+      "Location": "Ames, IA",
+      "Maturity": "Vegetative"
+     },
+     "source_table_anchor": "b:0761",
+     "cells": {
+      "lai": "2.8",
+      "mta": "57.6"
+     }
+    },
+    {
+     "row_group_id": "r2",
+     "factor_values": {
+      "Location": "Ames, IA",
+      "Maturity": "Elongating"
+     },
+     "source_table_anchor": "b:0761",
+     "cells": {
+      "lai": "5.5",
+      "mta": "46.2"
+     }
+    },
+    {
+     "row_group_id": "r3",
+     "factor_values": {
+      "Location": "Ames, IA",
+      "Maturity": "Reproductive"
+     },
+     "source_table_anchor": "b:0761",
+     "cells": {
+      "lai": "4.9",
+      "mta": "46.0"
+     }
+    },
+    {
+     "row_group_id": "r4",
+     "factor_values": {
+      "Location": "Mead, NE",
+      "Maturity": "Vegetative"
+     },
+     "source_table_anchor": "b:0761",
+     "cells": {
+      "lai": "3.4",
+      "mta": "54.9"
+     }
+    },
+    {
+     "row_group_id": "r5",
+     "factor_values": {
+      "Location": "Mead, NE",
+      "Maturity": "Elongating"
+     },
+     "source_table_anchor": "b:0761",
+     "cells": {
+      "lai": "5.5",
+      "mta": "44.2"
+     }
+    },
+    {
+     "row_group_id": "r6",
+     "factor_values": {
+      "Location": "Mead, NE",
+      "Maturity": "Reproductive"
+     },
+     "source_table_anchor": "b:0761",
+     "cells": {
+      "lai": "4.5",
+      "mta": "48.9"
+     }
+    },
+    {
+     "row_group_id": "r7",
+     "factor_values": {
+      "Population": "Trailblazer"
+     },
+     "source_table_anchor": "b:0761",
+     "cells": {
+      "lai": "4.0",
+      "mta": "49.9"
+     }
+    },
+    {
+     "row_group_id": "r8",
+     "factor_values": {
+      "Population": "Pathfinder"
+     },
+     "source_table_anchor": "b:0761",
+     "cells": {
+      "lai": "4.7",
+      "mta": "50.6"
+     }
+    },
+    {
+     "row_group_id": "r9",
+     "factor_values": {
+      "Population": "Cave-in-Rock"
+     },
+     "source_table_anchor": "b:0761",
+     "cells": {
+      "lai": "4.7",
+      "mta": "46.5"
+     }
+    },
+    {
+     "row_group_id": "r10",
+     "factor_values": {
+      "Population": "Ey x FF LDMDC1"
+     },
+     "source_table_anchor": "b:0761",
+     "cells": {
+      "lai": "4.2",
+      "mta": "50.2"
+     }
+    },
+    {
+     "row_group_id": "r11",
+     "factor_values": {
+      "Population": "Ey × FF HDMDC3"
+     },
+     "source_table_anchor": "b:0761",
+     "cells": {
+      "lai": "4.1",
+      "mta": "51.2"
+     }
+    },
+    {
+     "row_group_id": "r12",
+     "factor_values": {
+      "Population": "Pathfinder HYDMDC2"
+     },
+     "source_table_anchor": "b:0761",
+     "cells": {
+      "lai": "4.8",
+      "mta": "49.5"
+     }
+    }
+   ]
+  }
+ }
+}

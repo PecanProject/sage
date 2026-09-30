@@ -148,9 +148,17 @@ class EnumerationResult(BaseModel):
 # a Treatment entity: that is decided separately, by the protocol's Treatment
 # semantics applied on top of these roles (only `treatment`-dimension factors,
 # plus the site, can ever form a Treatment candidate's identity; a cultivar is
-# `crop`, a date/growth stage/year is `time`, a location is `site` -- protocol
+# `crop`, a date/growth stage/year is `time` unless assigned as a design factor, a location is `site` -- protocol
 # Section 6.3: "Do not use treatments to represent information that belongs in
 # another field such as site, cultivar, replicate, or date").
+
+
+# The time / treatment boundary for a factor the study assigns to plots, shared by every prompt that needs it.
+DESIGN_FACTOR_RULE = (
+    "A date, harvest stage or maturity is 'time' only when it says WHEN a value was measured; when the paper assigns "
+    "its levels to plots as a factor of the design (e.g. 'whole plots were cultivars and subplots were harvest "
+    "stages'), it is a 'treatment'. A cultivar/population in such a design is still 'crop'."
+)
 
 
 # The crop / treatment boundary for a cultivar mixture, shared by every prompt that needs it: a designed mixture is a
@@ -166,11 +174,14 @@ MIXTURE_LEVEL_RULE = (
 class TableFactor(BaseModel):
     name: str = Field(min_length=1, description="The dimension's name as the table/paper calls it, e.g. 'Population', 'Maturity', 'Location', 'Variable'.")
     dimension: FactorDimension = Field(
-        description="What the dimension IS: 'treatment' (an experimental management/system condition applied by the "
-                    "study, e.g. a cover-crop, tillage, fertilizer or irrigation level), 'crop' (an individual cultivar, "
-                    "variety, population or genotype), 'time' (sampling/harvest date, growth stage, year, season, day "
-                    "after planting), 'site' (a location), 'variable' (WHICH measured quantity a row/column reports), "
-                    "'replicate' (block/plot/replicate), or 'other'. " + MIXTURE_LEVEL_RULE,
+        description="What the dimension IS: 'treatment' (an experimental condition the study assigns as a designed "
+                    "factor, e.g. a cover-crop, tillage, fertilizer or irrigation level, or a harvest schedule such as "
+                    "the subplot factor 'harvested at three growth stages', even when its levels are named by "
+                    "growth stage or date), 'crop' (an individual cultivar, variety, population or genotype), 'time' "
+                    "(when a value was measured, when that is not an assigned design factor: sampling date, year, "
+                    "season, day after planting, growth stage of the measured plants), 'site' (a location), 'variable' "
+                    "(WHICH measured quantity a row/column reports), 'replicate' (block/plot/replicate), or 'other'. "
+                    + DESIGN_FACTOR_RULE + " " + MIXTURE_LEVEL_RULE,
     )
     encoding: FactorEncoding = Field(
         description="Where its levels live in the table: 'rows' (a label column: each row group carries a level in "
@@ -499,13 +510,13 @@ class TableClassification(BaseModel):
     def _check_time_levels(self) -> None:
         if not self.time_levels:
             return
-        time_factors = {f.name: f for f in self.factors if f.dimension == "time"}
+        time_factors = {f.name: f for f in self.factors if f.dimension in ("time", "treatment")}
         seen: set[tuple[str, str, str]] = set()
         for tl in self.time_levels:
             if tl.factor not in time_factors:
                 raise ValueError(
-                    f"time_level {tl.factor}={tl.level!r}: {tl.factor!r} is not a declared factor with dimension 'time' "
-                    f"(declared time factors: {sorted(time_factors)})"
+                    f"time_level {tl.factor}={tl.level!r}: {tl.factor!r} is not a declared factor with dimension 'time' or "
+                    f"'treatment' (declared: {sorted(time_factors)})"
                 )
             if _variable_key(tl.level) not in {_variable_key(level) for level in _levels_of(self, tl.factor)}:
                 raise ValueError(f"time_level {tl.factor}={tl.level!r}: {tl.level!r} is not a level this table reports for {tl.factor!r}")

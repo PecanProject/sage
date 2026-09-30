@@ -45,8 +45,8 @@ def _enumerate(invoke, evidence_found=None, entity_type="Management"):
 # --------------------------------------------------------------------------- #
 
 def test_an_empty_answer_after_a_stall_is_reasked_once_and_can_recover(env, sleeps):
-    invoke, calls = _recording([("extractor", _no_text(TOOL_THEN_STOP)), ("extractor", _inv("extractor", EMPTY)),
-                                ("extractor", _inv("extractor", ONE))])
+    invoke, calls = _recording([("reader", _no_text(TOOL_THEN_STOP)), ("reader", _inv("reader", EMPTY)),
+                                ("reader", _inv("reader", ONE))])
     candidates, error = _enumerate(invoke)
     assert error is None and [c.candidate_id for c in candidates] == ["planting"]
     assert "right after an interrupted turn" in calls[2][1]
@@ -54,8 +54,8 @@ def test_an_empty_answer_after_a_stall_is_reasked_once_and_can_recover(env, slee
 
 
 def test_still_empty_after_the_reask_is_recorded_as_not_retrieved(env, sleeps):
-    invoke, _calls = _recording([("extractor", _no_text(TOOL_THEN_STOP)), ("extractor", _inv("extractor", EMPTY)),
-                                 ("extractor", _inv("extractor", EMPTY))])
+    invoke, _calls = _recording([("reader", _no_text(TOOL_THEN_STOP)), ("reader", _inv("reader", EMPTY)),
+                                 ("reader", _inv("reader", EMPTY))])
     candidates, error = _enumerate(invoke)
     assert candidates == [] and error is None
     outcome = orchestrator._ENUMERATION_OUTCOMES[("run1", "Management")]
@@ -78,8 +78,8 @@ def test_an_empty_answer_despite_packet_evidence_is_reasked_but_then_trusted(env
 
 
 def test_an_unreliable_empty_entity_type_becomes_an_explicit_unresolved_record(env, sleeps):
-    invoke = make_invoke_sequence([("extractor", _no_text(TOOL_THEN_STOP)), ("extractor", _inv("extractor", EMPTY)),
-                                   ("extractor", _inv("extractor", EMPTY))])
+    invoke = make_invoke_sequence([("reader", _no_text(TOOL_THEN_STOP)), ("reader", _inv("reader", EMPTY)),
+                                   ("reader", _inv("reader", EMPTY))])
     citation = {"entity_type": "Citation", "record_id": PAPER_ID, "status": "ready", "detail": {"payload": {}}}
     infos = orchestrator._run_multi_record_entity(
         run_id="run1", paper_id=PAPER_ID, entity_type="Management", model="test-model", client=env["client"],

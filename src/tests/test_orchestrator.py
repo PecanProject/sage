@@ -86,6 +86,17 @@ def _inv_parse_error(agent: str) -> orchestrator.AgentInvocation:
     )
 
 
+_READER_ANSWER_KEYS = ("candidates", "row_groups", "table_role", "links")
+
+
+def reader_or(agent: str, invocation) -> str:
+    """The agent a scripted answer is for: enumeration, table classification and method-map answers go to `reader`."""
+    parsed = getattr(invocation, "parsed_json", None)
+    if agent == "extractor" and isinstance(parsed, dict) and any(k in parsed for k in _READER_ANSWER_KEYS):
+        return "reader"
+    return agent
+
+
 def make_invoke_sequence(items):
     """items: list of (expected_agent_name, AgentInvocation)."""
     it = iter(items)
@@ -95,6 +106,7 @@ def make_invoke_sequence(items):
             expected_agent, invocation = next(it)
         except StopIteration:
             raise AssertionError(f"invoke_agent called more times than expected (extra call for agent={agent!r})")
+        expected_agent = reader_or(expected_agent, invocation)
         assert agent == expected_agent, f"expected next call to agent {expected_agent!r}, got {agent!r}"
         return invocation
 

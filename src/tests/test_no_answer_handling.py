@@ -199,7 +199,7 @@ GOOD_ENUMERATION = {"entity_type": "Variable", "candidates": [{"candidate_id": "
 
 
 def test_enumeration_stall_gets_the_answer_now_retry(env, sleeps):
-    invoke, calls = _recording([("extractor", _no_text(TOOL_THEN_STOP)), ("extractor", _inv("extractor", GOOD_ENUMERATION))])
+    invoke, calls = _recording([("reader", _no_text(TOOL_THEN_STOP)), ("reader", _inv("reader", GOOD_ENUMERATION))])
     candidates, error = orchestrator.run_enumeration(run_id="run1", paper_id=PAPER_ID, entity_type="Variable", model="test-model", invoke=invoke)
     assert error is None and [c.candidate_id for c in candidates] == ["lai"] and sleeps == []
     assert orchestrator._final_answer_nudge("enumeration") in calls[1][1]
@@ -208,7 +208,7 @@ def test_enumeration_stall_gets_the_answer_now_retry(env, sleeps):
 
 
 def test_enumeration_stalls_end_as_no_final_answer(env, sleeps):
-    invoke, calls = _recording([("extractor", _no_text(TOOL_THEN_STOP))] * (MAX + 1))
+    invoke, calls = _recording([("reader", _no_text(TOOL_THEN_STOP))] * (MAX + 1))
     candidates, error = orchestrator.run_enumeration(run_id="run1", paper_id=PAPER_ID, entity_type="Variable", model="test-model", invoke=invoke)
     assert candidates == [] and error and sleeps == []
     final = run_store.load_json(run_store.record_dir("run1", "Variable__enumeration") / "final.json")

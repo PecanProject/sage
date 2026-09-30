@@ -268,7 +268,7 @@ def test_run_paper_merges_manifest_extra_and_counts_calls_for_the_single_model(e
     assert manifest["base_url"] == "https://x/v1" and manifest["provider"] == "p"
     calls = manifest["agent_calls"]
     assert calls["model"] == "test-model" and calls["total"] == sum(calls["by_agent"].values()) > 0
-    assert set(calls["by_agent"]) <= {"extractor", "converter", "ir-validator"}
+    assert set(calls["by_agent"]) <= {"extractor", "reader", "converter", "ir-validator"}
 
 
 def test_a_call_requesting_a_different_model_aborts_the_run(env, monkeypatch):

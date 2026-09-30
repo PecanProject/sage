@@ -99,7 +99,7 @@ def make_invoke_sequence(items):
 
 def _table_classification_inv(payload: dict) -> orchestrator.AgentInvocation:
     return orchestrator.AgentInvocation(
-        agent="extractor", model="test-model", prompt="prompt",
+        agent="reader", model="test-model", prompt="prompt",
         returncode=0, stdout="{}", stderr="",
         final_text=json.dumps(payload), parsed_json=payload, parse_error=None,
     )
@@ -756,7 +756,7 @@ def test_daren_table2_treatment_projection_produces_the_real_expected_combinatio
 # --------------------------------------------------------------------- #
 
 def test_run_table_classification_succeeds_first_attempt(env):
-    invoke = make_invoke_sequence([("extractor", _table_classification_inv(valid_classification_payload()))])
+    invoke = make_invoke_sequence([("reader", _table_classification_inv(valid_classification_payload()))])
     result, error = orchestrator.run_table_classification(
         run_id="run1", paper_id=PAPER_ID, seed_table_anchor="b:0006",
         other_tables=[], model="test-model", invoke=invoke,
@@ -772,8 +772,8 @@ def test_run_table_classification_retries_on_invalid_anchor_then_succeeds(env):
     for rg in bad["row_groups"]:
         rg["source_table_anchor"] = "b:9999"
     invoke = make_invoke_sequence([
-        ("extractor", _table_classification_inv(bad)),
-        ("extractor", _table_classification_inv(valid_classification_payload())),
+        ("reader", _table_classification_inv(bad)),
+        ("reader", _table_classification_inv(valid_classification_payload())),
     ])
     result, error = orchestrator.run_table_classification(
         run_id="run1", paper_id=PAPER_ID, seed_table_anchor="b:0006",
@@ -788,9 +788,9 @@ def test_run_table_classification_retries_on_sanity_check_failure_then_gives_up(
     dropped = valid_classification_payload()
     dropped["row_groups"] = dropped["row_groups"][:1]  # drops 2 of 3 real rows -> fails the sanity check
     invoke = make_invoke_sequence([
-        ("extractor", _table_classification_inv(dropped)),
-        ("extractor", _table_classification_inv(dropped)),
-        ("extractor", _table_classification_inv(dropped)),
+        ("reader", _table_classification_inv(dropped)),
+        ("reader", _table_classification_inv(dropped)),
+        ("reader", _table_classification_inv(dropped)),
     ])
     result, error = orchestrator.run_table_classification(
         run_id="run1", paper_id=PAPER_ID, seed_table_anchor="b:0006",
@@ -805,7 +805,7 @@ def test_run_table_classification_not_applicable_is_accepted_without_sanity_chec
         "applicable": False, "reason": "regression equation table, not raw values",
         "table_anchors": ["b:0006"], "value_columns": [], "row_groups": [],
     }
-    invoke = make_invoke_sequence([("extractor", _table_classification_inv(payload))])
+    invoke = make_invoke_sequence([("reader", _table_classification_inv(payload))])
     result, error = orchestrator.run_table_classification(
         run_id="run1", paper_id=PAPER_ID, seed_table_anchor="b:0006",
         other_tables=[], model="test-model", invoke=invoke,
@@ -816,13 +816,13 @@ def test_run_table_classification_not_applicable_is_accepted_without_sanity_chec
 
 def test_run_table_classification_retries_on_malformed_json(env):
     malformed = orchestrator.AgentInvocation(
-        agent="extractor", model="test-model", prompt="prompt",
+        agent="reader", model="test-model", prompt="prompt",
         returncode=0, stdout="not json", stderr="",
         final_text="not json", parsed_json=None, parse_error="no valid JSON object found",
     )
     invoke = make_invoke_sequence([
-        ("extractor", malformed),
-        ("extractor", _table_classification_inv(valid_classification_payload())),
+        ("reader", malformed),
+        ("reader", _table_classification_inv(valid_classification_payload())),
     ])
     result, error = orchestrator.run_table_classification(
         run_id="run1", paper_id=PAPER_ID, seed_table_anchor="b:0006",
@@ -835,7 +835,7 @@ def test_run_table_classification_retries_on_malformed_json(env):
 def test_run_table_classification_second_call_uses_cache_no_new_invoke(env):
     # Entity-agnostic caching: Treatment's turn classifies a table, then
     # Observation's turn (same run_id, same table) must reuse it for free.
-    first_invoke = make_invoke_sequence([("extractor", _table_classification_inv(valid_classification_payload()))])
+    first_invoke = make_invoke_sequence([("reader", _table_classification_inv(valid_classification_payload()))])
     first_result, first_error = orchestrator.run_table_classification(
         run_id="run1", paper_id=PAPER_ID, seed_table_anchor="b:0006",
         other_tables=[], model="test-model", invoke=first_invoke,
@@ -854,13 +854,13 @@ def test_run_table_classification_second_call_uses_cache_no_new_invoke(env):
 
 
 def test_run_table_classification_cache_is_scoped_per_run_id(env):
-    invoke1 = make_invoke_sequence([("extractor", _table_classification_inv(valid_classification_payload()))])
+    invoke1 = make_invoke_sequence([("reader", _table_classification_inv(valid_classification_payload()))])
     orchestrator.run_table_classification(
         run_id="run1", paper_id=PAPER_ID, seed_table_anchor="b:0006",
         other_tables=[], model="test-model", invoke=invoke1,
     )
     # A DIFFERENT run_id must not see run1's cache -- real invoke required.
-    invoke2 = make_invoke_sequence([("extractor", _table_classification_inv(valid_classification_payload()))])
+    invoke2 = make_invoke_sequence([("reader", _table_classification_inv(valid_classification_payload()))])
     result, error = orchestrator.run_table_classification(
         run_id="run2", paper_id=PAPER_ID, seed_table_anchor="b:0006",
         other_tables=[], model="test-model", invoke=invoke2,
@@ -878,7 +878,7 @@ def test_load_cached_table_classification_missing_file_returns_none(env):
 # --------------------------------------------------------------------- #
 
 def test_run_table_classification_pass_returns_classifications_keyed_by_anchor(env):
-    invoke = make_invoke_sequence([("extractor", _table_classification_inv(valid_classification_payload()))])
+    invoke = make_invoke_sequence([("reader", _table_classification_inv(valid_classification_payload()))])
     classifications = orchestrator.run_table_classification_pass(
         run_id="run1", paper_id=PAPER_ID, model="test-model", invoke=invoke,
     )
@@ -887,7 +887,7 @@ def test_run_table_classification_pass_returns_classifications_keyed_by_anchor(e
 
 
 def test_run_table_classification_pass_second_call_reuses_cache(env):
-    first_invoke = make_invoke_sequence([("extractor", _table_classification_inv(valid_classification_payload()))])
+    first_invoke = make_invoke_sequence([("reader", _table_classification_inv(valid_classification_payload()))])
     orchestrator.run_table_classification_pass(run_id="run1", paper_id=PAPER_ID, model="test-model", invoke=first_invoke)
 
     def _fail_if_called(agent, model, prompt, timeout=300):
@@ -1092,7 +1092,7 @@ def test_treatment_candidates_blank_cell_produces_no_candidate():
 # --------------------------------------------------------------------- #
 
 def test_run_table_enumeration_discovers_and_classifies_the_one_table(env):
-    invoke = make_invoke_sequence([("extractor", _table_classification_inv(valid_classification_payload()))])
+    invoke = make_invoke_sequence([("reader", _table_classification_inv(valid_classification_payload()))])
     candidates, covered = orchestrator.run_table_enumeration(
         run_id="run1", paper_id=PAPER_ID, entity_type="Observation", model="test-model", invoke=invoke,
     )
@@ -1103,7 +1103,7 @@ def test_run_table_enumeration_discovers_and_classifies_the_one_table(env):
 def test_run_table_enumeration_not_applicable_table_is_not_covered(env):
     payload = {"applicable": False, "reason": "not raw values", "table_anchors": ["b:0006"],
                "value_columns": [], "row_groups": []}
-    invoke = make_invoke_sequence([("extractor", _table_classification_inv(payload))])
+    invoke = make_invoke_sequence([("reader", _table_classification_inv(payload))])
     candidates, covered = orchestrator.run_table_enumeration(
         run_id="run1", paper_id=PAPER_ID, entity_type="Observation", model="test-model", invoke=invoke,
     )
@@ -1114,7 +1114,7 @@ def test_run_table_enumeration_not_applicable_table_is_not_covered(env):
 def test_run_table_enumeration_failed_classification_is_not_covered(env):
     dropped = valid_classification_payload()
     dropped["row_groups"] = dropped["row_groups"][:1]
-    invoke = make_invoke_sequence([("extractor", _table_classification_inv(dropped))] * 3)
+    invoke = make_invoke_sequence([("reader", _table_classification_inv(dropped))] * 3)
     candidates, covered = orchestrator.run_table_enumeration(
         run_id="run1", paper_id=PAPER_ID, entity_type="Observation", model="test-model", invoke=invoke,
     )
@@ -1142,7 +1142,7 @@ def test_run_table_enumeration_no_table_blocks_returns_empty(env, tmp_path, monk
 
 
 def test_run_table_enumeration_treatment_dispatch_produces_deduplicated_combinations(env):
-    invoke = make_invoke_sequence([("extractor", _table_classification_inv(valid_classification_payload()))])
+    invoke = make_invoke_sequence([("reader", _table_classification_inv(valid_classification_payload()))])
     candidates, covered = orchestrator.run_table_enumeration(
         run_id="run1", paper_id=PAPER_ID, entity_type="Treatment", model="test-model", invoke=invoke,
     )
@@ -1156,7 +1156,7 @@ def test_run_table_enumeration_treatment_and_observation_share_one_classificatio
     # The SAME table classified once, then projected two different ways --
     # confirms Treatment's turn and Observation's turn (same run_id) never
     # trigger a second real classification call for the same table.
-    invoke = make_invoke_sequence([("extractor", _table_classification_inv(valid_classification_payload()))])
+    invoke = make_invoke_sequence([("reader", _table_classification_inv(valid_classification_payload()))])
     treatment_candidates, _ = orchestrator.run_table_enumeration(
         run_id="run1", paper_id=PAPER_ID, entity_type="Treatment", model="test-model", invoke=invoke,
     )

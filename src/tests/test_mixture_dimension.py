@@ -22,7 +22,7 @@ import pytest
 
 from pipeline import orchestrator, pooling_evidence as pe, validators
 from pipeline.raw_schema import (
-    MIXTURE_LEVEL_RULE, CandidateDimension, EnumerationCandidate, TableClassification, TableFactor,
+    DESIGN_FACTOR_RULE, MIXTURE_LEVEL_RULE, CandidateDimension, EnumerationCandidate, TableClassification, TableFactor,
 )
 
 ITEM8 = Path(__file__).parent / "fixtures" / "item8"
@@ -76,15 +76,15 @@ def test_the_free_form_treatment_guidance_carries_the_rule_and_the_q2_granularit
     assert "mixture" not in orchestrator._ENTITY_IDENTITY_GUIDANCE["Observation"]  # nothing else was touched
 
 
-def test_the_rule_is_generic_and_the_daren_dimension_wording_is_unchanged():
-    lowered = MIXTURE_LEVEL_RULE.lower()
-    assert not [w for w in PAPER_SPECIFIC if w in lowered]
+def test_the_rules_are_generic_and_the_step_b_dimension_wording_states_the_design_factor_rule():
+    for rule in (MIXTURE_LEVEL_RULE, DESIGN_FACTOR_RULE):
+        assert not [w for w in PAPER_SPECIFIC if w in rule.lower()]
     step_b = orchestrator._table_classification_prompt("p", "b:0001", [])
     role_section = step_b[step_b.index("- table_role:"): step_b.index("- table_anchors:")].lower()
     assert not [w for w in PAPER_SPECIFIC if w in role_section]
-    for unchanged in ("a date or growth stage is 'time', a location is 'site'", "none of these is a 'treatment'",
-                      "'time' (a sampling or harvest date, growth stage, year, season or day after planting)"):
-        assert unchanged in step_b
+    for expected in ("a location is 'site' -- neither is a 'treatment'", DESIGN_FACTOR_RULE,
+                     "'time' (a sampling date, growth stage, year, season or day after planting at which values were measured)"):
+        assert expected in step_b
 
 
 # --------------------------------------------------------------------- #

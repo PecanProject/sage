@@ -1,0 +1,2670 @@
+{
+ "b:0119": {
+  "block_type": "Table"
+ },
+ "b:0120": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 0,
+  "col_index": 0,
+  "cell_text": ""
+ },
+ "b:0121": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 0,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0122": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 0,
+  "col_index": 2,
+  "cell_text": "Total yield"
+ },
+ "b:0123": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 0,
+  "col_index": 3,
+  "cell_text": "Leaf blade dry wt."
+ },
+ "b:0124": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 0,
+  "col_index": 4,
+  "cell_text": "Leaf sheath dry wt."
+ },
+ "b:0125": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 0,
+  "col_index": 5,
+  "cell_text": "Stem dry wt."
+ },
+ "b:0126": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 1,
+  "col_index": 0,
+  "cell_text": "Population†"
+ },
+ "b:0127": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 1,
+  "col_index": 1,
+  "cell_text": "Maturity"
+ },
+ "b:0128": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 1,
+  "col_index": 2,
+  "cell_text": "Ames"
+ },
+ "b:0129": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 1,
+  "col_index": 3,
+  "cell_text": "Mead"
+ },
+ "b:0130": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 1,
+  "col_index": 4,
+  "cell_text": "Ames"
+ },
+ "b:0131": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 1,
+  "col_index": 5,
+  "cell_text": "Mead"
+ },
+ "b:0132": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 1,
+  "col_index": 6,
+  "cell_text": "Ames"
+ },
+ "b:0133": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 1,
+  "col_index": 7,
+  "cell_text": "Mead"
+ },
+ "b:0134": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 1,
+  "col_index": 8,
+  "cell_text": "Ames"
+ },
+ "b:0135": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 1,
+  "col_index": 9,
+  "cell_text": "Mead"
+ },
+ "b:0136": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 2,
+  "col_index": 0,
+  "cell_text": ""
+ },
+ "b:0137": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 2,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0138": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 2,
+  "col_index": 2,
+  "cell_text": ""
+ },
+ "b:0139": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 2,
+  "col_index": 3,
+  "cell_text": ""
+ },
+ "b:0140": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 2,
+  "col_index": 4,
+  "cell_text": ""
+ },
+ "b:0141": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 2,
+  "col_index": 5,
+  "cell_text": "kg DI"
+ },
+ "b:0142": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 2,
+  "col_index": 6,
+  "cell_text": "M m -2 —"
+ },
+ "b:0143": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 2,
+  "col_index": 7,
+  "cell_text": ""
+ },
+ "b:0144": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 2,
+  "col_index": 8,
+  "cell_text": ""
+ },
+ "b:0145": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 2,
+  "col_index": 9,
+  "cell_text": ""
+ },
+ "b:0146": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 3,
+  "col_index": 0,
+  "cell_text": "Trailblazer"
+ },
+ "b:0147": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 3,
+  "col_index": 1,
+  "cell_text": "Vegetative Elongating Reproductive"
+ },
+ "b:0148": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 3,
+  "col_index": 2,
+  "cell_text": "0.19 0.90 1.16"
+ },
+ "b:0149": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 3,
+  "col_index": 3,
+  "cell_text": "0.30 1.26 1.09"
+ },
+ "b:0150": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 3,
+  "col_index": 4,
+  "cell_text": "0.13 0.38 0.34"
+ },
+ "b:0151": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 3,
+  "col_index": 5,
+  "cell_text": "0.18 0.41 0.30"
+ },
+ "b:0152": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 3,
+  "col_index": 6,
+  "cell_text": "0.06 0.25 0.22"
+ },
+ "b:0153": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 3,
+  "col_index": 7,
+  "cell_text": "0.11 0.29 0.23"
+ },
+ "b:0154": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 3,
+  "col_index": 8,
+  "cell_text": "0 0.27 0.60"
+ },
+ "b:0155": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 3,
+  "col_index": 9,
+  "cell_text": "0.01 0.56 0.56"
+ },
+ "b:0156": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 4,
+  "col_index": 0,
+  "cell_text": "Pathfinder"
+ },
+ "b:0157": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 4,
+  "col_index": 1,
+  "cell_text": "Vegetative Elongating Reproductive"
+ },
+ "b:0158": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 4,
+  "col_index": 2,
+  "cell_text": "0.23 0.91 1.23"
+ },
+ "b:0159": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 4,
+  "col_index": 3,
+  "cell_text": "0.29 1.32 1.42"
+ },
+ "b:0160": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 4,
+  "col_index": 4,
+  "cell_text": "0.15 0.34 0.37"
+ },
+ "b:0161": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 4,
+  "col_index": 5,
+  "cell_text": "0.17 0.38 0.29"
+ },
+ "b:0162": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 4,
+  "col_index": 6,
+  "cell_text": "0.08 0.22 0.25"
+ },
+ "b:0163": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 4,
+  "col_index": 7,
+  "cell_text": "0.10 0.28 0.26"
+ },
+ "b:0164": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 4,
+  "col_index": 8,
+  "cell_text": "0 0.35 0.61"
+ },
+ "b:0165": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 4,
+  "col_index": 9,
+  "cell_text": "0.02 0.66 0.87"
+ },
+ "b:0166": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 5,
+  "col_index": 0,
+  "cell_text": "Cave-in-Rock"
+ },
+ "b:0167": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 5,
+  "col_index": 1,
+  "cell_text": "Vegetative"
+ },
+ "b:0168": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 5,
+  "col_index": 2,
+  "cell_text": "0.22"
+ },
+ "b:0169": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 5,
+  "col_index": 3,
+  "cell_text": "0.57"
+ },
+ "b:0170": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 5,
+  "col_index": 4,
+  "cell_text": "0.12"
+ },
+ "b:0171": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 5,
+  "col_index": 5,
+  "cell_text": "0.33"
+ },
+ "b:0172": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 5,
+  "col_index": 6,
+  "cell_text": "0.07"
+ },
+ "b:0173": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 5,
+  "col_index": 7,
+  "cell_text": "0.23"
+ },
+ "b:0174": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 5,
+  "col_index": 8,
+  "cell_text": "0.03"
+ },
+ "b:0175": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0119",
+  "row_index": 5,
+  "col_index": 9,
+  "cell_text": "0.01"
+ },
+ "b:0178": {
+  "block_type": "Table"
+ },
+ "b:0179": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 4,
+  "col_index": 0,
+  "cell_text": "LSD (0.05)"
+ },
+ "b:0180": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 4,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0181": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 4,
+  "col_index": 2,
+  "cell_text": "0."
+ },
+ "b:0182": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 4,
+  "col_index": 3,
+  "cell_text": "19"
+ },
+ "b:0183": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 4,
+  "col_index": 4,
+  "cell_text": "0."
+ },
+ "b:0184": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 4,
+  "col_index": 5,
+  "cell_text": "17"
+ },
+ "b:0185": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 4,
+  "col_index": 6,
+  "cell_text": "0."
+ },
+ "b:0186": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 4,
+  "col_index": 7,
+  "cell_text": "10"
+ },
+ "b:0187": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 4,
+  "col_index": 8,
+  "cell_text": "0."
+ },
+ "b:0188": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 4,
+  "col_index": 9,
+  "cell_text": "38"
+ },
+ "b:0189": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 2,
+  "cell_text": "Pathfinder HYDMDC2"
+ },
+ "b:0190": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 4,
+  "cell_text": "Vegetative"
+ },
+ "b:0191": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 7,
+  "cell_text": "0.18"
+ },
+ "b:0192": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 10,
+  "cell_text": "0.19"
+ },
+ "b:0193": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 13,
+  "cell_text": "0.12"
+ },
+ "b:0194": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 16,
+  "cell_text": "0.11"
+ },
+ "b:0195": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 19,
+  "cell_text": "0.05"
+ },
+ "b:0196": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 22,
+  "cell_text": "0.06"
+ },
+ "b:0197": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 25,
+  "cell_text": "0.01"
+ },
+ "b:0198": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 28,
+  "cell_text": "0.02"
+ },
+ "b:0199": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0200": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 3,
+  "cell_text": "Elongating"
+ },
+ "b:0201": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 5,
+  "cell_text": "0.90"
+ },
+ "b:0202": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 7,
+  "cell_text": "1.56"
+ },
+ "b:0203": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 9,
+  "cell_text": "0.38"
+ },
+ "b:0204": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 11,
+  "cell_text": "0.51"
+ },
+ "b:0205": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 13,
+  "cell_text": "0.24"
+ },
+ "b:0206": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 15,
+  "cell_text": "0.31"
+ },
+ "b:0207": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 17,
+  "cell_text": "0.28"
+ },
+ "b:0208": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 19,
+  "cell_text": "0.74"
+ },
+ "b:0209": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 6,
+  "col_index": 0,
+  "cell_text": ""
+ },
+ "b:0210": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 6,
+  "col_index": 1,
+  "cell_text": "Reproductive"
+ },
+ "b:0211": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 6,
+  "col_index": 2,
+  "cell_text": "1.28"
+ },
+ "b:0212": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 6,
+  "col_index": 3,
+  "cell_text": "2.41"
+ },
+ "b:0213": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 6,
+  "col_index": 4,
+  "cell_text": "0.39"
+ },
+ "b:0214": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 6,
+  "col_index": 5,
+  "cell_text": "0.55"
+ },
+ "b:0215": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 6,
+  "col_index": 6,
+  "cell_text": "0.22"
+ },
+ "b:0216": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 6,
+  "col_index": 7,
+  "cell_text": "0.39"
+ },
+ "b:0217": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 6,
+  "col_index": 8,
+  "cell_text": "0.67"
+ },
+ "b:0218": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 6,
+  "col_index": 9,
+  "cell_text": "1.47"
+ },
+ "b:0219": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 1,
+  "cell_text": "Ey × FF HDMDC3"
+ },
+ "b:0220": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 2,
+  "cell_text": "Vegetative"
+ },
+ "b:0221": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 4,
+  "cell_text": "0.11"
+ },
+ "b:0222": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 6,
+  "cell_text": "0.18"
+ },
+ "b:0223": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 8,
+  "cell_text": "0.08"
+ },
+ "b:0224": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 10,
+  "cell_text": "0.12"
+ },
+ "b:0225": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 12,
+  "cell_text": "0.03"
+ },
+ "b:0226": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 14,
+  "cell_text": "0.05"
+ },
+ "b:0227": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 16,
+  "cell_text": "0"
+ },
+ "b:0228": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 18,
+  "cell_text": "0.01"
+ },
+ "b:0229": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0230": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 3,
+  "cell_text": "Elongating"
+ },
+ "b:0231": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 6,
+  "cell_text": "0.72"
+ },
+ "b:0232": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 9,
+  "cell_text": "1.32"
+ },
+ "b:0233": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 12,
+  "cell_text": "0.32"
+ },
+ "b:0234": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 15,
+  "cell_text": "0.54"
+ },
+ "b:0235": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 18,
+  "cell_text": "0.19"
+ },
+ "b:0236": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 21,
+  "cell_text": "0.44"
+ },
+ "b:0237": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 24,
+  "cell_text": "0.21"
+ },
+ "b:0238": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 27,
+  "cell_text": "0.74"
+ },
+ "b:0239": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 0,
+  "cell_text": ""
+ },
+ "b:0240": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 2,
+  "cell_text": "Reproductive"
+ },
+ "b:0241": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 4,
+  "cell_text": "0.87"
+ },
+ "b:0242": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 6,
+  "cell_text": "1.48"
+ },
+ "b:0243": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 8,
+  "cell_text": "0.22"
+ },
+ "b:0244": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 10,
+  "cell_text": "0.29"
+ },
+ "b:0245": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 12,
+  "cell_text": "0.19"
+ },
+ "b:0246": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 14,
+  "cell_text": "0.30"
+ },
+ "b:0247": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 16,
+  "cell_text": "0.46"
+ },
+ "b:0248": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 5,
+  "col_index": 18,
+  "cell_text": "0.89"
+ },
+ "b:0249": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 1,
+  "col_index": 0,
+  "cell_text": "Ey × FF LDMDC1"
+ },
+ "b:0250": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 1,
+  "col_index": 1,
+  "cell_text": "Vegetative"
+ },
+ "b:0251": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 1,
+  "col_index": 2,
+  "cell_text": "0.24"
+ },
+ "b:0252": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 1,
+  "col_index": 3,
+  "cell_text": "0.33"
+ },
+ "b:0253": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 1,
+  "col_index": 4,
+  "cell_text": "0.16"
+ },
+ "b:0254": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 1,
+  "col_index": 5,
+  "cell_text": "0.19"
+ },
+ "b:0255": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 1,
+  "col_index": 6,
+  "cell_text": "0.08"
+ },
+ "b:0256": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 1,
+  "col_index": 7,
+  "cell_text": "0.11"
+ },
+ "b:0257": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 1,
+  "col_index": 8,
+  "cell_text": "0"
+ },
+ "b:0258": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 1,
+  "col_index": 9,
+  "cell_text": "0.01"
+ },
+ "b:0259": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 0,
+  "cell_text": ""
+ },
+ "b:0260": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 3,
+  "cell_text": "Elongating"
+ },
+ "b:0261": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 5,
+  "cell_text": "0.92"
+ },
+ "b:0262": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 7,
+  "cell_text": "1.20"
+ },
+ "b:0263": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 9,
+  "cell_text": "0.37"
+ },
+ "b:0264": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 11,
+  "cell_text": "0.40"
+ },
+ "b:0265": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 13,
+  "cell_text": "0.23"
+ },
+ "b:0266": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 15,
+  "cell_text": "0.24"
+ },
+ "b:0267": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 17,
+  "cell_text": "0.32"
+ },
+ "b:0268": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 2,
+  "col_index": 19,
+  "cell_text": "0.56"
+ },
+ "b:0269": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 0,
+  "cell_text": ""
+ },
+ "b:0270": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 5,
+  "cell_text": "Reproductive"
+ },
+ "b:0271": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 8,
+  "cell_text": "1.22"
+ },
+ "b:0272": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 11,
+  "cell_text": "1.33"
+ },
+ "b:0273": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 14,
+  "cell_text": "0.39"
+ },
+ "b:0274": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 17,
+  "cell_text": "0.24"
+ },
+ "b:0275": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 20,
+  "cell_text": "0.24"
+ },
+ "b:0276": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 23,
+  "cell_text": "0.24"
+ },
+ "b:0277": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 26,
+  "cell_text": "0.59"
+ },
+ "b:0278": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 3,
+  "col_index": 29,
+  "cell_text": "0.85"
+ },
+ "b:0279": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 0,
+  "col_index": 0,
+  "cell_text": ""
+ },
+ "b:0280": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 0,
+  "col_index": 1,
+  "cell_text": "Reproductive"
+ },
+ "b:0281": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 0,
+  "col_index": 2,
+  "cell_text": "2.16"
+ },
+ "b:0282": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 0,
+  "col_index": 3,
+  "cell_text": "2.20"
+ },
+ "b:0283": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 0,
+  "col_index": 4,
+  "cell_text": "0.54"
+ },
+ "b:0284": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 0,
+  "col_index": 5,
+  "cell_text": "0.53"
+ },
+ "b:0285": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 0,
+  "col_index": 6,
+  "cell_text": "0.34"
+ },
+ "b:0286": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 0,
+  "col_index": 7,
+  "cell_text": "0.35"
+ },
+ "b:0287": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 0,
+  "col_index": 8,
+  "cell_text": "1.28"
+ },
+ "b:0288": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0178",
+  "row_index": 0,
+  "col_index": 9,
+  "cell_text": "1.32"
+ },
+ "b:0607": {
+  "block_type": "Table"
+ },
+ "b:0608": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 0,
+  "col_index": 0,
+  "cell_text": ""
+ },
+ "b:0609": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 0,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0610": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 0,
+  "col_index": 2,
+  "cell_text": "Leaf blade width"
+ },
+ "b:0611": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 0,
+  "col_index": 3,
+  "cell_text": "Leaf blade length"
+ },
+ "b:0612": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 0,
+  "col_index": 4,
+  "cell_text": "Stem internode length"
+ },
+ "b:0613": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 1,
+  "col_index": 0,
+  "cell_text": "Population†"
+ },
+ "b:0614": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 1,
+  "col_index": 1,
+  "cell_text": "Maturity"
+ },
+ "b:0615": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 1,
+  "col_index": 2,
+  "cell_text": "Ames"
+ },
+ "b:0616": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 1,
+  "col_index": 3,
+  "cell_text": "Mead"
+ },
+ "b:0617": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 1,
+  "col_index": 4,
+  "cell_text": "Ames"
+ },
+ "b:0618": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 1,
+  "col_index": 5,
+  "cell_text": "Mead"
+ },
+ "b:0619": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 1,
+  "col_index": 6,
+  "cell_text": "Ames"
+ },
+ "b:0620": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 1,
+  "col_index": 7,
+  "cell_text": "Mead"
+ },
+ "b:0621": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 2,
+  "col_index": 0,
+  "cell_text": ""
+ },
+ "b:0622": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 2,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0623": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 2,
+  "col_index": 2,
+  "cell_text": "m"
+ },
+ "b:0624": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 2,
+  "col_index": 3,
+  "cell_text": "ım ———"
+ },
+ "b:0625": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 2,
+  "col_index": 4,
+  "cell_text": ""
+ },
+ "b:0626": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 2,
+  "col_index": 5,
+  "cell_text": "с"
+ },
+ "b:0627": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 2,
+  "col_index": 6,
+  "cell_text": "m"
+ },
+ "b:0628": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 2,
+  "col_index": 7,
+  "cell_text": ""
+ },
+ "b:0629": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 3,
+  "col_index": 0,
+  "cell_text": "Trailblazer"
+ },
+ "b:0630": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 3,
+  "col_index": 1,
+  "cell_text": "Vegetative Elongating Reproductive"
+ },
+ "b:0631": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 3,
+  "col_index": 2,
+  "cell_text": "5.0 4.9 6.4"
+ },
+ "b:0632": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 3,
+  "col_index": 3,
+  "cell_text": "6.3 6.2 7.2"
+ },
+ "b:0633": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 3,
+  "col_index": 4,
+  "cell_text": "22.3 44.3 44.2"
+ },
+ "b:0634": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 3,
+  "col_index": 5,
+  "cell_text": "25.1 43.4 45.6"
+ },
+ "b:0635": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 3,
+  "col_index": 6,
+  "cell_text": "0 14.7 18.9"
+ },
+ "b:0636": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 3,
+  "col_index": 7,
+  "cell_text": "9.8 15.6"
+ },
+ "b:0637": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 4,
+  "col_index": 0,
+  "cell_text": "Pathfinder"
+ },
+ "b:0638": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 4,
+  "col_index": 1,
+  "cell_text": "Vegetative Elongating Reproductive"
+ },
+ "b:0639": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 4,
+  "col_index": 2,
+  "cell_text": "5.2 4.6 6.2"
+ },
+ "b:0640": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 4,
+  "col_index": 3,
+  "cell_text": "5.8 4.6 6.8"
+ },
+ "b:0641": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 4,
+  "col_index": 4,
+  "cell_text": "23.2 41.2 41.1"
+ },
+ "b:0642": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 4,
+  "col_index": 5,
+  "cell_text": "23.7 27.4 45.3"
+ },
+ "b:0643": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 4,
+  "col_index": 6,
+  "cell_text": "0 17.4 19.5"
+ },
+ "b:0644": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 4,
+  "col_index": 7,
+  "cell_text": "9.2 19.2"
+ },
+ "b:0645": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 5,
+  "col_index": 0,
+  "cell_text": "Cave-in-Rock"
+ },
+ "b:0646": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 5,
+  "col_index": 1,
+  "cell_text": "Vegetative"
+ },
+ "b:0647": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 5,
+  "col_index": 2,
+  "cell_text": "6.8"
+ },
+ "b:0648": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 5,
+  "col_index": 3,
+  "cell_text": "7.4"
+ },
+ "b:0649": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 5,
+  "col_index": 4,
+  "cell_text": "22.4"
+ },
+ "b:0650": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 5,
+  "col_index": 5,
+  "cell_text": "19.0"
+ },
+ "b:0651": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 5,
+  "col_index": 6,
+  "cell_text": "0"
+ },
+ "b:0652": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0607",
+  "row_index": 5,
+  "col_index": 7,
+  "cell_text": "0"
+ },
+ "b:0656": {
+  "block_type": "Table"
+ },
+ "b:0657": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 4,
+  "col_index": 0,
+  "cell_text": "LSD (0.05)"
+ },
+ "b:0658": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 4,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0659": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 4,
+  "col_index": 2,
+  "cell_text": "1."
+ },
+ "b:0660": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 4,
+  "col_index": 3,
+  "cell_text": "40"
+ },
+ "b:0661": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 4,
+  "col_index": 4,
+  "cell_text": ""
+ },
+ "b:0662": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 4,
+  "col_index": 5,
+  "cell_text": "7.5"
+ },
+ "b:0663": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 4,
+  "col_index": 6,
+  "cell_text": ""
+ },
+ "b:0664": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 4,
+  "col_index": 7,
+  "cell_text": "3.1"
+ },
+ "b:0665": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 1,
+  "cell_text": "Pathfinder HYDMDC2"
+ },
+ "b:0666": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 4,
+  "cell_text": "Vegetative"
+ },
+ "b:0667": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 7,
+  "cell_text": "5.1"
+ },
+ "b:0668": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 10,
+  "cell_text": "6.4"
+ },
+ "b:0669": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 13,
+  "cell_text": "23.2"
+ },
+ "b:0670": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 16,
+  "cell_text": "21.0"
+ },
+ "b:0671": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 19,
+  "cell_text": "0"
+ },
+ "b:0672": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 22,
+  "cell_text": "0"
+ },
+ "b:0673": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 5,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0674": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 5,
+  "col_index": 3,
+  "cell_text": "Elongating"
+ },
+ "b:0675": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 5,
+  "col_index": 5,
+  "cell_text": "4.7"
+ },
+ "b:0676": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 5,
+  "col_index": 7,
+  "cell_text": "5.0"
+ },
+ "b:0677": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 5,
+  "col_index": 9,
+  "cell_text": "42.8"
+ },
+ "b:0678": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 5,
+  "col_index": 11,
+  "cell_text": "42.1"
+ },
+ "b:0679": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 5,
+  "col_index": 13,
+  "cell_text": "15.8"
+ },
+ "b:0680": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 5,
+  "col_index": 15,
+  "cell_text": "11.4"
+ },
+ "b:0681": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 6,
+  "col_index": 0,
+  "cell_text": ""
+ },
+ "b:0682": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 6,
+  "col_index": 1,
+  "cell_text": "Reproductive"
+ },
+ "b:0683": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 6,
+  "col_index": 2,
+  "cell_text": "5.8"
+ },
+ "b:0684": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 6,
+  "col_index": 3,
+  "cell_text": "7.0"
+ },
+ "b:0685": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 6,
+  "col_index": 4,
+  "cell_text": "38.4"
+ },
+ "b:0686": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 6,
+  "col_index": 5,
+  "cell_text": "43.4"
+ },
+ "b:0687": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 6,
+  "col_index": 6,
+  "cell_text": "19.1"
+ },
+ "b:0688": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 6,
+  "col_index": 7,
+  "cell_text": "16.3"
+ },
+ "b:0689": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 2,
+  "col_index": 0,
+  "cell_text": "Ey × FF HDMDC3"
+ },
+ "b:0690": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 2,
+  "col_index": 2,
+  "cell_text": "Vegetative"
+ },
+ "b:0691": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 2,
+  "col_index": 4,
+  "cell_text": "4.6"
+ },
+ "b:0692": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 2,
+  "col_index": 6,
+  "cell_text": "6.6"
+ },
+ "b:0693": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 2,
+  "col_index": 8,
+  "cell_text": "19.4"
+ },
+ "b:0694": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 2,
+  "col_index": 10,
+  "cell_text": "22.7"
+ },
+ "b:0695": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 2,
+  "col_index": 12,
+  "cell_text": "0"
+ },
+ "b:0696": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 2,
+  "col_index": 14,
+  "cell_text": "0"
+ },
+ "b:0697": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 0,
+  "cell_text": ""
+ },
+ "b:0698": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 3,
+  "cell_text": "Elongating"
+ },
+ "b:0699": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 6,
+  "cell_text": "5.6"
+ },
+ "b:0700": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 9,
+  "cell_text": "7.3"
+ },
+ "b:0701": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 12,
+  "cell_text": "43.6"
+ },
+ "b:0702": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 15,
+  "cell_text": "37.3"
+ },
+ "b:0703": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 18,
+  "cell_text": "14.4"
+ },
+ "b:0704": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 21,
+  "cell_text": "8.5"
+ },
+ "b:0705": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 5,
+  "col_index": 0,
+  "cell_text": ""
+ },
+ "b:0706": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 5,
+  "col_index": 2,
+  "cell_text": "Reproductive"
+ },
+ "b:0707": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 5,
+  "col_index": 4,
+  "cell_text": "7.3"
+ },
+ "b:0708": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 5,
+  "col_index": 6,
+  "cell_text": "7.0"
+ },
+ "b:0709": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 5,
+  "col_index": 8,
+  "cell_text": "43.8"
+ },
+ "b:0710": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 5,
+  "col_index": 10,
+  "cell_text": "40.2"
+ },
+ "b:0711": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 5,
+  "col_index": 12,
+  "cell_text": "17.7"
+ },
+ "b:0712": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 5,
+  "col_index": 14,
+  "cell_text": "16.9"
+ },
+ "b:0713": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 1,
+  "col_index": 0,
+  "cell_text": "Ey × FF LDMDC1"
+ },
+ "b:0714": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 1,
+  "col_index": 3,
+  "cell_text": "Vegetative"
+ },
+ "b:0715": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 1,
+  "col_index": 5,
+  "cell_text": "4.8"
+ },
+ "b:0716": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 1,
+  "col_index": 7,
+  "cell_text": "5.8"
+ },
+ "b:0717": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 1,
+  "col_index": 9,
+  "cell_text": "23.1"
+ },
+ "b:0718": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 1,
+  "col_index": 11,
+  "cell_text": "28.0"
+ },
+ "b:0719": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 1,
+  "col_index": 13,
+  "cell_text": "0"
+ },
+ "b:0720": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 1,
+  "col_index": 15,
+  "cell_text": "0"
+ },
+ "b:0721": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 2,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0722": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 2,
+  "col_index": 3,
+  "cell_text": "Elongating"
+ },
+ "b:0723": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 2,
+  "col_index": 5,
+  "cell_text": "4.8"
+ },
+ "b:0724": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 2,
+  "col_index": 7,
+  "cell_text": "4.7"
+ },
+ "b:0725": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 2,
+  "col_index": 9,
+  "cell_text": "45.8"
+ },
+ "b:0726": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 2,
+  "col_index": 11,
+  "cell_text": "36.7"
+ },
+ "b:0727": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 2,
+  "col_index": 13,
+  "cell_text": "16.3"
+ },
+ "b:0728": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 2,
+  "col_index": 15,
+  "cell_text": "11.0"
+ },
+ "b:0729": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 2,
+  "cell_text": ""
+ },
+ "b:0730": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 5,
+  "cell_text": "Reproductive"
+ },
+ "b:0731": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 8,
+  "cell_text": "6.2"
+ },
+ "b:0732": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 11,
+  "cell_text": "7.7"
+ },
+ "b:0733": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 14,
+  "cell_text": "40.4"
+ },
+ "b:0734": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 17,
+  "cell_text": "43.7"
+ },
+ "b:0735": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 20,
+  "cell_text": "18.3"
+ },
+ "b:0736": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 3,
+  "col_index": 23,
+  "cell_text": "19.4"
+ },
+ "b:0737": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 0,
+  "col_index": 0,
+  "cell_text": ""
+ },
+ "b:0738": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 0,
+  "col_index": 1,
+  "cell_text": "Elongating"
+ },
+ "b:0739": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 0,
+  "col_index": 2,
+  "cell_text": "6.6"
+ },
+ "b:0740": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 0,
+  "col_index": 3,
+  "cell_text": "6.7"
+ },
+ "b:0741": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 0,
+  "col_index": 4,
+  "cell_text": "35.8"
+ },
+ "b:0742": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 0,
+  "col_index": 5,
+  "cell_text": "34.5"
+ },
+ "b:0743": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 0,
+  "col_index": 6,
+  "cell_text": "9.6"
+ },
+ "b:0744": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 0,
+  "col_index": 7,
+  "cell_text": "10.4"
+ },
+ "b:0745": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 1,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0746": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 1,
+  "col_index": 2,
+  "cell_text": "Reproductive"
+ },
+ "b:0747": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 1,
+  "col_index": 4,
+  "cell_text": "7.9"
+ },
+ "b:0748": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 1,
+  "col_index": 6,
+  "cell_text": "7.0"
+ },
+ "b:0749": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 1,
+  "col_index": 8,
+  "cell_text": "42.3"
+ },
+ "b:0750": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 1,
+  "col_index": 10,
+  "cell_text": "47.2"
+ },
+ "b:0751": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 1,
+  "col_index": 12,
+  "cell_text": "14.8"
+ },
+ "b:0752": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0656",
+  "row_index": 1,
+  "col_index": 14,
+  "cell_text": "14.7"
+ },
+ "b:0761": {
+  "block_type": "Table"
+ },
+ "b:0762": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 0,
+  "col_index": 0,
+  "cell_text": ""
+ },
+ "b:0763": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 0,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0764": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 0,
+  "col_index": 2,
+  "cell_text": ""
+ },
+ "b:0765": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 0,
+  "col_index": 3,
+  "cell_text": ""
+ },
+ "b:0766": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 1,
+  "col_index": 0,
+  "cell_text": "Factor"
+ },
+ "b:0767": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 1,
+  "col_index": 1,
+  "cell_text": "Maturity"
+ },
+ "b:0768": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 1,
+  "col_index": 2,
+  "cell_text": "LAI"
+ },
+ "b:0769": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 1,
+  "col_index": 3,
+  "cell_text": "MTAT"
+ },
+ "b:0770": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 2,
+  "col_index": 0,
+  "cell_text": "Location, across populations"
+ },
+ "b:0771": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 2,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0772": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 2,
+  "col_index": 2,
+  "cell_text": ""
+ },
+ "b:0773": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 2,
+  "col_index": 3,
+  "cell_text": "94500 50"
+ },
+ "b:0774": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 3,
+  "col_index": 0,
+  "cell_text": "Ames, IA"
+ },
+ "b:0775": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 3,
+  "col_index": 1,
+  "cell_text": "Vegetative"
+ },
+ "b:0776": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 3,
+  "col_index": 2,
+  "cell_text": "2.8"
+ },
+ "b:0777": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 3,
+  "col_index": 3,
+  "cell_text": "57.6"
+ },
+ "b:0778": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 4,
+  "col_index": 0,
+  "cell_text": ""
+ },
+ "b:0779": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 4,
+  "col_index": 1,
+  "cell_text": "Elongating"
+ },
+ "b:0780": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 4,
+  "col_index": 2,
+  "cell_text": "5.5"
+ },
+ "b:0781": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 4,
+  "col_index": 3,
+  "cell_text": "46.2"
+ },
+ "b:0782": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 5,
+  "col_index": 0,
+  "cell_text": ""
+ },
+ "b:0783": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 5,
+  "col_index": 1,
+  "cell_text": "Reproductive"
+ },
+ "b:0784": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 5,
+  "col_index": 2,
+  "cell_text": "4.9"
+ },
+ "b:0785": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 5,
+  "col_index": 3,
+  "cell_text": "46.0"
+ },
+ "b:0786": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 6,
+  "col_index": 0,
+  "cell_text": "Mead, NE"
+ },
+ "b:0787": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 6,
+  "col_index": 1,
+  "cell_text": "Vegetative"
+ },
+ "b:0788": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 6,
+  "col_index": 2,
+  "cell_text": "3.4"
+ },
+ "b:0789": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 6,
+  "col_index": 3,
+  "cell_text": "54.9"
+ },
+ "b:0790": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 7,
+  "col_index": 0,
+  "cell_text": "000 0 + 1000 0 100 100 100 100 100 100 1"
+ },
+ "b:0791": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 7,
+  "col_index": 1,
+  "cell_text": "Elongating"
+ },
+ "b:0792": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 7,
+  "col_index": 2,
+  "cell_text": "5.5"
+ },
+ "b:0793": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 7,
+  "col_index": 3,
+  "cell_text": "44.2"
+ },
+ "b:0794": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 8,
+  "col_index": 0,
+  "cell_text": ""
+ },
+ "b:0795": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 8,
+  "col_index": 1,
+  "cell_text": "Reproductive"
+ },
+ "b:0796": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 8,
+  "col_index": 2,
+  "cell_text": "4.5"
+ },
+ "b:0797": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 8,
+  "col_index": 3,
+  "cell_text": "48.9"
+ },
+ "b:0798": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 9,
+  "col_index": 0,
+  "cell_text": "LSD (0.05)"
+ },
+ "b:0799": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 9,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0800": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 9,
+  "col_index": 2,
+  "cell_text": "0.3"
+ },
+ "b:0801": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 9,
+  "col_index": 3,
+  "cell_text": "2.0"
+ },
+ "b:0802": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 10,
+  "col_index": 0,
+  "cell_text": "Population, across locations :"
+ },
+ "b:0803": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 10,
+  "col_index": 1,
+  "cell_text": "and maturities±"
+ },
+ "b:0804": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 10,
+  "col_index": 2,
+  "cell_text": ""
+ },
+ "b:0805": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 10,
+  "col_index": 3,
+  "cell_text": ""
+ },
+ "b:0806": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 11,
+  "col_index": 0,
+  "cell_text": "Trailblazer"
+ },
+ "b:0807": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 11,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0808": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 11,
+  "col_index": 2,
+  "cell_text": "4.0"
+ },
+ "b:0809": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 11,
+  "col_index": 3,
+  "cell_text": "49.9"
+ },
+ "b:0810": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 12,
+  "col_index": 0,
+  "cell_text": "Pathfinder"
+ },
+ "b:0811": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 12,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0812": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 12,
+  "col_index": 2,
+  "cell_text": "4.7"
+ },
+ "b:0813": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 12,
+  "col_index": 3,
+  "cell_text": "50.6"
+ },
+ "b:0814": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 13,
+  "col_index": 0,
+  "cell_text": "Cave-in-Rock"
+ },
+ "b:0815": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 13,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0816": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 13,
+  "col_index": 2,
+  "cell_text": "4.7"
+ },
+ "b:0817": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 13,
+  "col_index": 3,
+  "cell_text": "46.5"
+ },
+ "b:0818": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 14,
+  "col_index": 0,
+  "cell_text": "Ey x FF LDMDC1"
+ },
+ "b:0819": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 14,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0820": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 14,
+  "col_index": 2,
+  "cell_text": "4.2"
+ },
+ "b:0821": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 14,
+  "col_index": 3,
+  "cell_text": "50.2"
+ },
+ "b:0822": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 15,
+  "col_index": 0,
+  "cell_text": "Ey $\\times$ FF HDMDC3"
+ },
+ "b:0823": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 15,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0824": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 15,
+  "col_index": 2,
+  "cell_text": "4.1"
+ },
+ "b:0825": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 15,
+  "col_index": 3,
+  "cell_text": "51.2"
+ },
+ "b:0826": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 16,
+  "col_index": 0,
+  "cell_text": "Pathfinder HYDMDC2"
+ },
+ "b:0827": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 16,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0828": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 16,
+  "col_index": 2,
+  "cell_text": "4.8"
+ },
+ "b:0829": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 16,
+  "col_index": 3,
+  "cell_text": "49.5"
+ },
+ "b:0830": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 17,
+  "col_index": 0,
+  "cell_text": "LSD (0.05)"
+ },
+ "b:0831": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 17,
+  "col_index": 1,
+  "cell_text": ""
+ },
+ "b:0832": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 17,
+  "col_index": 2,
+  "cell_text": "0.3"
+ },
+ "b:0833": {
+  "block_type": "TableCell",
+  "parent_table_anchor": "b:0761",
+  "row_index": 17,
+  "col_index": 3,
+  "cell_text": "2.0"
+ }
+}

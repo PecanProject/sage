@@ -51,6 +51,27 @@
       },
       "model": "jetstream-scout/llama-4-scout"
     },
+    "reader": {
+      "description": "Reader stage for structured questions about one paper: entity enumeration, table classification (Step B) and the variable-method map. Read-only content.md tools; answers in the JSON shape the task message specifies.",
+      "prompt": "{file:./opencode-config/agents/reader.md}",
+      "mode": "primary",
+      "tools": {
+        "edit": false,
+        "bash": false,
+        "write": false,
+        "read": false,
+        "glob": false,
+        "grep": false,
+        "task": false,
+        "webfetch": false,
+        "todowrite": false,
+        "skill": false,
+        "get_schema": false,
+        "lookup_vocab": false,
+        "apply_reconstruction": false
+      },
+      "model": "jetstream-scout/llama-4-scout"
+    },
     "converter": {
       "description": "Conversion/Reasoning AI stage. Sealed: no content.md read tools at all -- it is shown only the Extraction stage's RawExtraction JSON (passed as prompt content by pipeline/orchestrator.py) and maps it into the exact Sage IR payload shape via get_schema/lookup_vocab/apply_reconstruction. Never calls propose_record/commit_record/flag_unresolved -- the orchestrator validates its output directly against ir_service and owns all retry/commit decisions.",
       "prompt": "{file:./opencode-config/agents/converter.md}",

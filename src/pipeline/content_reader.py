@@ -289,15 +289,8 @@ def list_tables(paper_id: str, papers_root: Path = DEFAULT_PAPERS_ROOT) -> dict:
 
 
 def raw_table_cells(paper_id: str, table_anchors: list[str], papers_root: Path = DEFAULT_PAPERS_ROOT) -> list[str]:
-    """Every non-empty raw `cell_text` value (provenance-only TableCell
-    entries, never rendered inline in content.md) whose `parent_table_anchor`
-    is one of `table_anchors` -- deliberately flat text, not row/col
-    structured, since the one real caller (the table-classification
-    reconstruction sanity check in orchestrator.py) compares total numeric
-    content, not cell positions: raw geometric cells are NOT reliably
-    1:1 with logical data rows on every page (see `list_tables`'s own
-    docstring for the confirmed case), so position-based comparison would
-    itself be unreliable."""
+    """Every non-empty raw `cell_text` (provenance-only TableCell entries) whose `parent_table_anchor` is one of
+    `table_anchors`, as flat text."""
     provenance = _load_provenance(paper_id, papers_root)
     if provenance is None:
         return []
@@ -307,6 +300,26 @@ def raw_table_cells(paper_id: str, table_anchors: list[str], papers_root: Path =
         if e.get("parent_table_anchor") in wanted and (text := (e.get("cell_text") or "").strip())
     ]
 
+
+def raw_table_grid(paper_id: str, table_anchor: str, papers_root: Path = DEFAULT_PAPERS_ROOT) -> list[list[str]]:
+    """One table block's raw cells as rows of column-ordered texts, from provenance.json's row/col indices ("" for a
+    position with no cell). [] when there is no provenance or no cell for this anchor."""
+    provenance = _load_provenance(paper_id, papers_root)
+    if provenance is None:
+        return []
+    anchor = _normalize_anchor(table_anchor)
+    cells = [
+        (e["row_index"], e.get("col_index") or 0, (e.get("cell_text") or "").strip())
+        for e in provenance.values()
+        if e.get("parent_table_anchor") == anchor and e.get("row_index") is not None
+    ]
+    if not cells:
+        return []
+    width = max(c for _, c, _ in cells) + 1
+    rows: dict[int, list[str]] = {}
+    for r, c, text in cells:
+        rows.setdefault(r, [""] * width)[c] = text
+    return [rows[r] for r in sorted(rows)]
 
 
 def list_sections(paper_id: str, papers_root: Path = DEFAULT_PAPERS_ROOT) -> dict:

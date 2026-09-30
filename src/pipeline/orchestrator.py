@@ -42,6 +42,7 @@ Concretely:
 from __future__ import annotations
 
 import argparse
+import collections
 import copy
 import json
 import os
@@ -62,7 +63,7 @@ from pipeline.fingerprint import config_fingerprint, schema_fingerprint
 from pipeline import cell_values, causes, context_bundle, coordinates, design, document_map, evidence_index, method_map
 from pipeline.ir_schema import IRDataset
 from pipeline.raw_schema import (
-    MIXTURE_LEVEL_RULE, CandidateDimension, EnumerationCandidate, EnumerationResult, MethodHintFlag, RawExtraction,
+    DESIGN_FACTOR_RULE, MIXTURE_LEVEL_RULE, CandidateDimension, EnumerationCandidate, EnumerationResult, MethodHintFlag, RawExtraction,
     RawFact, TableClassification, TableVariable, TimeLevel, UnitHintFlag, _variable_key, all_anchors,
 )
 from pipeline.validators import (  # reuse, don't re-implement anchor parsing/grounding
@@ -851,7 +852,8 @@ _ENTITY_IDENTITY_GUIDANCE: dict[str, str] = {
         "applies that level at more than one site -- check this explicitly whenever more than one "
         "site exists, don't default to skipping it. This applies ONLY to experimental treatment "
         "levels. A cultivar, variety, population or genotype is a CROP, a growth stage, maturity, "
-        "date or year is TIME, and a location is a SITE: none of them is a Treatment, and naming "
+        "date or year is TIME unless the paper assigns it to plots as a design factor (then each level "
+        "is a treatment level), and a location is a SITE: none of them is a Treatment, and naming "
         "them together in one phrase never makes them one. 'Population P at Site A' and 'Population "
         "P at Site B' are NOT two Treatments -- it is the same crop (one Crop record) grown in two "
         "Site contexts, and 'Population P at maturity M' is that same crop at a point in time. If "
@@ -1060,11 +1062,11 @@ def _declare_dimensions_block(entity_type: str, covered_conditions: Optional[lis
         f"\n\nFor EVERY candidate you still report, also give `dimensions`: a list of "
         f"{{name, dimension, level}} entries, one per factor level that distinguishes it. `name` is the "
         f"factor as the paper calls it; `level` is its literal level; `dimension` is exactly one of "
-        f"'treatment' (an experimental management or system condition the study APPLIES -- e.g. a "
-        f"cover-crop, tillage, fertilizer or irrigation level), 'crop' (an individual cultivar, variety, "
-        f"population or genotype), 'time' (a date, growth stage, year or season), 'site' (a location), or "
-        f"'other'. A single cultivar/population is 'crop', a date or growth stage is 'time', a location is "
-        f"'site' -- none of these is a 'treatment'. {MIXTURE_LEVEL_RULE} "
+        f"'treatment' (an experimental condition the study ASSIGNS as a design factor -- e.g. a "
+        f"cover-crop, tillage, fertilizer or irrigation level, or a harvest schedule), 'crop' (an individual "
+        f"cultivar, variety, population or genotype), 'time' (a date, growth stage, year or season at which "
+        f"something was measured), 'site' (a location), or 'other'. A single cultivar/population is 'crop' and "
+        f"a location is 'site' -- neither is a 'treatment'. {DESIGN_FACTOR_RULE} {MIXTURE_LEVEL_RULE} "
         f"Every level must appear in your description or in a block you cite. "
         f"Something with no treatment-dimension level is not a {entity_type}: do not report it."
     )
@@ -1152,7 +1154,7 @@ def run_enumeration(
             paper_id, entity_type, errors, link_pools, excluded_table_anchors,
             covered_conditions=covered_conditions, declare_dimensions=declare_dimensions,
         ) + (f"\n\n{evidence_packet}" if evidence_packet else "")
-        result = invoke("extractor", model, prompt + (f"\n\n{_final_answer_nudge('enumeration')}" if nudge else ""))
+        result = invoke("reader", model, prompt + (f"\n\n{_final_answer_nudge('enumeration')}" if nudge else ""))
         artifact = result.as_artifact()
 
         if _ended_without_answer_after_tools(result):
@@ -1409,6 +1411,129 @@ def _table_classification_sanity_check(classification: TableClassification, pape
     return None
 
 
+# --- Cell placement against the raw provenance grid ------------------------------------------------------------------
+
+_PLAIN_NUMBER_RE = re.compile(r"^[-–−]?\d+(?:\.\d+)?$")
+
+
+def _cell_key(text: Any) -> str:
+    return " ".join(str(text or "").replace("–", "-").replace("−", "-").split())
+
+
+def _logical_grid_rows(paper_id: str, table_anchors: list[str]) -> list[tuple[str, int, int, list[str]]]:
+    """(anchor, raw row, packed position, cells) for every logical row of the raw provenance grid. A raw row whose
+    numeric cells all pack the same number k > 1 of values ("0.19 0.90 1.16") is k logical rows; label cells repeat."""
+    out = []
+    for anchor in table_anchors:
+        for r, cells in enumerate(content_reader.raw_table_grid(paper_id, anchor, papers_root=_papers_root())):
+            numeric = {i: c.split() for i, c in enumerate(cells) if c and all(_PLAIN_NUMBER_RE.match(t) for t in c.split())}
+            counts = {len(tokens) for tokens in numeric.values()}
+            k = counts.pop() if len(counts) == 1 else 1
+            for pos in range(k):
+                out.append((anchor, r, pos, [numeric[i][pos] if k > 1 and i in numeric else c for i, c in enumerate(cells)]))
+    return out
+
+
+def _cell_placement_findings(classification: TableClassification, paper_id: str) -> list[dict]:
+    """Reconstructed values checked against the raw provenance grid, per table block.
+
+    The block's data columns (numeric in most rows) are paired left to right with `value_columns` when their counts
+    match; the pairing is trusted only if >= 75% of the matched rows' values agree with it. Each row group is matched
+    to the logical grid row holding most of its values (unique best, >= 60%); a raw row whose numbers sit outside the
+    data columns (a shifted rendering) is skipped. Findings: a value whose raw cell at that row and column reads
+    something else ("misplaced"), and a raw data row no row group accounts for ("unreconstructed_row")."""
+    grid = _logical_grid_rows(paper_id, classification.table_anchors)
+    if not grid:
+        return []
+
+    def numeric_cols(cells: list[str]) -> set[int]:
+        return {i for i, c in enumerate(cells) if c and _PLAIN_NUMBER_RE.match(c)}
+
+    matches: dict[str, tuple] = {}
+    for rg in classification.row_groups:
+        if design._statistic_row(rg):
+            continue
+        values = [_cell_key(v) for v in (rg.cells or {}).values() if _cell_key(v)]
+        if len(values) < 2:
+            continue
+        scored = [(sum(1 for v in values if v in {_cell_key(x) for x in lr[3]}), lr) for lr in grid]
+        best = max(score for score, _ in scored)
+        winners = [lr for score, lr in scored if score == best]
+        if best >= max(2, -(-len(values) * 3 // 5)) and len(winners) == 1:
+            matches[rg.row_group_id] = winners[0]
+
+    columns = [c.value_column_id for c in classification.value_columns]
+    findings: list[dict] = []
+    for anchor in classification.table_anchors:
+        rows = [lr for lr in grid if lr[0] == anchor]
+        with_numbers = [lr for lr in rows if len(numeric_cols(lr[3])) >= 2]
+        if not with_numbers:
+            continue
+        counts = collections.Counter(i for lr in with_numbers for i in numeric_cols(lr[3]))
+        data_cols = sorted(i for i, n in counts.items() if n * 2 >= len(with_numbers))
+        if len(data_cols) != len(columns):
+            continue
+        column_of = dict(zip(columns, data_cols))
+        placed = [(rg, lr) for rg in classification.row_groups
+                  if (lr := matches.get(rg.row_group_id)) is not None and lr[0] == anchor
+                  and numeric_cols(lr[3]) <= set(data_cols)]
+        checked = [(rg, lr, k, v) for rg, lr in placed for k, v in (rg.cells or {}).items() if k in column_of and _cell_key(v)]
+        if not checked:
+            continue
+        agree = sum(1 for _, lr, k, v in checked if _cell_key(lr[3][column_of[k]]) == _cell_key(v))
+        if agree < 0.75 * len(checked):
+            continue
+        for rg, lr, k, v in checked:
+            source = lr[3][column_of[k]]
+            if _cell_key(source) != _cell_key(v):
+                findings.append({"kind": "misplaced", "row_group_id": rg.row_group_id, "value_column_id": k,
+                                 "value": v, "source_value": source, "anchor": anchor})
+        claimed = {id(lr) for _, lr in placed}
+        for lr in with_numbers:
+            if id(lr) in claimed or any(design.is_statistic_label(c) for c in lr[3]):
+                continue
+            if numeric_cols(lr[3]) <= set(data_cols) and not any(matches.get(rg.row_group_id) is lr for rg in classification.row_groups):
+                findings.append({"kind": "unreconstructed_row", "anchor": anchor, "source_row": [c for c in lr[3] if c]})
+    return findings
+
+
+def _placement_message(finding: dict) -> str:
+    if finding["kind"] == "unreconstructed_row":
+        return (f"the source row {finding['source_row']} in {finding['anchor']} is not in row_groups -- every data row "
+                f"of the table must be reconstructed.")
+    return (f"row '{finding['row_group_id']}', column '{finding['value_column_id']}' has {finding['value']!r}, but the "
+            f"source cell at that row and column in {finding['anchor']} reads {finding['source_value']!r} -- put each "
+            f"value in the column it is printed under.")
+
+
+def _withhold_cells(classification: TableClassification, findings: list[dict]) -> TableClassification:
+    bad = {(f["row_group_id"], f["value_column_id"]) for f in findings if f["kind"] == "misplaced"}
+    rows = [rg.model_copy(update={"cells": {k: (None if (rg.row_group_id, k) in bad else v) for k, v in (rg.cells or {}).items()}})
+            for rg in classification.row_groups]
+    return classification.model_copy(update={"row_groups": rows})
+
+
+def _withhold_duplicate_row_groups(classification: TableClassification) -> tuple[TableClassification, list[dict]]:
+    """Two row groups claiming the same factor levels cannot both be right (typically a row whose label the source
+    rendering lost, filled in from the row above). The first keeps its values; every later one is withheld."""
+    seen: dict[tuple, str] = {}
+    kept, withheld = [], []
+    for rg in classification.row_groups:
+        key = tuple(sorted((k, _cell_key(v).lower()) for k, v in (rg.factor_values or {}).items() if _cell_key(v)))
+        if key and not design._statistic_row(rg) and key in seen:
+            withheld.append({"row_group_id": rg.row_group_id, "factor_values": dict(rg.factor_values or {}),
+                             "same_levels_as": seen[key],
+                             "reason": "another row of this table claims the same factor levels; which one the source "
+                                       "means cannot be established, so this later row is withheld"})
+            continue
+        if key:
+            seen.setdefault(key, rg.row_group_id)
+        kept.append(rg)
+    if not withheld:
+        return classification, []
+    return classification.model_copy(update={"row_groups": kept}), withheld
+
+
 def _table_classification_prompt(
     paper_id: str, seed_table_anchor: str, other_tables: list[dict],
     prior_errors: Optional[list[dict]] = None,
@@ -1527,10 +1652,10 @@ def _table_classification_prompt(
         f"omitted/null.\n"
         f"- factors: one entry per experimental dimension of THIS table, {{name, dimension, encoding}}. name is "
         f"the dimension as the table calls it (e.g. 'Population', 'Maturity', 'Location', 'Variable'). "
-        f"dimension is what it IS: 'treatment' (an experimental management or system condition the "
-        f"study applies -- e.g. a cover-crop, tillage, fertilizer or irrigation level), 'crop' (an individual "
-        f"cultivar, variety, population or genotype), 'time' (a sampling or harvest date, growth stage, year, "
-        f"season or day after planting), 'site' (a location), 'variable' (WHICH measured quantity a row or "
+        f"dimension is what it IS: 'treatment' (an experimental condition the study assigns as a design "
+        f"factor -- e.g. a cover-crop, tillage, fertilizer or irrigation level, or a harvest schedule), 'crop' "
+        f"(an individual cultivar, variety, population or genotype), 'time' (a sampling date, growth stage, "
+        f"year, season or day after planting at which values were measured), 'site' (a location), 'variable' (WHICH measured quantity a row or "
         f"column reports), 'replicate' (block or plot), or 'other'. encoding is where its levels live: "
         f"'rows' (a label column -- the level goes in each row group's factor_values), 'columns' (column "
         f"headers -- the level goes in that value column's factor_levels), or 'context' (one level for "
@@ -1538,14 +1663,14 @@ def _table_classification_prompt(
         f"context_levels and each value column's factor_levels are JSON OBJECTS mapping a factor name to "
         f"its level: write {{}} when empty, never []. Every key "
         f"you use in factor_values, factor_levels or context_levels MUST be declared here. A "
-        f"single cultivar/population is 'crop', a date or growth stage is 'time', a location is 'site' -- none "
-        f"of these is a 'treatment'. {MIXTURE_LEVEL_RULE}\n"
+        f"single cultivar/population is 'crop' and a location is 'site' -- neither is a 'treatment'. "
+        f"{DESIGN_FACTOR_RULE} {MIXTURE_LEVEL_RULE}\n"
         f"- pooled_factors: ONLY when the table's values are means pooled over some factor that does NOT "
         f"appear in its rows or columns (a table note such as 'means across all X'): one entry per such "
         f"factor, {{name, dimension, evidence_anchor, evidence_excerpt}}, where evidence_excerpt is the "
         f"LITERAL source text (caption, footnote or body) stating the pooling. Omit when nothing is pooled.\n"
-        f"- time_levels: ONLY for a table with a 'time'-dimension factor whose levels (a growth stage, a "
-        f"sampling occasion, ...) the paper DATES somewhere else, usually in Methods (use read_section): one "
+        f"- time_levels: ONLY for a table with a 'time'- or 'treatment'-dimension factor whose levels (a growth "
+        f"stage, a sampling occasion, a harvest schedule, ...) the paper DATES somewhere else, usually in Methods (use read_section): one "
         f"entry per level -- and per site when the paper dates it differently at each site -- "
         f"{{factor, level, site, date_text, year_text, anchors}}. factor is the declared time factor, level "
         f"the level exactly as this table has it, site (only when it differs per site) the site as the paper "
@@ -1771,7 +1896,7 @@ def run_table_classification(
             paper_id, seed_table_anchor, other_tables, errors, chain_anchors, methods_context=methods_context,
             prior_answer=prior_answer if errors else None,
         )
-        result = invoke("extractor", model, prompt + (f"\n\n{_final_answer_nudge('table_classification')}" if nudge else ""))
+        result = invoke("reader", model, prompt + (f"\n\n{_final_answer_nudge('table_classification')}" if nudge else ""))
         artifact = result.as_artifact()
 
         if _ended_without_answer_after_tools(result):
@@ -1944,6 +2069,21 @@ def run_table_classification(
                 last_message = f"attempt {attempt}: {sanity_error}"
                 continue
 
+        # Values checked against the raw cell grid: fed back while attempts remain, then misplaced values are withheld.
+        placement = _cell_placement_findings(validated, paper_id) if validated.applicable and validated.row_groups else []
+        if placement and numbered < MAX_TABLE_CLASSIFICATION_ATTEMPTS:
+            errors = [{"field": "row_groups", "message": _placement_message(f)} for f in placement[:20]]
+            artifact["validation_errors"] = errors
+            _save("validation_failure")
+            last_message = f"attempt {attempt}: {len(placement)} value(s) disagree with the source cell grid"
+            continue
+        if placement:
+            validated = _withhold_cells(validated, placement)
+            artifact["placement_findings"] = placement
+        validated, duplicate_rows = _withhold_duplicate_row_groups(validated)
+        if duplicate_rows:
+            artifact["withheld_duplicate_rows"] = duplicate_rows
+
         # A variable named by ROW labels can carry its units, canonical name and method hint only in `variables`
         # (a value column has no such field), so a level left undeclared loses them for good. Every other check
         # above has passed here, so this is the answer's only defect: retried with feedback, then -- on the last
@@ -1999,6 +2139,8 @@ def run_table_classification(
             **({"variable_declaration_flags": variable_flags} if variable_flags else {}),
             **({"deterministic_repairs": artifact["deterministic_repairs"]} if artifact.get("deterministic_repairs") else {}),
             **({"structure_changed_on_retry": structure_change} if structure_change else {}),
+            **({"placement_findings": artifact["placement_findings"]} if artifact.get("placement_findings") else {}),
+            **({"withheld_duplicate_rows": duplicate_rows} if duplicate_rows else {}),
         })
         return validated, None
 
@@ -2103,7 +2245,7 @@ def _time_levels_for_cell(classification: TableClassification, row: Any, column:
     cell_sites = [_normalize_for_matching(level) for _, (dimension, level) in levels.items() if dimension == "site"]
     matched: list[TimeLevel] = []
     for name, (dimension, level) in levels.items():
-        if dimension != "time":
+        if dimension not in ("time", "treatment"):
             continue
         entries = [
             tl for tl in classification.time_levels
@@ -2979,7 +3121,63 @@ def run_table_classification_pass(
 
         classifications[anchor] = classification
 
-    return classifications
+    return _promote_design_factors(run_id, paper_id, classifications)
+
+
+# A sentence naming the factors assigned to the plots of the design ("whole plots were X and subplots were Y").
+_DESIGN_PLOT_RE = re.compile(
+    r"\b(?:whole|main|sub|split)[- ]?plots?\s+(?:were|was|consisted of|comprised)\s+((?:[A-Za-z][\w-]*\s*){1,4}?)"
+    r"(?=\s*(?:\band\b|[,.;(]|$))", re.I)
+
+
+def _design_factor_statements(paper_id: str) -> list[tuple[str, str]]:
+    """(anchor, phrase) for every phrase the paper uses to say which factor its plots were assigned."""
+    try:
+        blocks = _load_rendered_blocks(paper_id)
+    except FileNotFoundError:
+        return []
+    return [(anchor, m.group(1).strip()) for anchor, text in blocks.items() for m in _DESIGN_PLOT_RE.finditer(text)
+            if not m.group(1).split()[0].lower().endswith("ed")]   # "were harvested ..." is an action, not a factor
+
+
+def _names_factor(phrase: str, factor_name: str) -> bool:
+    words = re.findall(r"[a-z]+", factor_name.lower())
+    stems = [w[:max(4, len(w) - 3)] for w in words if len(w) >= 4]
+    return bool(stems) and all(stem in phrase.lower() for stem in stems)
+
+
+def _promote_design_factors(
+    run_id: str, paper_id: str, classifications: dict[str, TableClassification],
+) -> dict[str, TableClassification]:
+    """A `time` factor that the paper's design statement names as a plot factor ("subplots were sward maturities") is
+    a `treatment` in every table (protocol Section 6.3). Written back to each table's final.json with the evidence, so
+    every later reader of the classification sees the same dimension."""
+    statements = _design_factor_statements(paper_id)
+    if not statements:
+        return classifications
+    out = {}
+    for seed, classification in classifications.items():
+        promoted = []
+        factors = []
+        for factor in classification.factors:
+            evidence = next(((a, ph) for a, ph in statements if _names_factor(ph, factor.name)), None)
+            if factor.dimension == "time" and evidence:
+                factors.append(factor.model_copy(update={"dimension": "treatment"}))
+                promoted.append({"factor": factor.name, "declared": "time", "corrected_to": "treatment",
+                                 "evidence_anchor": evidence[0], "evidence_text": evidence[1]})
+            else:
+                factors.append(factor)
+        if promoted:
+            classification = classification.model_copy(update={"factors": factors})
+            record_key = f"table_classification__{seed.replace(':', '_')}"
+            path = run_store.record_dir(run_id, record_key) / "final.json"
+            if path.is_file():
+                final = run_store.load_json(path)
+                final["classification"] = classification.model_dump()
+                final["design_factor_promotions"] = promoted
+                run_store.save_final(run_id, record_key, final)
+        out[seed] = classification
+    return out
 
 
 def _cell_dimension_levels(
@@ -3086,7 +3284,7 @@ def _table_classifications_to_treatment_candidates(
         # A table whose experimental dimensions were DECLARED (`factors`) has
         # been analysed for what a Treatment is: only treatment-dimension
         # factors (plus the site) can form a Treatment's identity -- a
-        # cultivar/population is `crop`, a date or growth stage is `time`
+        # cultivar/population is `crop`, a date or growth stage is `time` unless assigned as a design factor
         # (protocol Section 6.3). Such a table is "covered" for Treatment even
         # when it yields none (a design with no treatment dimension), so the
         # free-form pass is not invited to re-invent Treatments from it.
@@ -3524,14 +3722,15 @@ def _candidate_dimension_errors(
 
 def _reconcile_candidate_dimensions(
     candidate: EnumerationCandidate, dimension_pools: Optional[dict[str, list[dict]]],
+    declared_dimensions: Optional[dict[str, str]] = None, declared_factors: Optional[dict[str, str]] = None,
 ) -> list[CandidateDimension]:
-    """A level declared `treatment` that is exactly a ready Crop/Site record of
-    this run is a crop/site (protocol Section 6.3) -- the same exact-match
-    correction `_reconcile_factor_dimensions` applies to a table's factors."""
+    """A level (or else a factor name) the paper's tables declare with one dimension takes that dimension; otherwise a
+    level declared `treatment` that is exactly a ready Crop/Site record of this run is a crop/site (protocol 6.3)."""
     out = []
     for d in candidate.dimensions:
-        new_dimension = d.dimension
-        if d.dimension == "treatment":
+        new_dimension = ((declared_dimensions or {}).get(design._level_key(d.level))
+                         or (declared_factors or {}).get(design._key(d.name)) or d.dimension)
+        if new_dimension == "treatment":
             for kind in ("crop", "site"):
                 pool = (dimension_pools or {}).get(kind) or []
                 if pool and _exact_pool_match(d.level, pool):
@@ -3570,6 +3769,7 @@ def _covered_condition_labels(table_candidates: list[EnumerationCandidate]) -> l
 def _drop_freeform_treatments_covered_by_tables(
     freeform_candidates: list[EnumerationCandidate], table_candidates: list[EnumerationCandidate],
     site_pool: Optional[list[dict]], dimension_pools: Optional[dict[str, list[dict]]],
+    declared_dimensions: Optional[dict[str, str]] = None, declared_factors: Optional[dict[str, str]] = None,
 ) -> tuple[list[EnumerationCandidate], list[dict]]:
     """Semantic free-form/table Treatment dedup, by the same canonical identity (treatment-dimension levels + resolved
     site; key names never matter). A free-form candidate is:
@@ -3578,7 +3778,8 @@ def _drop_freeform_treatments_covered_by_tables(
       - kept (and flagged) when it declares no dimensions or its identity is ambiguous;
       - kept when its identity matches no table candidate.
     Dedup only removes; it never edits a surviving candidate. Returns (kept, decisions)."""
-    reconciled = {c.candidate_id: _reconcile_candidate_dimensions(c, dimension_pools) for c in freeform_candidates}
+    reconciled = {c.candidate_id: _reconcile_candidate_dimensions(c, dimension_pools, declared_dimensions, declared_factors)
+                  for c in freeform_candidates}
     site_texts = {
         _normalize_for_matching(d.level)
         for dims in list(reconciled.values()) + [c.dimensions for c in table_candidates]
@@ -3892,7 +4093,7 @@ def _build_variable_method_map(
 
     def ask_model(prompt: str) -> Optional[dict]:
         calls["n"] += 1
-        result = invoke("extractor", model, prompt)
+        result = invoke("reader", model, prompt)
         artifact = result.as_artifact()
         failure = _provider_failure(result)
         if failure:
@@ -4140,6 +4341,8 @@ def _run_multi_record_entity(
         # the site differ from an identical table candidate that (rightly) does not.
         freeform_candidates, dedup_decisions = _drop_freeform_treatments_covered_by_tables(
             freeform_candidates, table_candidates, (link_pools or {}).get("site_id") or None, dimension_pools,
+            design.declared_level_dimensions(classifications := _cached_table_classifications(run_id)),
+            design.declared_factor_dimensions(classifications),
         )
         if dedup_decisions:
             run_store.save_stage_attempt(

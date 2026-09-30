@@ -75,12 +75,20 @@ def _dimension(classification: Any, name: str) -> Optional[str]:
 
 
 def is_main_effect_layout(classification: Any) -> bool:
-    """>= 2 row factors, and no row sets more than one of them (each row is one factor's marginal level)."""
+    """>= 2 row factors, no row sets all of them, and the rows are marginal: every row sets exactly one, or the rows
+    fall into at least two groups (>= 2 rows each) that set different subsets of them."""
     factors = _row_factors(classification)
     if len(factors) < 2:
         return False
     rows = [r for r in _design_rows(classification) if any((r.factor_values or {}).get(f) for f in factors)]
-    return bool(rows) and all(sum(1 for f in factors if (r.factor_values or {}).get(f)) == 1 for r in rows)
+    if not rows:
+        return False
+    subsets = [frozenset(f for f in factors if (r.factor_values or {}).get(f)) for r in rows]
+    if any(len(s) == len(factors) for s in subsets):
+        return False
+    if all(len(s) == 1 for s in subsets):
+        return True
+    return sum(1 for s in set(subsets) if subsets.count(s) >= 2) >= 2
 
 
 def cell_pooling(classification: Any, row: Any, value_column_id: str) -> Optional[CellPooling]:
@@ -369,6 +377,21 @@ def read_level(level: str, own_factor: str, registry: dict[str, RegisteredFactor
         if best is None or len(_key(entry.name)) > len(_key(best.factor)):
             best = reading
     return best
+
+
+def declared_level_dimensions(classifications: dict[str, Any]) -> dict[str, str]:
+    """{level key: dimension} for every factor level the paper's tables declare with exactly one dimension."""
+    seen: dict[str, set[str]] = {}
+    for factor in factor_consistency(classifications).registry.values():
+        for level in factor.levels:
+            seen.setdefault(level, set()).update(factor.dimensions)
+    return {level: next(iter(dims)) for level, dims in seen.items() if len(dims) == 1}
+
+
+def declared_factor_dimensions(classifications: dict[str, Any]) -> dict[str, str]:
+    """{factor name key: dimension} for every factor the paper's tables declare with exactly one dimension."""
+    return {key: next(iter(f.dimensions)) for key, f in factor_consistency(classifications).registry.items()
+            if len(f.dimensions) == 1}
 
 
 def factor_consistency(classifications: dict[str, Any]) -> FactorConsistency:

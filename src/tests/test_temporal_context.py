@@ -245,7 +245,7 @@ def test_step_b_gives_up_on_a_time_level_that_is_never_grounded(env):
 def test_the_step_b_prompt_asks_for_grounded_literal_dates_only():
     prompt = orchestrator._table_classification_prompt("p", "b:0001", [])
     assert "time_levels, variables, value_columns, row_groups" in prompt
-    assert "- time_levels: ONLY for a table with a 'time'-dimension factor" in prompt
+    assert "- time_levels: ONLY for a table with a 'time'- or 'treatment'-dimension factor" in prompt
     assert "Copy the text verbatim -- never compute, convert or guess a date" in prompt
 
 
