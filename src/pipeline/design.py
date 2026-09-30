@@ -1,21 +1,14 @@
 """
-Experimental-design intermediate representation (Phase C / Stage 6): what the paper's tables and text say about the
-design, derived deterministically BEFORE the final IR and kept even where the IR cannot yet represent it.
+Experimental-design representation: what the tables and text say about the design, derived deterministically before
+the final IR and kept even where the IR cannot represent it.
 
-Three things the corpus showed the per-cell extraction could not see:
-
-1. MAIN-EFFECT (marginal) TABLES. Philippe-2007-Six Tables 1-3 list PAR-class rows, then Year rows: each row sets only
-   ONE of the two row factors, so each value is pooled over the other. The classification called all three tables
-   "cell-level, nothing pooled"; unlocking their Observations as treatment means would have been wrong. Pooling is
-   decided PER CELL: a column pooled over Year only if it has values in the Year rows (Philippe's BSD1/BSD6 are single
-   years -- their Year rows are blank -- so they are not pooled over Year; INC is).
-2. REPRESENTABILITY is decided separately from extraction: a pooled cell that keeps a treatment level is an
-   `aggregated_mean` (representable today); a cell pooled over the treatment factor itself (a Year row; Kathryn's
-   "Mean" row) has no Treatment to reference -- it is kept as a scientific fact and reported
-   BLOCKED_BY_REPRESENTATION, never forced onto an invented Treatment.
-3. CONFLICTS are objects: a factor's level bounds stated differently in the table and in the text (Philippe PARt:
-   "0.2-0.35" in the tables, "0.2-0.37" in b:0046, "0.1 to 0.4" in b:0030, "0-0.35" in b:0006) are recorded with
-   both sources and never silently resolved.
+1. Main-effect (marginal) tables: a row that sets only one of the row factors is pooled over the others, decided per
+   cell (a column is pooled over Year only if it has values in the Year rows).
+2. Representability is separate from extraction: a pooled cell that keeps a treatment level is an `aggregated_mean`;
+   a cell pooled over the treatment factor itself is reported BLOCKED_BY_REPRESENTATION, never given an invented
+   Treatment.
+3. Conflicts (a level's bounds stated differently in a table and in the text) are recorded with both sources, never
+   silently resolved.
 """
 
 from __future__ import annotations
@@ -46,9 +39,7 @@ class CellPooling:
     evidence: str = ""
 
 
-# Row labels that are statistics or summaries, never a condition of the experiment (Phase A5; the orchestrator's
-# candidate builders use the same two patterns). A bare single letter ("P", "F", "n") is never taken as one -- it can
-# be a real level (a population labelled "P").
+# Row labels that are statistics or summaries, never an experimental condition; a bare letter ("P") can be a level.
 STATISTIC_ROW_RE = re.compile(   # a statistic label, possibly followed by what it applies to ("P value PAR t", "LSD (0.05)")
     r"^\W*(?:p[- ]?values?|probability|significance|lsd|hsd|msd|s\.?e\.?m?|s\.?d\.?|standard (?:error|deviation)"
     r"|c\.?v\.?|f[- ]?values?|contrasts?)\b", re.IGNORECASE)
@@ -71,9 +62,7 @@ def _design_rows(classification: Any) -> list[Any]:
 
 def _row_factors(classification: Any) -> list[str]:
     """Factors encoded in the rows: declared with encoding "rows", else every factor name the row groups use. A factor
-    whose every level is a statistic label (Philippe Tables 2-3 "Statistic": "P value PAR t", ...) is not a factor of
-    the design -- values are never "pooled over" it (the run of 20260926T162813 reported STAR sky as aggregated over
-    [Year, Statistic])."""
+    whose every level is a statistic label ("P value PAR t", ...) is not a design factor and is never pooled over."""
     declared = [f.name for f in (classification.factors or []) if (f.encoding or "rows") == "rows"]
     seen = [k for row in classification.row_groups or [] for k in (row.factor_values or {})]
     names = declared or list(dict.fromkeys(seen))
@@ -102,10 +91,7 @@ def cell_pooling(classification: Any, row: Any, value_column_id: str) -> Optiona
     factors = _row_factors(classification)
     set_here = {f: (row.factor_values or {}).get(f) for f in factors if (row.factor_values or {}).get(f)}
     if not set_here:
-        # A row that sets NO level of any design factor is not a marginal mean over all of them -- it is a row the
-        # classification did not identify (Philippe run 20260926T190955_435c16fa: the P-value rows of Tables 2-3 came
-        # back with empty factor_values, and 33 P-values were counted as blocked "measurements"). Never a candidate,
-        # never counted as blocked.
+        # A row that sets no design-factor level is unidentified, not a marginal mean: never a candidate or blocked.
         return CellPooling([], {}, False, UNIDENTIFIED_ROW,
                            "the row sets no level of the table's factors, so what its value is cannot be established",
                            "row with empty factor levels in a main-effect table")
@@ -130,7 +116,7 @@ def cell_pooling(classification: Any, row: Any, value_column_id: str) -> Optiona
 
 
 def summary_row_pooling(classification: Any, row: Any, summary_label: str) -> CellPooling:
-    """A "Mean"/"Total" row: pooled over the factor(s) it replaces a level of (Kathryn Table 3 "Mean" over System)."""
+    """A "Mean"/"Total" row: pooled over the factor(s) it replaces a level of."""
     factors = [f for f, v in (row.factor_values or {}).items() if v == summary_label]
     treatment = any(_dimension(classification, f) == "treatment" for f in factors)
     representation = BLOCKED_BY_REPRESENTATION if treatment else REPRESENTABLE
@@ -269,17 +255,12 @@ def design_summary(classifications: dict[str, Any], index: EvidenceIndex) -> dic
 
 
 # --------------------------------------------------------------------------- #
-# Cross-table factor consistency (F2)
+# Cross-table factor consistency
 # --------------------------------------------------------------------------- #
 #
-# Real failure (Philippe-2007-Six, run 20260926T162813_56de01a6): the retried classification of Table 3 (b:0193) put
-# the PAR classes, the years and the P-value rows into ONE factor "Condition" of dimension "treatment". Tables 1-2 of
-# the same paper declare "PAR t" (treatment) and "Year" (time) with exactly those levels. Trusted as is, "Year 2004"
-# became a ready Treatment, "PARt 0-0.1" a second copy of Table 1's "0-0.1", and the table's main-effect layout was
-# invisible. The paper's own tables are the evidence used here -- a level is read as another factor's level only when
-# its text is that factor's NAME followed by one of that factor's LEVELS as declared somewhere in the paper (or, for
-# time, a calendar year). Nothing is ever re-dimensioned: a table whose treatment factor is shown to hold another
-# factor's levels is WITHHELD (its Treatments and Observations are not derived) with the finding recorded.
+# A level is read as another factor's level only when its text is that factor's name followed by one of its levels
+# declared elsewhere in the paper (or a calendar year). A table whose treatment factor holds another factor's levels is
+# withheld, with the finding recorded; nothing is re-dimensioned.
 
 _TREATMENT_LIKE = ("treatment",)
 _REGISTERED_DIMENSIONS = ("treatment", "time", "site", "crop")
@@ -338,11 +319,6 @@ class FactorConsistency:
             "withheld_tables": self.withheld,
             "level_aliases": self.level_aliases,
         }
-
-    def canonical_level(self, table: str, factor: str, level: str) -> str:
-        """The level with another table's spelling of the SAME treatment factor removed ("PARt 0-0.1" -> "0-0.1")."""
-        return self.level_aliases.get(table, {}).get(factor, {}).get(level, level)
-
 
 def _register(registry: dict[str, RegisteredFactor], table: str, name: str, dimension: str, levels: list[str]) -> None:
     entry = registry.setdefault(_key(name), RegisteredFactor(name))

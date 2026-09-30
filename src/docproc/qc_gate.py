@@ -1,28 +1,7 @@
 """
 QC gate for docproc's Marker adapter output.
 
-Scope, per this session's redefinition of Sprint 1 (superseding the earlier
-paper-by-paper manual forensic pass, which does not converge -- structural
-variance across papers is inherent and no adapter will catch all of it by
-hand-inspection):
-
-    The adapter's job stops at producing a structurally sound, self-consistent
-    (content.md, provenance.json) pair and flagging what it could not
-    guarantee. Per-paper structural QUIRKS beyond that (Marker's own layout
-    detection producing different heading-level assignments on a different
-    paper, a different --use_llm corruption variant, an unexpected new
-    block_type) are NOT chased down by hand here -- they are caught
-    automatically by this gate and handed to the agent's self-correction loop
-    / scientist review downstream, by design (see Playbook Section 4's
-    reframing). This module is what actually catches them, mechanically,
-    instead of a person reading each paper's output.
-
-This module operates ONLY on already-produced (content.md, provenance.json)
-pairs read from disk -- never on raw Marker JSON, and it deliberately does
-NOT need it. That's a load-bearing property, not an incidental one: the batch
-runner (run_qc_batch.py) is designed so only qc_report.json summaries ever
-need to come back into an LLM's context window, never the underlying paper
-content.
+Mechanically checks each (content.md, provenance.json) pair on disk, never the raw Marker JSON.
 
 Three checks, each independent and each contributing to one `qc_report.json`:
 
@@ -32,11 +11,8 @@ Three checks, each independent and each contributing to one `qc_report.json`:
                                 presence, checked both directions).
   2. tag_leak_sweep         -- regex sweep of the FINAL rendered content.md
                                 for any leaked real or HTML-escaped tag
-                                fragments (the --use_llm corruption class
-                                found in Sprint 1, and a generic net wide
-                                enough to catch a different corruption
-                                variant on a different paper without needing
-                                a new signature written by hand first).
+                                fragments (the --use_llm corruption class,
+                                plus a generic net for other variants).
   3. block_type_coverage    -- every block_type actually present in
                                 provenance.json is accounted for by one of
                                 the adapter's four policy sets (imported

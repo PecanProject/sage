@@ -25,7 +25,7 @@ from pydantic import ValidationError
 
 from pipeline import orchestrator, run_store
 from pipeline.raw_schema import (
-    EnumerationCandidate, PooledFactor, TableClassification, TableFactor, TableRowGroup, TableValueColumn,
+    PooledFactor, TableClassification, TableFactor, TableRowGroup, TableValueColumn,
 )
 
 
@@ -351,7 +351,7 @@ def test_a_representable_pooled_table_yields_aggregated_mean_context_and_only_th
 
 
 def test_an_unpooled_table_has_no_context():
-    # Only the cell's identity (Phase D) -- no pooling, no aggregation.
+    # Only the cell's identity -- no pooling, no aggregation.
     assert all(set(c.context) == {"cell"} for c in orchestrator._table_classification_to_candidates(_crop_time_site_table(), {}))
 
 

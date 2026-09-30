@@ -1,5 +1,5 @@
 """
-Evidence Index (Stage 3): deterministic, explainable retrieval over a paper's Document Map.
+Evidence Index: deterministic, explainable retrieval over a paper's Document Map.
 
 No embeddings and no blended score. Every hit carries the explicit reasons it was retrieved, and hits are ranked by
 TIER (then by the caller's region preference, then by reading order):
@@ -10,9 +10,8 @@ TIER (then by the caller's region preference, then by reading order):
     tier 3  a typed detector fires (a coordinate, a DOI, a management verb, a measurement instrument, ...);
     tier 4  at least half of a phrase's significant words occur.
 
-Typed detectors ("signals") are regexes over the normalised text -- each one exists because a real extraction needed
-that kind of evidence and did not get it (coordinates written in degrees and minutes; management events such as the
-Philippe thinning; instruments that tie a variable to its method; pooling statements).
+Typed detectors ("signals") are regexes over the normalised text (coordinates, management events, instruments,
+pooling statements).
 
 Terminology: the paper's own definitions of abbreviations and symbols ("leaf area index (LAI)", "Abbreviations: DM,
 dry matter; ...", "N a, leaf nitrogen concentration per unit area") -- the aliases later stages need so that "Na",

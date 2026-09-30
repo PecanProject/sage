@@ -1,4 +1,4 @@
-"""Phase D: an Observation is composed from its established experimental context, and checked against it.
+"""An Observation is composed from its established experimental context, and checked against it.
 
 The chain cell -> variable -> method -> treatment/factor -> time -> site -> aggregation -> statistics -> design is READ
 from what earlier stages built (table reconstruction, Variable->Method map, linked records, design.json) and handed to
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from pipeline import cell_values, context_bundle, design, method_map as mm, orchestrator
+from pipeline import cell_values, context_bundle, method_map as mm, orchestrator
 from test_design import philippe_table1
 from test_orchestrator import env  # noqa: F401 (fixture)
 

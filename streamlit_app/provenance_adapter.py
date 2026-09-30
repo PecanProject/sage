@@ -1,7 +1,7 @@
 """
 provenance_adapter.py
 ================
-The thin bridge described in the architecture investigation:
+Resolves source locators to PDF highlight geometry:
 
     ExtractedField.source.locators[].block_anchor
           -> src/paper/<paper_id>/provenance.json
@@ -9,30 +9,19 @@ The thin bridge described in the architecture investigation:
           -> real PDF page dimensions (pypdfium2, against the actual PDF)
           -> normalized [0,1] top-left-origin polygon + 1-indexed page
 
-This is the ONLY place that resolves a source locator to a screen
-position. It never trusts `ExtractedField.source.page_number` -- verified
-during the investigation to be LLM-self-reported and not cross-checked
-against ground truth anywhere in the pipeline (a real committed pecan
-Citation had page_number=1 while provenance.json's page_id for that same
-anchor is 0-indexed page 1, i.e. physical page 2). The only reliable path
-is block_anchor -> provenance.json, every time.
+This is the only place that resolves a source locator to a screen
+position, always via block_anchor -> provenance.json, never the payload's
+own `page_number`.
 
-Output shape matches what components/pdf_viewer.py and mock_data.py's own
-`_PROVENANCE_GEOMETRY` already expect (see mock_data.py's comment: "so a
-real provenance.json ... can be dropped in later without changing the
-viewer component, as long as it provides the same shape") -- this module
-exists so that promise is actually kept.
+Output shape is what components/pdf_viewer.py expects.
 
-v1 scope: block-level locators only (page + one polygon per locator).
-Table-cell-level provenance exists in provenance.json (see investigation)
-but is deliberately not surfaced here yet.
+Block-level locators only (page + one polygon per locator).
 """
 
 from __future__ import annotations
 
 import json
 from functools import lru_cache
-from pathlib import Path
 from typing import Any, Optional
 
 import pypdfium2 as pdfium

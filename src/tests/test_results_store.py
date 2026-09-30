@@ -1,7 +1,7 @@
 """Tests for pipeline/results_store.py -- the unified per-paper finalized
 result written by orchestrator.finalize_paper."""
 
-from pathlib import Path
+import json
 
 import pytest
 
@@ -19,20 +19,20 @@ def test_save_and_load_result_round_trip(isolated_results_root):
     path = results_store.save_result("pecan", data)
     assert path == isolated_results_root / "pecan" / "result.json"
     assert path.exists()
-    assert results_store.load_result("pecan") == data
+    assert json.loads(results_store.result_path("pecan").read_text()) == data
 
 
 def test_save_result_overwrites_previous(isolated_results_root):
     results_store.save_result("pecan", {"v": 1})
     results_store.save_result("pecan", {"v": 2})
-    assert results_store.load_result("pecan") == {"v": 2}
+    assert json.loads(results_store.result_path("pecan").read_text()) == {"v": 2}
 
 
 def test_separate_papers_do_not_collide(isolated_results_root):
     results_store.save_result("pecan", {"paper_id": "pecan"})
     results_store.save_result("culti-mixtures", {"paper_id": "culti-mixtures"})
-    assert results_store.load_result("pecan")["paper_id"] == "pecan"
-    assert results_store.load_result("culti-mixtures")["paper_id"] == "culti-mixtures"
+    assert json.loads(results_store.result_path("pecan").read_text())["paper_id"] == "pecan"
+    assert json.loads(results_store.result_path("culti-mixtures").read_text())["paper_id"] == "culti-mixtures"
 
 
 def test_save_and_load_entity_result_round_trip(isolated_results_root):
@@ -46,7 +46,7 @@ def test_entity_result_files_coexist_with_combined_result_file(isolated_results_
     # not collide -- different filenames in the same paper directory.
     results_store.save_result("pecan", {"combined": True})
     results_store.save_entity_result("pecan", "Site", {"entity_type": "Site"})
-    assert results_store.load_result("pecan") == {"combined": True}
+    assert json.loads(results_store.result_path("pecan").read_text()) == {"combined": True}
     assert results_store.load_entity_result("pecan", "Site") == {"entity_type": "Site"}
 
 
@@ -58,7 +58,7 @@ def test_entity_result_files_are_independent_per_type(isolated_results_root):
 
 
 # --------------------------------------------------------------------- #
-# Phase A: multi-record storage (Variable only) --
+# multi-record storage (Variable only) --
 # results/<paper_id>/<EntityType>/<record_id>.json
 # --------------------------------------------------------------------- #
 

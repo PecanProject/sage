@@ -1,4 +1,4 @@
-"""The review table: result | source | actions (mentor feedback, review_page.pdf).
+"""The review table: result | source | actions.
 
 - `key: value` is one result in one font; source is the quoted evidence with an eye icon; actions are icons.
 - EXT/UNR/REF codes are gone: state is said in words, and only when it is not the ordinary case.
@@ -148,7 +148,6 @@ def page(monkeypatch):
     monkeypatch.setattr(pdf_viewer, "render_pdf_page", lambda **kwargs: None)
 
     def script():
-        import streamlit as st
         import state
         import styles
         from components import workspace

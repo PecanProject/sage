@@ -1,4 +1,4 @@
-"""Item 11: temporal propagation (plan section 9).
+"""Temporal propagation (plan section 9).
 
 Evidence (real run 20260919T085532_98015a8a, Daren-1997-Canopy): of the ready Observation records, 11 have
 temporal_info UNRESOLVED with "No explicit sampling date is stated anywhere near this reported value" and one is
@@ -9,7 +9,7 @@ caption b:0047. A table-derived candidate only carries "Maturity=Vegetative"; Ex
 anchor and Conversion is sealed, so the Methods dates never arrived. Also, the date reconstruction tool defaulted a
 missing end day to 28 and could not read a written date with a year.
 
-Item 11: Step B records the dates the paper gives for a table's time levels (`time_levels`, grounded literal text);
+ Step B records the dates the paper gives for a table's time levels (`time_levels`, grounded literal text);
 Step C attaches the single matching, unambiguous entry to each cell's candidate as sealed context; Extraction is
 told to cite the dating block as a fact; Conversion may only use what RAW_EVIDENCE carries; the reconstruction
 handles written dates and the month end. Nothing is computed or guessed: no year, no site match, no date -> UNRESOLVED.

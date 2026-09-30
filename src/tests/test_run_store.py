@@ -3,7 +3,6 @@ capture that pipeline/orchestrator.py writes to before it decides what to
 do next. Focused on the persistence contract itself: every write lands at
 the documented path and round-trips exactly."""
 
-from pathlib import Path
 
 import pytest
 
@@ -47,14 +46,13 @@ def test_save_and_load_run_manifest(isolated_runs_root):
     assert run_store.load_run_manifest("run1") == {"run_id": "run1", "status": "running"}
 
 
-def test_list_records_and_list_runs(isolated_runs_root):
+def test_list_records(isolated_runs_root):
     run_store.save_final("run1", "Site__site1", {"status": "ready"})
     run_store.save_final("run1", "Citation__pecan", {"status": "unresolved"})
     run_store.save_run_manifest("run2", {"run_id": "run2"})
 
     assert run_store.list_records("run1") == ["Citation__pecan", "Site__site1"]
     assert run_store.list_records("run2") == []  # manifest only, no records yet
-    assert run_store.list_runs() == ["run1", "run2"]
 
 
 def test_list_records_empty_when_run_does_not_exist(isolated_runs_root):

@@ -18,15 +18,12 @@ always be thrown away and rebuilt.
 Run isolation (this module's per-run layout)
 --------------------------------------------
 `orchestrator.run_paper` writes its per-entity results under
-`results/<paper_id>/<run_id>/`, so two runs can never overwrite or merge each
-other's outputs (before this, `save_multi_entity_results` cleared and
-rewrote a shared `results/<paper_id>/<Entity>/` directory, last writer wins).
+`results/<paper_id>/<run_id>/`, so two runs never overwrite each other.
 A `results/<paper_id>/LATEST` pointer file names the most recent run that
 COMPLETED; it is written atomically and only on completion, so a crashed or
 still-running run never changes what readers (the review UI, `finalize`)
 see. Readers that pass no `run_id` resolve `LATEST`; when a paper has no
-`LATEST` (results written before this layout existed) they fall back to the
-legacy flat `results/<paper_id>/<Entity>...` files, which stay readable.
+`LATEST` they fall back to the legacy flat `results/<paper_id>/<Entity>...` files, which stay readable.
 Calls that write with no `run_id` keep the legacy flat behavior exactly (used
 by unit tests and any pre-existing script).
 
@@ -61,13 +58,7 @@ def paper_dir(paper_id: str) -> Path:
 
 
 def list_paper_ids() -> list[str]:
-    """Every paper_id with a results/<paper_id>/ directory -- the
-    independent source of truth for "which papers have extracted records",
-    deliberately never cross-referenced against whether a source PDF still
-    exists (a real, confirmed UI bug: a paper's Extracted Papers row used
-    to vanish entirely if its PDF was deleted from the library, even
-    though its real, reviewable results were still sitting here
-    untouched)."""
+    """Every paper_id with a results directory, whether or not its source PDF still exists."""
     root = _results_root()
     if not root.is_dir():
         return []
@@ -97,10 +88,6 @@ def save_result(paper_id: str, data: Any) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, default=str, sort_keys=False), encoding="utf-8")
     return path
-
-
-def load_result(paper_id: str) -> Any:
-    return json.loads(result_path(paper_id).read_text(encoding="utf-8"))
 
 
 # ---------------------------------------------------------------------------
@@ -216,39 +203,19 @@ def load_entity_result(paper_id: str, entity_type: str, run_id: Optional[str] = 
 
 
 # ---------------------------------------------------------------------------
-# Multi-record result storage (Phase A: Variable; Phase B: + Treatment;
-# Phase C: + Observation) --
-# results/<paper_id>[/<run_id>]/<EntityType>/<record_id>.json, one file per record.
-#
-# Deliberately a DIFFERENT path shape from entity_result_path's single
-# `<EntityType>.json` file above (a directory, no extension, vs a file with
-# one) so the two conventions can never collide on disk for the same
-# entity_type. An entity_type uses exactly one convention at a time, listed
-# in MULTI_RECORD_ENTITY_TYPES; every other entity_type keeps using the
-# single-file convention untouched.
+# Multi-record result storage: results/<paper_id>[/<run_id>]/<EntityType>/<record_id>.json, one file per record,
+# for the types in MULTI_RECORD_ENTITY_TYPES; every other type uses the single <EntityType>.json file.
 # ---------------------------------------------------------------------------
 
 MULTI_RECORD_ENTITY_TYPES: set[str] = {
-    "Variable", "Treatment", "Observation",  # Phase A/B/C
-    # Universal Multi-Record pass: the calibration/validation protocol and
-    # datapackage schema both establish these as genuinely "zero or more per
-    # paper", not "exactly one" -- e.g. methods.csv's own primary key is
-    # "method name" (protocol Section 6.4: "give EACH DISTINCT method a
-    # stable method_id"), confirmed as a real (not hypothetical) gap against
-    # Oceologia-1998: the single Method record it was forced into captures
-    # only the paper's 15N tracer method, while Observation records for
-    # unrelated measurements (fine root mass, extractable NH4-N, etc.) were
-    # all still forced to reference that same, inapplicable method_id.
+    "Variable", "Treatment", "Observation",
+    # zero or more per paper, per the calibration/validation protocol and datapackage schema
     "Site", "Species", "Method", "Crop", "Management", "Study", "TreatmentPair", "Coverage",
 }
 
 
 def entity_dir(paper_id: str, entity_type: str, run_id: Optional[str] = None) -> Path:
     return _read_base(paper_id, run_id) / entity_type
-
-
-def multi_entity_result_path(paper_id: str, entity_type: str, record_id: str, run_id: Optional[str] = None) -> Path:
-    return entity_dir(paper_id, entity_type, run_id) / f"{record_id}.json"
 
 
 def save_multi_entity_results(

@@ -1,5 +1,4 @@
 import json
-import shutil
 import sys
 from pathlib import Path
 
@@ -158,10 +157,10 @@ def valid_citation_payload(cid=CITATION_PAPER_ID, persistent_identifier="omit"):
 
 
 def test_health_reports_fingerprint_captured_at_startup_not_recomputed_live(client, monkeypatch):
-    # Phase C fix: /health previously called schema_fingerprint() fresh
+    # /health once called schema_fingerprint() fresh
     # INSIDE the request handler, reading validators.py/ir_schema.py off
     # disk at request time -- not what this process actually loaded at
-    # startup. Confirmed directly during Phase C benchmarking: a
+    # startup. Confirmed directly during benchmarking: a
     # long-running process kept serving pre-fix propose_record behavior
     # while /health simultaneously reported the CURRENT on-disk fingerprint
     # as a match, defeating the exact staleness check
@@ -210,7 +209,7 @@ def test_get_schema_citation_persistent_identifier_required(client):
 
 
 # --------------------------------------------------------------------- #
-# Phase 2 item 1: worked examples for the four entities that previously had
+# Worked examples for the four entities that previously had
 # none (Observation, Species, Method, Management) -- real Oceologia-1998
 # extraction runs whack-a-moled on Observation's interacting invariants
 # with no example to imitate. Every one of these must actually construct
@@ -230,9 +229,7 @@ def test_get_schema_previously_missing_examples_now_present_and_valid(client, en
 
 
 def test_get_schema_observation_example_demonstrates_effect_scope_coupling(client):
-    # The exact invariant real Oceologia-1998 runs hit repeatedly (Phase 2
-    # investigation): reported_effect_scope=treatment_mean requires
-    # aggregated_over_factors=EXTRACTED with an empty list.
+    # reported_effect_scope=treatment_mean requires aggregated_over_factors=EXTRACTED with an empty list.
     c, _ = client
     r = c.get("/get_schema", params={"entity_type": "Observation"})
     example = r.json()["filled_example"]
@@ -251,8 +248,7 @@ def test_get_schema_observation_example_demonstrates_unresolved_shape(client):
 
 
 def test_get_schema_observation_example_demonstrates_grounded_inferred_boolean(client):
-    # Demonstrates the Phase 2 item 4 boolean-provenance redesign: an
-    # INFERRED boolean grounded via a real anchor + inference-basis note,
+    # An INFERRED boolean grounded via a real anchor + inference-basis note,
     # never via the literal word "false" appearing anywhere.
     c, _ = client
     r = c.get("/get_schema", params={"entity_type": "Observation"})
@@ -265,8 +261,7 @@ def test_get_schema_observation_example_demonstrates_grounded_inferred_boolean(c
 
 
 def test_get_schema_observation_example_table_locator_has_table_id(client):
-    # Phase 2 item 2: a kind="table" locator must carry table_id, equal to
-    # block_anchor -- the exact shape converter.md now documents.
+    # A kind="table" locator must carry table_id, equal to block_anchor.
     c, _ = client
     r = c.get("/get_schema", params={"entity_type": "Observation"})
     example = r.json()["filled_example"]
@@ -432,13 +427,7 @@ def test_propose_record_turn_cap_forces_flag_unresolved(client):
 
 
 def test_propose_record_surfaces_construction_and_provenance_errors_in_one_response(client):
-    # Phase C fix: previously validate_provenance only ran `if not errors`,
-    # so a payload with BOTH a construction-time problem (here: missing
-    # required `id`) and an unrelated provenance mismatch (here: `country`
-    # cites real text that doesn't contain "France") only ever surfaced the
-    # construction error on this attempt, discovering the provenance problem
-    # only on a LATER attempt -- burning an extra attempt against the
-    # 4-attempt turn cap that combined feedback would not have needed.
+    # Construction and provenance errors are reported together in one response.
     c, _ = client
     payload = valid_site_payload()
     del payload["id"]  # construction error: `id` is required
@@ -751,7 +740,7 @@ def test_commit_record_ready_rejects_study_scoped_duplicate(client):
 
 
 # --------------------------------------------------------------------- #
-# Variable, Crop, TreatmentPair, Coverage (added this sprint)
+# Variable, Crop, TreatmentPair, Coverage
 # --------------------------------------------------------------------- #
 
 NEW_ENTITY_TYPES = ("Variable", "Crop", "TreatmentPair", "Coverage")
@@ -869,7 +858,7 @@ def test_commit_record_coverage_negative_row_count_rejected(client):
 
 
 # --------------------------------------------------------------------- #
-# Phase 1B: new deterministic evidence endpoints -- thin wiring checks
+# new deterministic evidence endpoints -- thin wiring checks
 # (the underlying lookup logic itself is fully unit-tested against
 # synthetic fixtures in tests/test_content_reader.py; these just confirm
 # ir_service.py's routes actually call through to it).

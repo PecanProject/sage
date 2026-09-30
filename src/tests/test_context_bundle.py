@@ -40,6 +40,10 @@ def paper(tmp_path):
     return tmp_path
 
 
+def _status(bundle, concept):
+    return next((c.status for c in bundle.coverage if c.concept == concept), None)
+
+
 def _bundle(root, entity_type, task="extraction", **kw):
     return build_context_bundle("toy", entity_type, task, papers_root=root, **kw)
 
@@ -88,17 +92,17 @@ def test_linked_tables_come_with_caption_header_and_the_prose_that_refers_to_the
 
 def test_coverage_states_found_absent_by_pattern_and_not_found(paper):
     site = _bundle(paper, "Site", seed_anchors=["b:0004"])
-    assert site.status_of("coordinates") == FOUND and site.status_of("soil") == FOUND
-    assert site.status_of("elevation") == ABSENT_BY_PATTERN          # a whole-document scan fired nowhere
+    assert _status(site, "coordinates") == FOUND and _status(site, "soil") == FOUND
+    assert _status(site, "elevation") == ABSENT_BY_PATTERN          # a whole-document scan fired nowhere
     species = _bundle(paper, "Species", task="enumeration")
-    assert species.status_of("scientific_names") == ABSENT_BY_PATTERN
+    assert _status(species, "scientific_names") == ABSENT_BY_PATTERN
     crop = _bundle(paper, "Crop", task="enumeration")
-    assert crop.status_of("cultivars") == NOT_FOUND_AFTER_FULL_SEARCH  # a phrase concept: absence is never "proven"
+    assert _status(crop, "cultivars") == NOT_FOUND_AFTER_FULL_SEARCH  # a phrase concept: absence is never "proven"
 
 
 def test_evidence_cut_by_the_budget_is_not_retrieved_never_absent(paper):
     bundle = _bundle(paper, "Site", seed_anchors=["b:0006"], max_chars=150)
-    assert bundle.status_of("coordinates") == NOT_RETRIEVED
+    assert _status(bundle, "coordinates") == NOT_RETRIEVED
     assert "b:0004" in next(c.anchors for c in bundle.coverage if c.concept == "coordinates")
 
 
@@ -143,7 +147,7 @@ def _real(paper_id, entity_type, task, **kw):
 
 def test_philippe_management_packet_contains_the_thinning_event():
     bundle = _real("Philippe-2007-Six", "Management", "enumeration")
-    assert "b:0030" in bundle.anchors and bundle.status_of("thinning") == FOUND
+    assert "b:0030" in bundle.anchors and _status(bundle, "thinning") == FOUND
 
 
 def test_variable_enumeration_is_table_first():
@@ -155,12 +159,12 @@ def test_variable_enumeration_is_table_first():
 
 def test_the_method_packet_for_vcmax_leads_with_its_procedure_and_instrument():
     bundle = _real("Philippe-2007-Six", "Method", "extraction", target="Vcmax")
-    assert bundle.status_of("instrument") == FOUND and "b:0044" in bundle.anchors
+    assert _status(bundle, "instrument") == FOUND and "b:0044" in bundle.anchors
 
 
 def test_coordinates_found_or_proven_absent_across_the_corpus():
-    assert _real("Kathryn-2020-Winter", "Site", "enumeration").status_of("coordinates") == FOUND
-    assert _real("Daren-1997-Canopy", "Site", "enumeration").status_of("coordinates") == ABSENT_BY_PATTERN
+    assert _status(_real("Kathryn-2020-Winter", "Site", "enumeration"), "coordinates") == FOUND
+    assert _status(_real("Daren-1997-Canopy", "Site", "enumeration"), "coordinates") == ABSENT_BY_PATTERN
 
 
 def test_felipe_species_packet_contains_the_tomato_binomial():

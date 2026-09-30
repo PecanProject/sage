@@ -4,7 +4,7 @@ Real evidence (Felipe-2010-Cultivar Citation, first answers of runs felipe_final
 and felipe_smoke_20260920T132343). The extractor's contract lets a fact report "looked, not stated" with `raw_value: null`, but the
 excerpt is still a required string that the grounding gate holds to the literal-text rule, so the model's honest answer about an
 absent field failed in three different ways: prose ("No journal name visible in the rendered content."), an empty excerpt, and
-empty strings with `anchors=[]` (a shape failure). Title, author and year were grounded every time. Fix 3 could not drop those
+empty strings with `anchors=[]` (a shape failure). Title, author and year were grounded every time. The auxiliary-fact rule could not drop those
 facts because `persistent_identifier` is a CORE Citation name -- so ONE fact with no value cost the whole attempt, and in two runs
 the retry then met a provider outage and Citation (hence the entire paper) ended in error.
 
@@ -110,7 +110,7 @@ def test_only_a_null_or_blank_value_makes_a_core_named_fact_droppable(raw_value,
 def test_a_fact_with_no_usable_name_is_never_droppable_and_a_non_core_name_always_is():
     assert not orchestrator._is_droppable_fact("Citation", {"field_name": "", "raw_value": None})
     assert not orchestrator._is_droppable_fact("Citation", {"field_name": None, "raw_value": None})
-    assert orchestrator._is_droppable_fact("Citation", {"field_name": "journal", "raw_value": "Plant and Soil"})   # unchanged Fix 3 rule
+    assert orchestrator._is_droppable_fact("Citation", {"field_name": "journal", "raw_value": "Plant and Soil"})   # unchanged auxiliary-fact rule
 
 
 # --------------------------------------------------------------------- #

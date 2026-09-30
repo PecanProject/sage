@@ -1,15 +1,5 @@
-"""`pipeline/run_config.py` -- the ONE explicit model/provider configuration a
-run uses, and the reproducibility metadata every run manifest records.
+"""The one explicit model/provider configuration a run uses, and the reproducibility metadata its manifest records.
 
-Why: before this, three places silently disagreed about the model
-(`orchestrator.DEFAULT_MODEL` = llama-4-scout, the Streamlit launcher's own
-default = gpt-oss-120b, and `opencode.json` pinning every agent to scout --
-a pin the orchestrator overrides with `--model` on every call), and the run
-manifest fingerprinted only `opencode.json`, not the agent prompt files or
-the orchestrator's in-code prompts. A run could therefore not be reproduced
-or attributed reliably.
-
-Design (infrastructure only -- nothing here changes what any model is asked):
   * The model is chosen by a checked-in config file (`src/eval_config.json`),
     never by a default buried in code. A missing/invalid config is an ERROR,
     not a silent fallback.
@@ -210,9 +200,7 @@ def git_state(repo_root: Optional[Path | str] = None) -> dict[str, Any]:
 # The `opencode` executable
 # --------------------------------------------------------------------------- #
 
-# Where the snap package installs it. A systemd service (the public deployment) gets its own PATH, which may not
-# contain /snap/bin -- real case: every extraction started from the public URL on 2026-09-22 died at Citation's first
-# call with "opencode executable not found", while the same code worked from an interactive shell.
+# Where the snap package installs it; a systemd service's PATH may not contain /snap/bin.
 OPENCODE_FALLBACK_PATH = "/snap/bin/opencode"
 
 

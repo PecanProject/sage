@@ -23,10 +23,23 @@ from pathlib import Path
 import pytest
 
 from pipeline import content_reader as cr
-from pipeline import orchestrator, run_store
+from pipeline import orchestrator
 from pipeline.raw_schema import TableClassification, TableRowGroup, TableValueColumn
 
 FIXTURES = Path(__file__).parent / "fixtures" / "continuation"
+
+
+def _chains_of(paper_id, root):
+    """Multi-block tables as ordered anchor lists, built from table_continuation_map."""
+    continuation = cr.table_continuation_map(paper_id, root)
+    follower = {prev: cur for cur, prev in continuation.items()}
+    chains = []
+    for head in sorted({a for a in continuation.values() if a not in continuation}, key=cr._anchor_sort_key):
+        chain = [head]
+        while chain[-1] in follower:
+            chain.append(follower[chain[-1]])
+        chains.append(chain)
+    return chains
 
 
 # --------------------------------------------------------------------- #
@@ -35,7 +48,7 @@ FIXTURES = Path(__file__).parent / "fixtures" / "continuation"
 
 
 def test_daren_real_structure_yields_exactly_the_three_known_chains():
-    assert cr.table_continuation_chains("Daren-1997-Canopy", FIXTURES) == [
+    assert _chains_of("Daren-1997-Canopy", FIXTURES) == [
         ["b:0119", "b:0178"], ["b:0350", "b:0367"], ["b:0607", "b:0656"],
     ]
 
@@ -53,7 +66,7 @@ def test_real_papers_with_look_alike_neighbouring_tables_are_never_merged(paper)
     # Berntson b:0053->b:0059: consecutive pages, same width, DIFFERENT tables (own caption outside the Marker group).
     # Nutrient-cycling b:0081->b:0206->b:0210: `#### Table N` SectionHeader captions.
     # Kathryn b:0044->b:0101: no label between them, but 17 substantive blocks.
-    assert cr.table_continuation_chains(paper, FIXTURES) == []
+    assert _chains_of(paper, FIXTURES) == []
     assert all(t["continuation_of"] is None for t in cr.list_tables(paper, FIXTURES)["tables"])
 
 
@@ -81,7 +94,7 @@ def _paper(tmp_path, blocks):
 
 
 def _chains(tmp_path, blocks):
-    return cr.table_continuation_chains("syn", _paper(tmp_path, blocks))
+    return _chains_of("syn", _paper(tmp_path, blocks))
 
 
 def test_adjacent_same_width_next_page_with_only_a_footnote_between_is_a_chain(tmp_path):
@@ -133,7 +146,7 @@ def test_a_table_flattened_to_prose_has_no_column_count_and_is_never_chained(tmp
 
 def test_missing_provenance_or_content_yields_no_chains(tmp_path):
     (tmp_path / "empty").mkdir()
-    assert cr.table_continuation_chains("empty", tmp_path) == []
+    assert _chains_of("empty", tmp_path) == []
     assert cr.table_continuation_map("nonexistent_paper", tmp_path) == {}
 
 
@@ -275,7 +288,7 @@ def test_the_pass_does_not_reseed_the_continuation_when_the_chain_head_fails(cha
         )
 
     orchestrator.run_table_classification_pass(run_id="r1", paper_id="syn", model="m", invoke=invoke)
-    # an empty provider response is a provider failure (Item 9): bounded by its own budget, not the numbered attempts
+    # an empty provider response is a provider failure: bounded by its own budget, not the numbered attempts
     assert "b:0002" not in "".join(seeds) and seeds.count("b:0001") == orchestrator.MAX_PROVIDER_FAILURE_ROUNDS
 
 

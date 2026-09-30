@@ -18,7 +18,6 @@ Using what you have already read ..." -- it had read nothing, and answered "the 
 
 from __future__ import annotations
 
-import json
 
 import pytest
 

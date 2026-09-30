@@ -166,8 +166,8 @@ def test_every_smukler_table_caption_shape_is_linked():
 
 
 def test_a_caption_inside_a_picture_and_a_distant_caption_are_linked():
-    assert _real("Kathryn-2020-Winter").table_by_label("Table 2").caption_anchors == ("b:0099",)
-    assert _real("Berntson-1997-Regenerating").table_by_label("Table 1").caption_anchors == ("b:0047",)
+    assert next(t for t in _real("Kathryn-2020-Winter").tables if t.label == "Table 2").caption_anchors == ("b:0099",)
+    assert next(t for t in _real("Berntson-1997-Regenerating").tables if t.label == "Table 1").caption_anchors == ("b:0047",)
 
 
 def test_page_split_tables_are_one_logical_table():

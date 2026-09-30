@@ -1,25 +1,5 @@
-"""
-`read_section` / `read_table` — Playbook Section 6: "pulls from content.md".
-
-Deliberately reads only the already-produced `papers/<paper_id>/content.md`
-(Sprint 1 output), never the raw Marker JSON and never provenance.json's full
-contents -- same "only touch the small, already-derived artifact" discipline
-established in `docproc/run_qc_batch.py`'s docstring. The extraction agent
-gets exactly the rendered text it needs to work from, with the anchor ids
-still inline so its `propose_record` locators can cite them directly.
-
-Phase 1 addition (evidence-retrieval investigation): `list_sections`,
-`read_section_by_path`, `read_table_row`, `read_table_cell`, and
-`read_nearby` below DO read `provenance.json` -- deliberately, since that
-file already holds exactly the structured metadata (`section_path`,
-per-cell `row_index`/`col_index`, `page_id`, `block_type`) this module
-needs, computed once by `docproc/marker_adapter.py` during document
-preparation. None of it is re-derived here: these functions only look it
-up and pair it with the corresponding literal `content.md` text. Every
-returned object still carries its real anchor, page, block type, and
-section path unchanged -- no summarization, no paraphrase, no new anchors,
-ever.
-"""
+"""Read tools over a paper's `content.md` (anchors kept inline) and the structural metadata in `provenance.json`
+(section path, page, block type, table row/column). Nothing is re-derived, summarised or paraphrased."""
 
 from __future__ import annotations
 
@@ -194,46 +174,6 @@ def read_table(paper_id: str, table_id: str, papers_root: Path = DEFAULT_PAPERS_
     }
 
 
-def read_table_full(paper_id: str, table_anchor: str, papers_root: Path = DEFAULT_PAPERS_ROOT) -> dict:
-    """`read_table`'s rendered markdown PLUS every row's structured cells
-    (same provenance-derived `row_index`/`col_index`/`cell_text` data
-    `read_table_row` returns one row at a time), all in one call -- built
-    for the table-classification reconstruction stage (orchestrator.py's
-    Step B), which needs the whole table's real structure in front of it
-    at once, not one row lookup per call. `rows` is ordered by row_index;
-    each row's cells are ordered by col_index, exactly like `read_table_row`."""
-    rendered = read_table(paper_id, table_anchor, papers_root)
-    if not rendered.get("found"):
-        return rendered
-
-    provenance = _load_provenance(paper_id, papers_root)
-    if provenance is None:
-        return {"found": False, "error": f"no provenance.json for paper_id '{paper_id}'"}
-
-    normalized = rendered["table_id"]
-    by_row: dict[int, list[tuple]] = {}
-    for entry in provenance.values():
-        if entry.get("parent_table_anchor") != normalized:
-            continue
-        row_idx = entry.get("row_index")
-        col_idx = entry.get("col_index") if entry.get("col_index") is not None else -1
-        if row_idx is None:
-            continue
-        by_row.setdefault(row_idx, []).append((col_idx, entry.get("cell_text", "")))
-
-    rows = [
-        [text for _, text in sorted(by_row[r])]
-        for r in sorted(by_row)
-    ]
-    return {
-        "found": True,
-        "paper_id": paper_id,
-        "table_anchor": normalized,
-        "markdown_table": rendered["markdown_table"],
-        "rows": rows,
-    }
-
-
 # A table caption/label as it appears at the START of a rendered block:
 # "Table 2 ...", "*Table 2. ...*", "#### Table 3", "Tab. 4". Real captions
 # reach content.md as a Caption block, as a SectionHeader ("#### Table 3") or
@@ -258,14 +198,6 @@ def physical_page(page_id: Optional[str]) -> Optional[int]:
     return None if n is None else n + 1
 
 
-def page_for_anchor(paper_id: str, anchor: str, papers_root: Path = DEFAULT_PAPERS_ROOT) -> Optional[int]:
-    """The 1-indexed PDF page a block anchor sits on, from provenance.json, or None (no provenance, unknown anchor, or
-    no page id). Never a guess."""
-    provenance = _load_provenance(paper_id, papers_root)
-    entry = (provenance or {}).get(_normalize_anchor(anchor)) if anchor else None
-    return physical_page((entry or {}).get("page_id"))
-
-
 def _rendered_table_columns(paper_id: str, anchor: str, papers_root: Path) -> Optional[int]:
     """Column count of a table's rendered markdown (its header row's cell
     count -- `marker_adapter.table_html_to_markdown` pads every row to the
@@ -281,17 +213,7 @@ def _rendered_table_columns(paper_id: str, anchor: str, papers_root: Path) -> Op
 def table_continuation_map(paper_id: str, papers_root: Path = DEFAULT_PAPERS_ROOT) -> dict[str, str]:
     """{table_anchor: previous_table_anchor} for every Table block that is,
     with high confidence, the page-split CONTINUATION of the table right
-    before it -- and only those.
-
-    Real evidence this exists for: Daren-1997-Canopy's Table 2 is split
-    across a page break (content.md anchors b:0119 and b:0178); the model,
-    asked to judge continuation on its own, read `b:0178` as a separate LSD
-    table and Table 2 was reconstructed from 7 of its 18 rows.
-
-    The rule was verified against Marker's actual structure and every
-    consecutive table pair in the 9 distinct papers on disk (22 pairs) before
-    being adopted. A table T is a continuation of the previous table P only if
-    ALL of these hold:
+    before it -- and only those. A table T continues the previous table P only if ALL of these hold:
 
       1. no rendered block sits between P and T other than page furniture
          (footnote / running header / footer) -- a continuation directly
@@ -302,13 +224,8 @@ def table_continuation_map(paper_id: str, papers_root: Path = DEFAULT_PAPERS_ROO
       3. T is on the same page as P or the immediately next page;
       4. T and P have the same rendered column count.
 
-    Deliberately NOT used: "the Marker TableGroup has no Caption sibling".
-    Tested against real papers, that wrongly merges genuinely separate
-    tables (Berntson-1997 Table 2 follows Table 1 on the next page with the
-    same width but its caption lives OUTSIDE the table's Marker group, as do
-    Nutrient-cycling's `#### Table 3` headers).
-
-    Any doubt resolves to "not a continuation" -- the unsafe direction is
+    "The Marker TableGroup has no Caption sibling" is not used: it merges separate tables whose caption sits outside
+    the group. Any doubt resolves to "not a continuation" -- the unsafe direction is
     merging two real tables, so a missed continuation is left to the caller's
     existing judgment, unchanged."""
     provenance = _load_provenance(paper_id, papers_root)
@@ -343,36 +260,9 @@ def table_continuation_map(paper_id: str, papers_root: Path = DEFAULT_PAPERS_ROO
     return continuation
 
 
-def table_continuation_chains(paper_id: str, papers_root: Path = DEFAULT_PAPERS_ROOT) -> list[list[str]]:
-    """Every multi-block logical table, as document-ordered anchor lists
-    (`[["b:0119", "b:0178"], ...]`). Tables that are not split are not
-    listed. See `table_continuation_map` for the rule."""
-    continuation = table_continuation_map(paper_id, papers_root)
-    if not continuation:
-        return []
-    heads = {a for a in continuation.values() if a not in continuation}
-    chains: list[list[str]] = []
-    for head in sorted(heads, key=_anchor_sort_key):
-        chain = [head]
-        follower = {prev: cur for cur, prev in continuation.items()}
-        while chain[-1] in follower:
-            chain.append(follower[chain[-1]])
-        chains.append(chain)
-    return chains
-
-
 def list_tables(paper_id: str, papers_root: Path = DEFAULT_PAPERS_ROOT) -> dict:
-    """Every Table block in this paper, straight from provenance.json's own
-    `block_type` (computed once by marker_adapter.py during document
-    preparation) -- never re-detected by scanning content.md markdown, so
-    it agrees exactly with what `read_table`/`read_table_row` already
-    resolve for the same anchor. One entry per Table block; a table that
-    spans a page break (e.g. a real confirmed case, Daren-1997-Canopy's
-    Table 2: content.md anchors b:0119 and b:0178) appears as TWO separate
-    entries here -- grouping continuation blocks into one logical table is
-    the table-enumeration classification stage's job (orchestrator.py's
-    Step B), not this one's, since it needs the same cross-referencing
-    judgment the row/column reconstruction itself needs."""
+    """Every Table block, from provenance.json's block_type; a page-split table appears once per block, with
+    `continuation_of` set on the continuation."""
     provenance = _load_provenance(paper_id, papers_root)
     if provenance is None:
         return {"found": False, "error": f"no provenance.json for paper_id '{paper_id}'"}
@@ -416,6 +306,7 @@ def raw_table_cells(paper_id: str, table_anchors: list[str], papers_root: Path =
         text for e in provenance.values()
         if e.get("parent_table_anchor") in wanted and (text := (e.get("cell_text") or "").strip())
     ]
+
 
 
 def list_sections(paper_id: str, papers_root: Path = DEFAULT_PAPERS_ROOT) -> dict:
@@ -504,12 +395,7 @@ def read_table_row(
     own anchor (`table_anchor` -- the same single anchor `read_table`
     above returns), never an individual cell's own provenance-only anchor:
     a per-cell anchor is never printed inline in content.md, so
-    `validators.validate_provenance` can never resolve one as a locator.
-    Returning the row's exact text pre-bound to the one anchor that IS
-    resolvable removes the failure mode of an agent needing to recall,
-    from memory, which anchor governs a specific row several lines into a
-    large rendered table (the concrete cause of a real observed failure --
-    see run 20260914T204018_d8c6ddb6, Variable/Oceologia-1998)."""
+    `validators.validate_provenance` can never resolve one as a locator."""
     provenance = _load_provenance(paper_id, papers_root)
     if provenance is None:
         return {"found": False, "error": f"no provenance.json for paper_id '{paper_id}'"}

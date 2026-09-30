@@ -1,4 +1,4 @@
-"""Correction pass, Fix 5: the free-form Treatment dimension check tolerates a decorated level, and stays grounded.
+"""The free-form Treatment dimension check tolerates a decorated level, and stays grounded.
 
 Real evidence (run felipe_smoke_20260920T132343, Felipe-2010-Cultivar): with Table 1 covering Treatment, the free-form
 enumeration was asked to declare each candidate's `dimensions`. Its first answer was semantically right -- three

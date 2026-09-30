@@ -1,4 +1,4 @@
-"""Item 10: Method representation and matching (decisions Q5 and Q6).
+"""Method representation and matching (decisions Q5 and Q6).
 
 Evidence (real run 20260919T085532_98015a8a, Daren-1997-Canopy): Step B produced 11 distinct method
 hints; against the run's 7 ready Methods the matcher resolved 4 and left 7 unresolved -- among them
@@ -7,7 +7,7 @@ hints; against the run's 7 ready Methods the matcher resolved 4 and left 7 unres
 (Felipe Table 1) forced the model to invent a placeholder `variable_name_hint` ("measurement") because
 the column schema required one, with nowhere to put a per-variable method.
 
-Item 10: a structured `TableVariable {label, variable_name, units, method_hint}` (column -> variable and
+A structured `TableVariable {label, variable_name, units, method_hint}` (column -> variable and
 row -> variable, legacy column hints preserved); a description tier in the Method matcher (strictly after
 the existing tiers, only for a distinctive, unique match); and Method candidates seeded from distinct,
 GROUNDED hints. Nothing is invented: a hint no prose block states creates no Method.

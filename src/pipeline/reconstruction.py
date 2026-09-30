@@ -1,17 +1,5 @@
-"""
-`apply_reconstruction` kinds — Playbook Section 6: "date mapping,
-stat-encoding conversion, factorial/aggregate-summary expansion (follows IR
-spec Table 16 exactly for reported_effect_scope/aggregated_over_factors)".
-
-These are pure transforms: given a raw shape an extraction agent pulled out
-of a paper (e.g. "harvested 2007-06 to 2007-08", or a table row with mean/SE/
-n columns, or a factorial ANOVA table), produce the corresponding IR-shaped
-payload fragment. They do NOT talk to the store and do NOT run whole-graph
-validation — `propose_record`/`commit_record` remain the only path that does,
-per the "LLM proposes, deterministic Python validates" rule (Playbook
-instruction this sprint). A reconstruction result is still just a candidate
-payload the agent must then run through `propose_record`.
-"""
+"""`apply_reconstruction` kinds (date mapping, stat encoding, factorial expansion): pure transforms to IR-shaped
+fragments; the result is still a candidate that must pass `propose_record`."""
 
 from __future__ import annotations
 
@@ -118,8 +106,7 @@ def reconstruct_date_mapping(reported_text: str) -> dict[str, Any]:
     if m:
         d1 = int(m.group("d1")) if m.group("d1") else 1
         try:
-            # no end day given -> the LAST day of that month (this used to default to 28, which is wrong
-            # for every month but a non-leap February)
+            # no end day given -> the last day of that month
             d2 = int(m.group("d2")) if m.group("d2") else _month_end(int(m.group("y2")), int(m.group("m2")))
             earliest = date(int(m.group("y1")), int(m.group("m1")), d1)
             latest = date(int(m.group("y2")), int(m.group("m2")), d2)
@@ -183,13 +170,8 @@ _STAT_ALIASES = {
 
 
 def reconstruct_stat_encoding(raw_stats: dict[str, Any]) -> dict[str, Any]:
-    """Convert a raw {label: value} mapping (as an agent would read off a
-    table's column headers/row) into StatisticalSummary entries. Labels are
-    normalized against a small alias table for IR-layer consistency, but
-    this is NOT the BETYdb closed vocabulary -- that mapping happens at
-    materialization (Playbook Section 5 / IR spec Section 6.5), never here.
-    Unrecognized labels are kept verbatim rather than dropped (P1: never
-    silently drop information)."""
+    """{label: value} -> StatisticalSummary entries; labels are alias-normalised (not the BETYdb vocabulary) and
+    unrecognised labels are kept verbatim."""
     entries = []
     for raw_label, value in raw_stats.items():
         norm = _STAT_ALIASES.get(raw_label.strip().lower(), raw_label.strip())

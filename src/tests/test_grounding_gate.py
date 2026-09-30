@@ -1,4 +1,4 @@
-"""Item 13: grounding (plan section 14; decision Q7).
+"""Grounding (plan section 14; decision Q7).
 
 Evidence (stored Extraction attempts, all runs): 2,892 `raw_text_excerpt` grounding failures. 905 of them contain an
 ellipsis, e.g. "SS were determined ... measured on a digital refractometer." -- literal stretches of a longer passage
@@ -8,7 +8,7 @@ in-order stretches and now pass; the other 270 (and all 1,987 without an ellipsi
 the order the model listed them, not document order, and a table candidate's whole attempt was thrown away because of one
 ungrounded auxiliary fact (a unit, a note) even though the fact carrying the table's known value was perfectly grounded.
 
-Item 13: (a) ellipsis excerpts -- every stretch must be literal source text, in the written order, no per-segment
+(a) ellipsis excerpts -- every stretch must be literal source text, in the written order, no per-segment
 leniency; (b) cited blocks are read in document order; (c) TABLE CANDIDATES ONLY: an ungrounded AUXILIARY fact is dropped
 and logged as `dropped_ungrounded_facts` and never reaches Conversion, but only when the value-bearing fact is grounded;
 an ungrounded value-bearing fact is still an error. The grounding CHECK itself is not loosened for annotations or
@@ -263,7 +263,7 @@ def test_a_table_candidate_keeps_its_attempt_and_the_dropped_fact_never_reaches_
 
 
 def test_a_free_form_candidate_gets_only_the_conservative_generalisation(ir_env):
-    """Correction pass, Fix 3 (supersedes "never given this leniency"): with no known table value the Item 13 rule is
+    """With no known table value the table-candidate rule is
     generalised by field NAME -- an ungrounded fact that is not named like an identity of the entity type is dropped and
     logged -- but an ungrounded identity-named fact ('title' for a Citation) is still an error and is retried."""
     bad = dict(RAW_EXTRACTION, facts=RAW_EXTRACTION["facts"] + [AUX_BAD])

@@ -12,12 +12,6 @@ Canonical convention (single source of truth -- no fallback location):
     - Converted artifacts:   src/paper/<paper_id>/{content.md, provenance.json, qc_report.json}
     - Sage pipeline code:    src/pipeline/*  (ir_schema, validators, store, results_store, ...)
     - docproc adapter code:  src/docproc/{marker_adapter.py, prepare_papers.py, run_qc_batch.py, qc_gate.py}
-
-`data/all_papers/` is NOT used. It was the originally documented PDF
-location but was found empty on disk during implementation, while the real
-PDF bytes lived under `docproc/paper/`; that fallback has since been
-promoted to the one, single, documented convention -- see this module's
-git history / the session that made this change for the reasoning.
 """
 
 from __future__ import annotations
@@ -71,21 +65,11 @@ def provenance_path(paper_id: str) -> Path:
     return PAPER_DIR / paper_id / "provenance.json"
 
 
-def qc_report_path(paper_id: str) -> Path:
-    return PAPER_DIR / paper_id / "qc_report.json"
-
-
 def is_processed(paper_id: str) -> bool:
     """A paper is 'processed' when both the rendered content and its
     positional provenance exist -- the two artifacts the rest of this
     module (and the extraction pipeline) actually depend on."""
     return content_md_path(paper_id).is_file() and provenance_path(paper_id).is_file()
-
-
-def source_pdf_dir() -> Path:
-    """The single directory to hand to the `marker` CLI as its input
-    folder, and where uploaded PDFs are saved."""
-    return PDF_DIR
 
 
 def list_source_paper_ids() -> list[str]:
@@ -98,20 +82,8 @@ def list_source_paper_ids() -> list[str]:
 
 
 def delete_paper_source(paper_id: str) -> list[str]:
-    """Remove ONLY this paper's uploaded PDF from the library -- not the
-    derived Marker JSON or rendered document (paper/<paper_id>/). Those are
-    intentionally left alone: if a paper_id is later reused for a genuinely
-    different PDF, a fresh Extract run regenerates both from scratch anyway
-    (marker_pipeline.run_marker_for_paper no longer passes --skip_existing,
-    specifically so a deliberate, user-triggered Extract always reprocesses
-    the current PDF on disk rather than ever trusting leftover output from
-    whatever was there before -- see that function's own docstring), so
-    there's nothing to proactively clean up here, and it avoids destroying
-    a paper's intermediate artifacts for no reason while it's still mid-use
-    elsewhere. `ir-store/`, `results/`, and `runs/` -- the committed
-    extraction ledger -- were never touched by this function and still
-    aren't. Returns the paths actually removed (usually just the one PDF,
-    or empty if nothing was there)."""
+    """Remove only this paper's PDF (derived documents and results are kept; a later Extract regenerates them).
+    Returns the paths removed."""
     removed: list[str] = []
     pdf = PDF_DIR / f"{paper_id}.pdf"
     if pdf.is_file():

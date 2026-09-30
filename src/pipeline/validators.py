@@ -1,21 +1,6 @@
-"""
-Whole-graph validators — IR spec Section 9.2 / Table 19, amended per the
-Option B diff table in Playbook Section 5.1 ("Exact diff to Section 9.2
-(Table 19), if and when Option B is adopted" — that "if and when" has been
-resolved this sprint: Option B is approved and implemented, so this module
-implements Table 19 *as amended*, not the original citation-scoped version.
-
-Kept deliberately separate from `ir_schema.py`: these rules need the whole
-`IRDataset` graph (cross-entity uniqueness, referential integrity), which a
-single Pydantic model's own field/model validators can't see. Construction-
-time, single-entity invariants (Table 18) live in `ir_schema.py` instead —
-this file assumes each entity passed in already satisfies those.
-
-Every check function returns a list of ValidationIssue; nothing raises.
-`validate_dataset` aggregates all of them. This mirrors the QC gate's own
-design principle from Sprint 1 (Section 4a): each check is independent, and
-the caller decides what to do with the aggregate, not any one check itself.
-"""
+"""Whole-graph validators (IR spec Section 9.2 / Table 19, study-scoped): cross-entity uniqueness and referential
+integrity. Single-entity invariants live in `ir_schema.py`. Every check returns a list of ValidationIssue and never
+raises; `validate_dataset` aggregates them."""
 
 from __future__ import annotations
 
@@ -28,9 +13,7 @@ from typing import Any, Optional
 from pipeline import coordinates
 from pipeline.ir_schema import (
     IRDataset,
-    Management,
     ProvenanceLabel,
-    Study,
     Treatment,
 )
 
@@ -54,9 +37,7 @@ class ValidationIssue:
 
 
 def _effective_study_scope(treatment: Treatment) -> tuple[str, str]:
-    """Returns (scope_kind, scope_key). study_id when resolved, else a
-    citation_id fallback — Table 19 rows 4/5 as amended: 'falls back to
-    citation_id-scoping when study_id is UNRESOLVED'."""
+    """(scope_kind, scope_key): study_id when resolved, else citation_id."""
     sid = treatment.study_id
     if sid.provenance_label != ProvenanceLabel.UNRESOLVED and sid.value:
         return ("study", sid.value)
@@ -71,14 +52,14 @@ def check_global_id_uniqueness(ds: IRDataset) -> list[ValidationIssue]:
         "Study": ds.studies,
         "Site": ds.sites,
         "Species": ds.species,
-        "Crop": ds.crops,  # NEW this sprint
+        "Crop": ds.crops,
         "Method": ds.methods,
         "Treatment": ds.treatments,
-        "TreatmentPair": ds.treatment_pairs,  # NEW this sprint
-        "Variable": ds.variables,  # NEW this sprint
+        "TreatmentPair": ds.treatment_pairs,
+        "Variable": ds.variables,
         "Management": ds.managements,
         "Observation": ds.observations,
-        "Coverage": ds.coverages,  # NEW this sprint
+        "Coverage": ds.coverages,
     }
     for entity_type, items in entity_lists.items():
         seen: dict[str, int] = {}
@@ -131,7 +112,7 @@ def check_species_scientific_name_uniqueness(ds: IRDataset) -> list[ValidationIs
 
 
 def check_treatment_name_uniqueness(ds: IRDataset) -> list[ValidationIssue]:
-    """Table 19 #4, Option B: unique within study_id; falls back to
+    """Table 19 #4: unique within study_id; falls back to
     citation_id when study_id is UNRESOLVED."""
     issues: list[ValidationIssue] = []
     seen: dict[tuple[str, str, str], int] = {}
@@ -154,7 +135,7 @@ def check_treatment_name_uniqueness(ds: IRDataset) -> list[ValidationIssue]:
 
 
 def check_control_status_uniqueness(ds: IRDataset) -> list[ValidationIssue]:
-    """Table 19 #5, Option B: at most one control_status=True Treatment per
+    """Table 19 #5: at most one control_status=True Treatment per
     (study_id, site_id); falls back to (citation_id, site_id) when study_id
     is UNRESOLVED."""
     issues: list[ValidationIssue] = []
@@ -218,12 +199,11 @@ def check_management_treatment_refs(ds: IRDataset) -> list[ValidationIssue]:
 
 
 def check_denormalized_consistency(ds: IRDataset) -> list[ValidationIssue]:
-    """Table 19 #7, Option B version:
+    """Table 19 #7:
       - Observation.site_id must match the site_id of the referenced
-        Treatment (UNCHANGED from the original rule).
-      - citation_id equality is NO LONGER required (Observation.citation_id
-        is its own source-of-record pointer and may legitimately differ from
-        Treatment.citation_id under Option B).
+        Treatment.
+      - citation_id equality is not required (Observation.citation_id is
+        its own source-of-record pointer).
       - Observation's effective study_id (via its Treatment) must equal that
         Treatment's study_id -- trivially true by construction since it's
         read through the same Treatment, so this collapses to: the
@@ -259,7 +239,7 @@ def check_denormalized_consistency(ds: IRDataset) -> list[ValidationIssue]:
                     obs.id,
                 )
             )
-        # citation_id equality deliberately NOT checked (Option B change).
+        # citation_id equality deliberately not checked
 
     for m in ds.managements:
         tids_field = m.treatment_ids
@@ -303,12 +283,7 @@ def check_dataset_containment(ds: IRDataset) -> list[ValidationIssue]:
 
 
 def check_aggregated_over_factors(ds: IRDataset) -> list[ValidationIssue]:
-    """Table 19 #9. Note: the per-observation shape of this rule is already
-    enforced at construction time in `ir_schema.Observation`. This
-    whole-graph pass exists to catch it even if an Observation somehow
-    reached the store without going through that model (defense in depth,
-    same rationale as the QC gate's "never trust a single layer" pattern
-    from Sprint 1)."""
+    """Table 19 #9; also enforced at construction in `ir_schema.Observation` (defence in depth)."""
     issues: list[ValidationIssue] = []
     for obs in ds.observations:
         scope = obs.reported_effect_scope.value
@@ -339,7 +314,7 @@ def check_aggregated_over_factors(ds: IRDataset) -> list[ValidationIssue]:
 
 
 def check_treatment_study_ref(ds: IRDataset) -> list[ValidationIssue]:
-    """Table 19 #10 (NEW under Option B): every Treatment must reference
+    """Table 19 #10: every Treatment must reference
     exactly one Study via study_id (ExtractedField, may be UNRESOLVED)."""
     issues: list[ValidationIssue] = []
     study_ids = {s.id for s in ds.studies}
@@ -370,7 +345,7 @@ def check_treatment_study_ref(ds: IRDataset) -> list[ValidationIssue]:
 
 
 def check_study_citation_refs(ds: IRDataset) -> list[ValidationIssue]:
-    """Table 19 #11 (NEW under Option B): Study.citation_ids must be
+    """Table 19 #11: Study.citation_ids must be
     non-empty (already enforced by Pydantic's min_length=1 on the field, so
     this only re-checks referential integrity) and every id must resolve to
     an existing Citation."""
@@ -392,11 +367,7 @@ def check_study_citation_refs(ds: IRDataset) -> list[ValidationIssue]:
 
 
 def check_source_of_record_referential_integrity(ds: IRDataset) -> list[ValidationIssue]:
-    """Not a numbered Table 19 row, but implied by the 'citation_id is
-    always a source-of-record pointer' rule (Playbook Section 5): every
-    citation_id anywhere in the graph (Method, Treatment, Management,
-    Observation) must resolve to a real Citation, even though it's no
-    longer an identity/uniqueness scope under Option B."""
+    """Every citation_id in the graph (Method, Treatment, Management, Observation) must resolve to a real Citation."""
     issues: list[ValidationIssue] = []
     citation_ids = {c.id for c in ds.citations}
 
@@ -420,19 +391,17 @@ def check_source_of_record_referential_integrity(ds: IRDataset) -> list[Validati
         _check("Management", mg.id, mg.citation_id)
     for obs in ds.observations:
         _check("Observation", obs.id, obs.citation_id)
-    for tp in ds.treatment_pairs:  # NEW this sprint
+    for tp in ds.treatment_pairs:
         _check("TreatmentPair", tp.id, tp.citation_id)
-    for crop in ds.crops:  # NEW this sprint
+    for crop in ds.crops:
         _check("Crop", crop.id, crop.citation_id)
-    for cov in ds.coverages:  # NEW this sprint
+    for cov in ds.coverages:
         _check("Coverage", cov.id, cov.citation_id)
     return issues
 
 
 def check_variable_name_uniqueness(ds: IRDataset) -> list[ValidationIssue]:
-    """NEW this sprint (Variable entity): Variable.name unique within the
-    dataset, same pattern as check_site_name_uniqueness /
-    check_species_scientific_name_uniqueness above."""
+    """Variable.name unique within the dataset."""
     issues: list[ValidationIssue] = []
     seen: dict[str, int] = {}
     for var in ds.variables:
@@ -447,9 +416,7 @@ def check_variable_name_uniqueness(ds: IRDataset) -> list[ValidationIssue]:
 
 
 def check_crop_species_ref(ds: IRDataset) -> list[ValidationIssue]:
-    """NEW this sprint (Crop entity): Crop.species_id must resolve to an
-    existing Species -- Crop is deliberately a reference to Species's
-    taxonomy, not a duplicate of it (see ir_schema.Crop's docstring)."""
+    """Crop.species_id must resolve to an existing Species."""
     issues: list[ValidationIssue] = []
     species_ids = {s.id for s in ds.species}
     for crop in ds.crops:
@@ -465,11 +432,7 @@ def check_crop_species_ref(ds: IRDataset) -> list[ValidationIssue]:
 
 
 def check_treatment_pair_references_resolve(ds: IRDataset) -> list[ValidationIssue]:
-    """NEW this sprint (TreatmentPair entity), adapted from
-    src2/betydb_extraction/ir/validation/referential_integrity.py's check of
-    the same name: both referenced Treatments must exist, and the pair plus
-    both Treatments must share the same citation_id scope (mirroring the
-    citation-scoping rule already applied to Treatment/Management)."""
+    """Both referenced Treatments must exist and share the pair's citation_id."""
     issues: list[ValidationIssue] = []
     treatments_by_id = {t.id: t for t in ds.treatments}
     for pair in ds.treatment_pairs:
@@ -505,9 +468,7 @@ def check_treatment_pair_references_resolve(ds: IRDataset) -> list[ValidationIss
 
 
 def check_variable_ref_integrity(ds: IRDataset) -> list[ValidationIssue]:
-    """NEW this sprint: Observation.variable_id and Coverage.variable_id,
-    when present (both are optional -- see ir_schema.Observation's
-    docstring on variable_id), must resolve to an existing Variable."""
+    """Observation.variable_id and Coverage.variable_id, when present, must resolve to an existing Variable."""
     issues: list[ValidationIssue] = []
     variable_ids = {v.id for v in ds.variables}
     for obs in ds.observations:
@@ -532,8 +493,7 @@ def check_variable_ref_integrity(ds: IRDataset) -> list[ValidationIssue]:
 
 
 def check_crop_ref_integrity(ds: IRDataset) -> list[ValidationIssue]:
-    """NEW this sprint: Observation.crop_id, when present, must resolve to
-    an existing Crop."""
+    """Observation.crop_id, when present, must resolve to an existing Crop."""
     issues: list[ValidationIssue] = []
     crop_ids = {c.id for c in ds.crops}
     for obs in ds.observations:
@@ -549,13 +509,7 @@ def check_crop_ref_integrity(ds: IRDataset) -> list[ValidationIssue]:
 
 
 def check_coverage_site_ref(ds: IRDataset) -> list[ValidationIssue]:
-    """NEW this sprint: Coverage.site_id must resolve to an existing Site.
-    Checked here -- unlike the pre-existing, separately-documented gap
-    where Treatment/Method/Observation.site_id existence is NOT checked
-    anywhere in this module -- because Coverage.site_id is a brand new
-    field introduced this sprint, not a retrofit of a prior entity; leaving
-    a known dangling reference in a field we are introducing right now
-    would be a new bug, not a preserved pre-existing one."""
+    """Coverage.site_id must resolve to an existing Site."""
     issues: list[ValidationIssue] = []
     site_ids = {s.id for s in ds.sites}
     for cov in ds.coverages:
@@ -571,10 +525,7 @@ def check_coverage_site_ref(ds: IRDataset) -> list[ValidationIssue]:
 
 
 def check_treatment_control_status_optional(ds: IRDataset) -> list[ValidationIssue]:
-    """Playbook Section 5 confirmation: control_status stays optional /
-    UNRESOLVED-able. Not a rejection rule -- this function exists so the
-    absence of control_status is explicitly a non-issue, documented as a
-    no-op check rather than silently having no code path for it."""
+    """control_status may be absent or UNRESOLVED: an explicit no-op check."""
     return []
 
 
@@ -645,48 +596,8 @@ def _load_rendered_blocks(paper_id: str) -> dict[str, str]:
     return blocks
 
 
-# Leaf field names whose value is a controlled-vocabulary label describing a
-# JUDGMENT about the cited evidence (like a boolean's truth value), not a
-# phrase the source text is ever expected to contain verbatim. Real
-# Oceologia-1998 runs (Phase C investigation) confirmed `reported_effect_scope`
-# has the exact same structural problem the boolean redesign above already
-# fixed for `is_raw_replicate_level`/`control_status`/`use_for_validation`: no
-# paper states the literal string "treatment_mean" or "aggregated_mean", so
-# the literal-substring check made this field structurally unable to ever
-# pass EXTRACTED/INFERRED validation -- 0 of the 61 Observation candidates in
-# run 20260915T135025_d291c220 ever got it past UNRESOLVED, and even
-# ir_service's own authored worked example for Observation (get_schema's
-# `_FILLED_EXAMPLES["Observation"]["reported_effect_scope"]`) cites a table
-# anchor without the literal word "treatment_mean" appearing in it -- the
-# canonical "correct" answer this module hands the model is itself rejected
-# by the old check. Same fix, same reasoning, generalized by leaf field name
-# instead of by Python type since this one is a `Literal[str]`, not `bool`.
-#
-# `Management.event_type` and `Observation.variable_name` (added: design-
-# review session following the Daren-1997-Canopy / Oceologia-1998 / Kathryn-
-# 2020-Winter paper audits) are a DIFFERENT shape from `reported_effect_scope`
-# -- they're open `str` fields, not a closed `Literal[...]`, so there is no
-# type-level backstop bounding what value could pass once the literal-match
-# requirement is lifted. They belong here anyway because the protocol itself
-# already settles the question, independent of this module: pipeline/vocab.py's
-# own docstring states "variable_name / event_type: confirmed free text at
-# the IR layer... lookup_vocab is advisory only, never gating" (Playbook
-# Section 5), and ir_schema.py's ProvenanceLabel docstring independently
-# names the same two fields as "deliberately free text at this layer". Real
-# confirmed cases across all three audited papers -- Management.event_type
-# values like "fertilizer application" (Daren, block b:0028: "...received
-# 122 kg N ha-1 in the form of NH4NO3..."), "tubs moved to an outside garden"
-# (Oceologia), and "compost application"/"cover crop planting" (Kathryn,
-# multiple blocks) -- are all reasonable, correct classifications of a
-# described action; none is a literal quote, and none was found to be
-# fabricated in the audited records. The remaining safety net for these two
-# fields is the same one the codebase already relies on for boolean/
-# reported_effect_scope judgments: the anchor must still be real and
-# resolve to real, non-empty text (validate_provenance's own
-# provenance_anchor_not_found check, unaffected by this set), an INFERRED
-# label still requires a genuine inference-basis note, and AI Validation
-# remains a second, already-confirmed-effective check on implausible values
-# (see corrections_store / the AI Validator's observe-and-correct pass).
+# Fields whose value is a judgment or free-text classification of the cited text, not a verbatim quote: only the
+# anchor (real, non-empty text) and, for INFERRED, the inference-basis note are checked.
 _CATEGORICAL_JUDGMENT_FIELDS = {"reported_effect_scope", "event_type", "variable_name"}
 
 
@@ -698,35 +609,17 @@ def _leaf_field_name(field_path: str) -> str:
     return re.sub(r"\[\d+\]$", "", last)
 
 
-# Deterministic, explicitly-enumerated typographic equivalences -- NOT a
-# fuzzy/approximate match, only exact known look-alikes where content.md and
-# the model's own text generation render the SAME visible glyph through
-# different Unicode code points or markup. Confirmed real cases (Daren-1997-
-# Canopy audit): Site.soil_context's "fine-loamy" appears in content.md with
-# a plain ASCII hyphen (U+002D) but the model reproduced it with a
-# non-breaking hyphen (U+2011), byte-verified; and "Ey × FF" appears in
-# content.md as literal Unicode "×" (U+00D7) in three places and as LaTeX
-# "$\times$" in a fourth -- within the SAME source paragraph, i.e. even
-# Marker's own rendering of the identical phrase is inconsistent, so the
-# model (which always reproduces the readable Unicode form) can never match
-# whichever encoding a given block happened to get. Each of these was
-# rejected by validate_provenance as `provenance_value_mismatch` despite the
-# value being genuinely, fully supported by the cited text -- a false
-# rejection, not a real grounding failure. Deliberately narrow: only
-# unambiguous same-glyph pairs belong here (e.g. NOT "×" -> "x", since that
-# conflates a symbol with a letter rather than canonicalizing an encoding).
+# Exact same-glyph look-alikes (different code points or markup for one visible character), never fuzzy matches.
 _TYPOGRAPHIC_EQUIVALENTS: list[tuple[str, str]] = [
     ("‐", "-"),  # hyphen
-    ("‑", "-"),  # non-breaking hyphen (the confirmed Daren case)
+    ("‑", "-"),  # non-breaking hyphen
     ("‒", "-"),  # figure dash
     ("–", "-"),  # en dash
     ("—", "-"),  # em dash
     ("−", "-"),  # minus sign
     ("$\\times$", "×"),  # LaTeX inline-math multiplication sign
     ("\\times", "×"),  # bare LaTeX command, no $ delimiters
-    # Degree / prime / quote variants. Real case (Kathryn-2020-Winter b:0035): the source prints "36˚37´N" with a
-    # RING ABOVE and an ACUTE ACCENT; the model quoted it as "36°37′N" and the (identical-looking) coordinate was
-    # rejected, Site went unresolved and blocked every Treatment and Observation.
+    # Degree / prime / quote variants ("36˚37´N" == "36°37′N").
     ("˚", "°"),  # ring above
     ("º", "°"),  # masculine ordinal, OCR'd as a degree sign
     ("′", "'"),  # prime
@@ -741,25 +634,19 @@ _TYPOGRAPHIC_EQUIVALENTS: list[tuple[str, str]] = [
 ]
 
 
-# Inline LaTeX math and unicode super/subscripts as Marker renders them, canonicalised so the same quantity compares
-# equal however it is spelled. Real cases (Felipe-2010-Cultivar, correction pass Fix 4): a block reads
-# "$4.6\pm0.4~\mathrm{Mg~ha^{-1}}$" while the model writes "Mg ha⁻¹" (false rejection of the units), and "$CO_2$" while
-# the model writes "CO2" (false rejection of a `notes` sentence, which sank the whole mustard-CO2 Observation). Only
-# NOTATION is normalised -- \pm -> ±, ^{-1} -> -1, ⁻¹ -> -1, CO_2 -> CO2, \mathrm{..}/$/~/braces dropped -- never a
-# number, a unit symbol or a word, so no scientific meaning changes.
+# Inline LaTeX and unicode super/subscripts canonicalised (\pm -> ±, ^{-1} -> -1, CO_2 -> CO2); notation only, never a
+# number, unit symbol or word.
 _SUPERSCRIPTS = str.maketrans({
     "⁻": "-", "⁺": "+", "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
-    # Unicode SUBSCRIPT digits: the model writes "NH₄NO₃" where Marker renders "NH 4 NO 3" (real case Daren-1997-Canopy
-    # b:0028); the whitespace-stripped fallback then compares "nh4no3" on both sides.
+    # Unicode subscript digits ("NH₄NO₃" vs Marker's "NH 4 NO 3"; the whitespace-stripped fallback then matches).
     "₀": "0", "₁": "1", "₂": "2", "₃": "3", "₄": "4", "₅": "5", "₆": "6", "₇": "7", "₈": "8", "₉": "9", "₊": "+", "₋": "-",
 })
 _MATH_TEXT_COMMAND_RE = re.compile(r"\\(?:mathrm|mathit|mathbf|textrm|textit|text|rm|it|bf)\s*\{([^{}]*)\}")
-# `{\rm cmax}` / `{\it x}`: the old-style font switch inside a group (real case Philippe-2007-Six b:0046 "$V_{\rm cmax}$").
+# `{\rm cmax}` / `{\it x}`: the old-style font switch inside a group.
 _MATH_FONT_SWITCH_RE = re.compile(r"\\(?:rm|it|bf|mathrm)\s+")
 _MATH_BRACED_SCRIPT_RE = re.compile(r"[\^_]\s*\{([^{}]*)\}")
 _MATH_SIMPLE_SCRIPT_RE = re.compile(r"(?<=[A-Za-z0-9\)])[\^_]\s*(-?\d+)")
-# A single-letter/short alphanumeric subscript written with an underscore: "N_a", "C_i", "V_cmax" -> "Na", "Ci", "Vcmax".
-# Real cases (Philippe-2007-Six b:0044): "$N_a$", "$C_i$", "$V_{\text{cmax}}$" never matched the model's "Na"/"Vcmax".
+# A short subscript written with an underscore: "N_a", "C_i", "V_cmax" -> "Na", "Ci", "Vcmax".
 _MATH_LETTER_SUBSCRIPT_RE = re.compile(r"(?<=[A-Za-z0-9\)])_(?=[A-Za-z0-9])")
 
 
@@ -784,13 +671,7 @@ def _normalize_math(text: str) -> str:
 
 
 def _normalize_typography(text: str) -> str:
-    """Canonicalize the small, deterministic set of typographic variants in
-    _TYPOGRAPHIC_EQUIVALENTS -- see that list's own comment for the real
-    cases this fixes -- and inline LaTeX math notation (`_normalize_math`).
-    Applied to both sides of every comparison in _value_supported_by_text,
-    so it can only ever ADD a match an exact check already missed, never
-    remove one (both the value and the block text collapse onto the same
-    canonical spelling)."""
+    """Canonicalise _TYPOGRAPHIC_EQUIVALENTS and inline math; applied to both sides, so it can only add matches."""
     for variant, canonical in _TYPOGRAPHIC_EQUIVALENTS:
         text = text.replace(variant, canonical)
     return _normalize_math(text)
@@ -804,24 +685,7 @@ def _value_supported_by_text(value: Any, text: str, field_name: Optional[str] = 
     normalized_text = _normalize_typography(" ".join(text.split()).casefold())
 
     if isinstance(value, bool) or field_name in _CATEGORICAL_JUDGMENT_FIELDS:
-        # A boolean's truth, or a controlled-vocabulary judgment label like
-        # `reported_effect_scope`, describes what the cited text MEANS, not a
-        # literal token scientific prose is ever expected to contain -- a
-        # paper essentially never states the word "true"/"false" or
-        # "treatment_mean" to describe itself. Requiring that literal word
-        # (the previous behavior) made every such field structurally unable
-        # to ever pass EXTRACTED/INFERRED validation -- confirmed against
-        # real Oceologia-1998/pecan extraction runs. The only thing checkable
-        # at this single-(value, single-block-text) granularity is that the
-        # cited anchor resolves to real, substantive text a reviewer could
-        # judge the claim against (an anchor that doesn't exist is rejected
-        # one level up in validate_provenance; an anchor resolving to empty
-        # text is rejected here). The actual evidentiary justification for
-        # *why* that text supports this specific judgment is enforced by the
-        # INFERRED-requires-a-real-inference-basis-note rule -- required at
-        # construction time by ir_schema.ExtractedField._provenance_invariants
-        # and re-checked defensively in validate_provenance below, not by
-        # pattern-matching the block's raw text here.
+        # A judgment (a boolean, an effect-scope label) is never a literal word in the text: only require real text.
         return bool(normalized_text)
 
     if isinstance(value, int):
@@ -844,17 +708,7 @@ def _value_supported_by_text(value: Any, text: str, field_name: Optional[str] = 
             return False
         if needle in normalized_text:
             return True
-        # Fallback only, never the first check: source rendering of chemical/
-        # scientific notation (subscripts, superscripts) frequently comes
-        # through content.md with spurious single spaces INSIDE what is
-        # really one token -- e.g. real Oceologia-1998 table text renders
-        # "NH4+-N" as "NH 4 + -N" (confirmed in content.md for paper
-        # Oceologia-1998, block b:0053). Collapsing whitespace runs (above)
-        # doesn't fix this since these are single separating spaces, not
-        # repeated ones. Stripping ALL whitespace from both sides before a
-        # second substring check catches this without weakening the
-        # ordered-character-sequence requirement -- it can only ever
-        # ADD a match the exact check already missed, never remove one.
+        # Fallback: Marker puts spaces inside notation ("NH 4 + -N"), so compare with all whitespace removed.
         stripped_needle = re.sub(r"\s+", "", needle)
         stripped_text = re.sub(r"\s+", "", normalized_text)
         return bool(stripped_needle) and stripped_needle in stripped_text
@@ -880,15 +734,9 @@ def _iter_extracted_fields(node: Any, path: str = ""):
             yield from _iter_extracted_fields(value, f"{path}[{index}]")
 
 
-# --- Nested value-bearing fields (correction pass, Fix 4) -----------------------------------------------------------
-#
-# `_value_supported_by_text` returns True for any dict, so a QuantityValue / DateRange nested inside an ExtractedField was
-# only ever checked for being a dict: its `reported_text`, `reported_units` and date text could contradict the cited
-# block and still be committed as EXTRACTED. Real cases (Felipe-2010-Cultivar, run felipe_smoke_20260920T132343):
-#   - `reported_text` "39.8 degrees hue angle" / `reported_units` "degrees" where the block says "39.8 hue";
-#   - a Management date `reported_text` "May 18-19 2006" / earliest 2006-05-18 where the block says "May 18 and 19"
-#     and never gives the year (the protocol forbids supplying one).
-# These fields carry the reported value, its units and its date, so each must be supported by what the field cites.
+# --- Nested value-bearing fields -------------------------------------------------------------------------------------
+# A QuantityValue / DateRange inside an ExtractedField: its reported text, units and date must each be supported by
+# what the field cites.
 _DIMENSIONLESS_UNITS = frozenset({"", "unitless", "dimensionless", "none", "n/a", "na", "-", "1", "index", "ratio", "fraction"})
 _NUMBER_RE = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?")
 
@@ -897,10 +745,10 @@ def _canon(text: str) -> str:
     return _normalize_typography(" ".join(str(text).split()).casefold())
 
 
-def _units_key(text: str) -> str:
-    """Comparison key for a units string: canonicalised notation, lowercase, spaces and separators dropped
-    ('g N m -2' == 'g N m-2' == 'g N m^{-2}' == 'g N m⁻²' == 'g·N·m-2')."""
-    return re.sub(r"[\s.^()\[\]|*,;:_·×{}]+", "", _canon(text))
+def _units_key(text: Optional[str]) -> str:
+    """Units comparison key: canonical notation, lowercase, separators dropped, micro sign as 'u'
+    ('g N m -2' == 'g N m^{-2}' == 'g N m⁻²' == 'g·N·m-2'; 'µmol' == 'umol')."""
+    return re.sub(r"[\s.^()\[\]|*,;:_·×{}]+", "", _canon(text or "")).replace("μ", "u")
 
 
 def _short_unit_pattern(canon_units: str) -> str:
@@ -934,10 +782,8 @@ def _unit_supported(units: str, texts: list[str]) -> bool:
 
 def _numbers_in(text: str) -> list[float]:
     """Every number written in `text`, SIGNED when the source writes a minus sign. A hyphen/dash/minus is a sign only
-    when the nearest non-space character before it is not a digit, letter, '.', ')' , ']' or '%': '–0.69' (Philippe
-    Table 3 dark respiration) is -0.69 and '(-121˚32´W' is -121, while a range ('0-0.1', '15 – 30') and a unit exponent
-    ('g m -2') keep unsigned numbers exactly as before. Before this, '–0.69' read as 0.69: the correct value -0.69 was
-    rejected and a sign-dropped 0.69 accepted."""
+    when the nearest non-space character before it is not a digit, letter, '.', ')' , ']' or '%': '–0.69' is -0.69,
+    while a range ('0-0.1') and a unit exponent ('g m -2') keep unsigned numbers."""
     canon = _canon(text)
     numbers: list[float] = []
     for match in _NUMBER_RE.finditer(canon):
@@ -996,11 +842,7 @@ def _nested_value_issues(field_path: str, value: dict[str, Any], cited: list[tup
         if not supported and is_quantity and field_path.rsplit(".", 1)[-1] in coordinates.COORDINATE_FIELDS:
             supported = coordinates.stated_equivalently(reported_text, texts)
         if not supported and is_date:
-            # A date the pipeline assembled from two cited stretches ("9 June" in one block + "1993" in another, the
-            # Item 11 temporal-context flow: date_text + year_text) is not one contiguous quote. It is accepted only
-            # when it splits into at most TWO stretches, each a literal contiguous quote of some cited block --
-            # words merely present somewhere in the citations never assemble a date ("June 18 2006" from "mid-June"
-            # and "May 18" and "2006" is three stretches, so it is not).
+            # A date assembled from date_text + year_text is accepted only as at most two literal quoted stretches.
             supported = _max_two_literal_stretches(reported_text, texts)
         if not supported:
             what = "date text" if is_date else "reported_text"
@@ -1042,8 +884,7 @@ _BINOMIAL_RE = re.compile(r"\b([A-Z][a-z]{2,})\s+([a-z]{3,})\b")
 def _genus_abbreviation_variants(value: Any, blocks: dict[str, str]) -> list[str]:
     """`value` with each full binomial ("Pinus sylvestris") abbreviated the way papers write it after first mention
     ("P. sylvestris") -- but only for a binomial the SAME paper spells out in full somewhere, so the expansion is
-    itself grounded in the document, never supplied from outside knowledge. Real case (Philippe-2007-Six b:0028):
-    "25-year-old natural P. sylvestris stand" rejected the model's "25-year-old natural Pinus sylvestris stand"."""
+    itself grounded in the document, never supplied from outside knowledge."""
     if not isinstance(value, str) or not _BINOMIAL_RE.search(value):
         return []
     document = " ".join(blocks.values())
@@ -1171,12 +1012,12 @@ ALL_WHOLE_GRAPH_CHECKS = [
     check_source_of_record_referential_integrity,
     check_treatment_control_status_optional,
     check_treatment_name_not_quantity,
-    check_variable_name_uniqueness,  # NEW this sprint (Variable)
-    check_crop_species_ref,  # NEW this sprint (Crop)
-    check_treatment_pair_references_resolve,  # NEW this sprint (TreatmentPair)
-    check_variable_ref_integrity,  # NEW this sprint (Variable)
-    check_crop_ref_integrity,  # NEW this sprint (Crop)
-    check_coverage_site_ref,  # NEW this sprint (Coverage)
+    check_variable_name_uniqueness,
+    check_crop_species_ref,
+    check_treatment_pair_references_resolve,
+    check_variable_ref_integrity,
+    check_crop_ref_integrity,
+    check_coverage_site_ref,
 ]
 
 
@@ -1188,33 +1029,21 @@ def validate_dataset(ds: IRDataset) -> list[ValidationIssue]:
 
 
 # ---------------------------------------------------------------------------
-# Readiness (Item 15)
+# Readiness
 # ---------------------------------------------------------------------------
 
-# A record can be structurally valid -- every field has a provenance label, an UNRESOLVED one carries a real
-# reason -- and still not be READY: its core has no content. Real evidence: 81 of the 206 Observations stored as
-# `ready` across the stored runs had an UNRESOLVED `value` (36 of 108 in one run) and 8 an UNRESOLVED
-# `variable_name`, i.e. a "ready" measurement with no measurement. Which fields must be resolved is per entity type.
-# `temporal_info` is deliberately NOT here: protocol Section 10.1 says that when no reliable date window can be
-# recovered the date fields are left blank with the reason explained -- an undated Observation is still usable.
+# A valid record is READY only when these core fields are resolved (an undated Observation is still usable, so
+# temporal_info is not required; protocol Section 10.1).
 READINESS_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     "Observation": ("value", "variable_name"),
-    # Correction pass, Fix 7 -- CORE IDENTITY. A record that does not say what it is cannot be used, whatever else it
-    # carries. Real hollow "ready" records (Daren run 20260919T211137_77879c98 and Felipe run felipe_smoke_20260920T132343):
-    # a Variable whose name, description, units and notes were ALL UNRESOLVED (Daren leaf-blade dry weight; the reason it
-    # gave, "page number not available", was itself spurious); a Variable with a null name (Felipe plant nitrogen
-    # content); a Method with a null name (Felipe disease scoring). Deliberately the same principle as Observation, not
-    # "every optional field": identity is required; descriptive metadata (description, units, notes) never is.
+    # identity is required; descriptive metadata never is
     "Variable": ("name",),
     "Method": ("name",),
-    # Phase A5: protocol Section 6.3 minimum -- a treatment has a recognisable name AND a definition of the intended
-    # contrast. Real hollow "ready" Treatments (Kathryn run 20260925T225646): "4" with no name, "mean" with neither.
+    # protocol Section 6.3: a treatment has a name and a definition of the intended contrast
     "Treatment": ("name", "definition"),
 }
 
-# Identity that can be given in either of two fields. A Crop is the paper-specific cultivar/variety (ir_schema.Crop): its
-# taxonomy lives in the referenced Species, so with neither `cultivar` nor `common_name` resolved it names nothing that the
-# Species record does not (real case: Daren Crop Trailblazer, `cultivar` UNRESOLVED and no common name).
+# Identity that can be given in either of two fields (a Crop needs a cultivar or a common name).
 READINESS_ANY_OF_FIELDS: dict[str, tuple[tuple[str, ...], ...]] = {
     "Crop": (("cultivar", "common_name"),),
 }

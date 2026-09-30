@@ -174,18 +174,3 @@ def test_real_felipe_note_is_a_treatment_dimension_pooled_factor():
 def test_synthetic_pooled_mixture_names_are_never_labelled_crop(sentence, expected):
     accepted = [r for r in pe.scan_text(sentence) if r["status"] == "accepted"]
     assert accepted and {r["dimension"] for r in accepted} == {expected}
-
-
-# --------------------------------------------------------------------- #
-# class-D limitation is recorded, not worked around
-# --------------------------------------------------------------------- #
-
-
-def test_the_missing_design_representation_is_recorded_as_a_class_d_limitation():
-    text = orchestrator.LIMITATION_L3
-    assert text.startswith("L3 (current-IR limitation, not an extraction failure)")
-    assert "Section 16.2" in text and "Study holds only identity" in text
-    assert "not represented as Treatments or Observations" in text
-    # recorded only: it is not part of the per-run limitations the manifest computes, and no schema field exists
-    from pipeline import ir_schema
-    assert set(ir_schema.Study.model_fields) == {"id", "citation_ids"}

@@ -1,13 +1,4 @@
-"""
-ir-store persistence — Playbook Section 7: `ir-store/<paper_id>.jsonl,
-committed + unresolved records, append-only audit trail`.
-
-Append-only, deliberately: every commit_record/flag_unresolved call adds a
-line, never rewrites or deletes one. A record's current status is "whatever
-the last line for that record_key says" — the history itself is the audit
-trail Section 6's tool surface exists to support (a reviewer can see every
-attempt, not just the final one).
-"""
+"""ir-store: append-only JSONL of committed and unresolved records; the last line for a record is its status."""
 
 from __future__ import annotations
 
@@ -25,11 +16,25 @@ def _store_root() -> Path:
     return Path(os.environ.get("IR_STORE_ROOT", str(DEFAULT_STORE_ROOT)))
 
 
-def _store_path(paper_id: str, root: Optional[Path] = None) -> Path:
-    if root is None:
-        root = _store_root()
+def jsonl_path(root: Path, paper_id: str) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     return root / f"{paper_id}.jsonl"
+
+
+def append_jsonl(path: Path, entry: dict[str, Any]) -> None:
+    with path.open("a") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
+def read_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    with path.open() as f:
+        return [json.loads(line) for line in f if line.strip()]
+
+
+def _store_path(paper_id: str, root: Optional[Path] = None) -> Path:
+    return jsonl_path(root or _store_root(), paper_id)
 
 
 def append_record(
@@ -41,8 +46,7 @@ def append_record(
     extra: Optional[dict[str, Any]] = None,
     root: Optional[Path] = None,
 ) -> dict[str, Any]:
-    """status must be 'ready' or 'unresolved' -- enforced by the caller
-    (ir_service.commit_record), never trusted from this layer alone."""
+    """status ('ready' or 'unresolved') is enforced by the caller, ir_service.commit_record."""
     entry = {
         "ts": time.time(),
         "paper_id": paper_id,
@@ -53,55 +57,24 @@ def append_record(
     }
     if extra:
         entry.update(extra)
-    path = _store_path(paper_id, root)
-    with path.open("a") as f:
-        f.write(json.dumps(entry) + "\n")
+    append_jsonl(_store_path(paper_id, root), entry)
     return entry
 
 
 def read_all(paper_id: str, root: Optional[Path] = None) -> list[dict[str, Any]]:
-    path = _store_path(paper_id, root)
-    if not path.exists():
-        return []
-    entries = []
-    with path.open() as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                entries.append(json.loads(line))
-    return entries
+    return read_jsonl(_store_path(paper_id, root))
 
 
 def has_paper(paper_id: str, root: Optional[Path] = None) -> bool:
-    """True when an ir-store JSONL file already exists for this paper_id --
-    used by callers (e.g. api_client.rename_extracted_paper) to check a
-    rename destination is free before renaming anything."""
+    """True when an ir-store file exists for this paper_id."""
     return _store_path(paper_id, root).is_file()
 
 
 def rename_paper(old_paper_id: str, new_paper_id: str, root: Optional[Path] = None) -> bool:
-    """Renames the ir-store JSONL FILE only -- old_paper_id.jsonl ->
-    new_paper_id.jsonl. Never rewrites the file's own content: every
-    existing line's own "paper_id" field still says the OLD id, and this
-    module's append-only invariant ("never rewrite or delete a LINE") is
-    still honored -- only the file's name changes. Safe to do: nothing in
-    this codebase reads a loaded entry's own "paper_id" field back out
-    after `read_all()` and compares it to anything (confirmed by
-    inspection), so a pure file rename is sufficient for the store to be
-    found under its new name going forward. Caller is responsible for
-    checking the destination doesn't already exist first (see
-    api_client.rename_extracted_paper). Returns True if there was
-    something to rename, False if old_paper_id has no store file at all."""
+    """Rename the store file only (line contents keep the old paper_id); False if there is none. The caller checks
+    the destination is free."""
     old_path = _store_path(old_paper_id, root)
     if not old_path.is_file():
         return False
     old_path.rename(_store_path(new_paper_id, root))
     return True
-
-
-def latest_status(paper_id: str, entity_type: str, record_id: str, root: Optional[Path] = None) -> Optional[str]:
-    entries = read_all(paper_id, root)
-    for entry in reversed(entries):
-        if entry["entity_type"] == entity_type and entry["record_id"] == record_id:
-            return entry["status"]
-    return None

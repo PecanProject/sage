@@ -1,4 +1,4 @@
-"""Phase A: stop silent losses and wrong ready records.
+"""Stop silent losses and wrong ready records.
 
 Each test is a real failure from the overnight corpus run (2026-09-25/26):
   A1  an empty enumeration answer after a stall / provider hiccup was accepted as "none exist" -- Philippe Management
@@ -14,7 +14,6 @@ Each test is a real failure from the overnight corpus run (2026-09-25/26):
 
 from __future__ import annotations
 
-import json
 
 import pytest
 

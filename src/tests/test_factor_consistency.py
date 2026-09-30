@@ -1,4 +1,4 @@
-"""F1-F4: a table's factor structure is repaired, not regenerated, and checked against the paper's other tables before
+"""A table's factor structure is repaired, not regenerated, and checked against the paper's other tables before
 any Treatment or Observation is derived from it.
 
 Real failure (Philippe-2007-Six, run 20260926T162813_56de01a6): Table 3 (b:0193) was classified CORRECTLY on the first
@@ -44,7 +44,7 @@ def _real(table3: TableClassification) -> dict[str, TableClassification]:
 
 
 # --------------------------------------------------------------------------- #
-# F1 -- repair, not regenerate
+# repair, not regenerate
 # --------------------------------------------------------------------------- #
 
 def test_the_real_first_attempt_is_repaired_without_a_model_call():
@@ -120,7 +120,7 @@ def test_a_first_prompt_never_carries_a_previous_answer():
 
 
 # --------------------------------------------------------------------------- #
-# F2 -- cross-table factor consistency
+# cross-table factor consistency
 # --------------------------------------------------------------------------- #
 
 def test_the_collapsed_table_is_withheld_as_a_mixed_factor_citing_the_other_tables():
@@ -186,7 +186,7 @@ def test_a_withheld_tables_anchors_are_accounted_for_so_free_form_does_not_re_de
 
 
 # --------------------------------------------------------------------------- #
-# F3 -- statistic rows are not design factors
+# statistic rows are not design factors
 # --------------------------------------------------------------------------- #
 
 def test_star_sky_is_pooled_over_year_only_never_over_the_statistic_rows():
@@ -206,7 +206,7 @@ class _EmptyIndex:
 
 
 # --------------------------------------------------------------------------- #
-# F4 -- the Treatment validator sees the design
+# the Treatment validator sees the design
 # --------------------------------------------------------------------------- #
 
 def test_the_treatment_validator_is_told_year_is_time(monkeypatch):

@@ -1,24 +1,6 @@
-"""
-`pipeline/ir_service.py` — FastAPI app wrapping the real Pydantic
-schema/validators/reconstruction logic (`ir_schema.py`, `validators.py`,
-`reconstruction.py`, `vocab.py`, `content_reader.py`, `store.py`).
-
-Playbook Section 6: "Custom tools, exposed to the OpenCode agent via a
-TypeScript plugin, each a thin call to a local Python `ir-service` (FastAPI)
-wrapping the real Pydantic schema/validators/reconstruction logic -- never
-reimplement that logic in TypeScript." This module IS that wrapper; the
-TypeScript plugin (`opencode-config/plugin/ir-tools.ts`) only does HTTP
-calls into these endpoints and returns the JSON straight through -- no
-validation logic lives in TS.
-
-Deterministic-validation-is-authoritative (this sprint's explicit
-instruction): every endpoint that could commit or approve a record
-(`propose_record`, `commit_record`) re-runs the real Pydantic construction
-validators plus `validators.validate_dataset`'s whole-graph checks against a
-single-entity-scoped dataset view. An LLM agent's own claim that a record is
-valid is never trusted -- these functions either accept or reject, and the
-rejection reasons are the only thing that comes back.
-"""
+"""FastAPI service wrapping the Pydantic schema, validators, reconstruction and read tools; the TypeScript plugin
+(`opencode-config/plugin/ir-tools.ts`) only forwards HTTP calls. `propose_record`/`commit_record` always re-run the
+schema and whole-graph validation; a model's own claim that a record is valid is never trusted."""
 
 from __future__ import annotations
 
@@ -26,7 +8,6 @@ import os
 import ast
 import json
 import time
-from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException
@@ -38,30 +19,14 @@ from pipeline import store
 from pipeline import vocab
 from pipeline.fingerprint import schema_fingerprint
 from pipeline.ir_schema import ENTITY_MODELS, IRDataset
-from pipeline.validators import readiness_issues, validate_dataset, validate_provenance
+from pipeline.validators import _papers_root, readiness_issues, validate_dataset, validate_provenance
 
 app = FastAPI(title="ir-service", version="0.1.0")
 _SERVICE_STARTED_AT = time.time()
-# Captured ONCE, at import time -- see /health's own docstring below. Calling
-# schema_fingerprint() fresh inside the /health handler (the previous
-# behavior) reads validators.py/ir_schema.py off disk at REQUEST time, not
-# what this process actually loaded at startup, so it silently reports
-# "healthy" against a running process's stale in-memory code the instant the
-# files on disk change underneath it -- confirmed directly during Phase C
-# benchmarking: a propose_record call against a long-running process
-# returned old (pre-fix) behavior while /health simultaneously reported the
-# CURRENT on-disk fingerprint as a match. This defeated the exact staleness
-# check `orchestrator.check_health` depends on to refuse running against a
-# stale service.
+# Captured at import time, so /health reports the code this process loaded, not what is on disk now.
 _SERVICE_SCHEMA_FINGERPRINT = schema_fingerprint()
 
-# In-memory per-record attempt counters, for the turn-cap rule (Playbook
-# Section 6: "a hard turn cap per record (~4 self-correction attempts) forces
-# flag_unresolved instead of an agent quietly guessing its way to a
-# fabricated value under retry pressure"). Deliberately server-side state,
-# not something the agent/prompt can reset by just trying again with
-# slightly different wording -- the key is (paper_id, entity_type, record_id)
-# so distinct records don't share a budget.
+# Server-side per-record attempt counters for the turn cap, keyed by (paper_id, entity_type, record_id).
 MAX_PROPOSE_ATTEMPTS = 4
 # Run isolation: the key also carries the caller's run_id (None for a caller
 # that supplies none -- the pre-isolation behavior, unchanged), so two runs
@@ -391,13 +356,8 @@ _FILLED_EXAMPLES: dict[str, dict[str, Any]] = {
         },
     },
     "Observation": {
-        # Demonstrates every interacting invariant that real Oceologia-1998
-        # extraction runs hit and failed on repeatedly (Phase 2 investigation):
-        # reported_effect_scope=treatment_mean <-> aggregated_over_factors
-        # shape, INFERRED <-> unresolved_reason, UNRESOLVED <-> value=None,
-        # and a boolean ExtractedField (is_raw_replicate_level) that is
-        # EXTRACTED/INFERRED-grounded WITHOUT the source literally containing
-        # the word "true"/"false".
+        # Shows the interacting invariants: effect scope <-> aggregated_over_factors, INFERRED <-> reason,
+        # UNRESOLVED <-> value=None, and a boolean grounded without the literal word "true"/"false".
         "id": "smukler2012a_yolo_soc_control_obs1",
         "dataset_id": "smukler2012a_dataset",
         "citation_id": "smukler2012a",
@@ -514,11 +474,6 @@ def get_schema(entity_type: str) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def _papers_root() -> Path:
-    """Resolve the papers root from the current environment at request time."""
-    return Path(os.environ.get("IR_PAPERS_ROOT", "paper"))
-
-
 @app.get("/read_section")
 def read_section(paper_id: str, section_name: str) -> dict:
     return content_reader.read_section(
@@ -541,11 +496,7 @@ def read_table(paper_id: str, table_id: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Phase 1 deterministic evidence tools -- list_sections / read_section_by_path
-# / read_table_row / read_table_cell / read_nearby. All read provenance.json
-# metadata that docproc/marker_adapter.py already computed during document
-# preparation (section_path, per-cell row_index/col_index) -- nothing here
-# re-derives it, and nothing here calls a model.
+# Structural read tools over provenance.json metadata (no model calls).
 # ---------------------------------------------------------------------------
 
 
@@ -595,12 +546,7 @@ def _coerce_dict(value: Any) -> dict[str, Any]:
         return value
 
     if isinstance(value, str):
-        # JSON first -- a caller sending valid JSON (e.g. bare `null`, which
-        # is not a Python literal) must not be rejected just because
-        # ast.literal_eval can't parse it. ast.literal_eval stays as a
-        # fallback for a Python-dict-repr string, which some caller may
-        # still legitimately send; this only re-orders which parser gets
-        # first refusal; it doesn't remove either.
+        # JSON first, then a Python dict repr
         try:
             parsed = json.loads(value)
         except (ValueError, TypeError):
@@ -615,18 +561,13 @@ def _coerce_dict(value: Any) -> dict[str, Any]:
     raise ValueError("Expected a JSON object or Python dict string")
 
 
-# ---------------------------------------------------------------------------
-# propose_record
-# ---------------------------------------------------------------------------
-
-
-class ProposeRecordRequest(BaseModel):
+class _RecordRequest(BaseModel):
+    """A record payload plus optional dataset context, both accepted as a dict or a JSON/Python-dict string."""
     paper_id: str
     entity_type: str
     record_id: str
     payload: dict[str, Any]
     dataset_context: Optional[dict[str, Any]] = None
-    run_id: Optional[str] = None  # orchestrator run this proposal belongs to (attempt-counter isolation only)
 
     @field_validator("payload", mode="before")
     @classmethod
@@ -639,6 +580,16 @@ class ProposeRecordRequest(BaseModel):
         if value is None:
             return None
         return _coerce_dict(value)
+
+
+# ---------------------------------------------------------------------------
+# propose_record
+# ---------------------------------------------------------------------------
+
+
+class ProposeRecordRequest(_RecordRequest):
+    run_id: Optional[str] = None  # orchestrator run this proposal belongs to (attempt-counter isolation only)
+
 
 def _construction_errors(entity_type: str, payload: dict[str, Any]) -> list[dict]:
     model = ENTITY_MODELS.get(entity_type)
@@ -677,26 +628,7 @@ def propose_record(req: ProposeRecordRequest) -> dict:
 
     errors = _construction_errors(req.entity_type, req.payload)
 
-    # Provenance is deterministic and independent of the LLM's own claim that
-    # an anchor supports a value. Run it EVERY time, even when construction
-    # already failed, not just when construction passed -- validate_provenance
-    # walks the raw payload dict looking for {value, provenance_label, source}
-    # shapes wherever they occur, so it doesn't need the payload to fully
-    # construct first, and a malformed subtree elsewhere simply yields no
-    # extra findings for that subtree rather than crashing.
-    #
-    # Real Oceologia-1998 Observation runs (Phase C investigation) showed the
-    # previous "only after construction succeeds" gating forces failures to
-    # be discovered ONE CATEGORY PER ATTEMPT: a payload with both a
-    # construction-time problem (e.g. an INFERRED boolean missing its
-    # inference-basis note) and an unrelated provenance mismatch (e.g. a
-    # wrong anchor for a different field) only ever saw the construction
-    # error on one attempt, fixed it, and only THEN learned about the
-    # provenance problem on the next attempt -- burning an extra attempt
-    # against the 4-attempt turn cap that better-combined feedback would not
-    # have needed. Surfacing both categories together whenever both are
-    # findable never loosens what counts as valid; it only gives the
-    # Conversion stage complete feedback per round instead of partial.
+    # Provenance runs even when construction failed, so one round reports both kinds of error.
     errors.extend(issue.to_dict() for issue in validate_provenance(req.paper_id, req.payload))
 
     warnings: list[dict] = []
@@ -720,7 +652,7 @@ def propose_record(req: ProposeRecordRequest) -> dict:
     if not is_valid:
         _attempt_counts[key] = attempts_so_far + 1
 
-    # Readiness (Item 15) is separate from validity: a payload can be valid yet have no value / variable name. It costs
+    # Readiness is separate from validity: a payload can be valid yet have no value / variable name. It costs
     # no attempt and is not an error -- the caller commits such a record as `unresolved`, payload kept.
     readiness = [issue.to_dict() for issue in readiness_issues(req.entity_type, req.payload, req.record_id)] if is_valid else []
 
@@ -814,9 +746,7 @@ class FlagUnresolvedRequest(BaseModel):
 
 @app.post("/flag_unresolved")
 def flag_unresolved(req: FlagUnresolvedRequest) -> dict:
-    # Playbook Section 6: "require the agent to cite every block it examined
-    # and explain why they conflict or fall short -- a bare reason string
-    # isn't enough". Enforced server-side, not left to prompt discipline.
+    # An unresolved flag must cite the blocks examined and say why they fall short.
     if not req.blocks_examined:
         raise HTTPException(
             status_code=422,
@@ -854,53 +784,27 @@ def flag_unresolved(req: FlagUnresolvedRequest) -> dict:
 # ---------------------------------------------------------------------------
 
 
-class CommitRecordRequest(BaseModel):
-    paper_id: str
-    entity_type: str
-    record_id: str
-    payload: dict[str, Any]
+class CommitRecordRequest(_RecordRequest):
     status: str
-    dataset_context: Optional[dict[str, Any]] = None
     run_metadata: Optional[dict[str, Any]] = None  # orchestrator lineage: run_id, schema fingerprint, ai_validation, etc.
-
-    @field_validator("payload", mode="before")
-    @classmethod
-    def coerce_payload(cls, value: Any) -> dict[str, Any]:
-        return _coerce_dict(value)
-
-    @field_validator("dataset_context", mode="before")
-    @classmethod
-    def coerce_dataset_context(cls, value: Any) -> Optional[dict[str, Any]]:
-        if value is None:
-            return None
-        return _coerce_dict(value)
 
 
 @app.post("/commit_record")
 def commit_record(req: CommitRecordRequest) -> dict:
-    # Server-side enum enforcement, never prompt-side only (Playbook Section 6).
+    # Server-side enum enforcement.
     if req.status not in ("ready", "unresolved"):
         raise HTTPException(
             status_code=422,
             detail=f"status must be 'ready' or 'unresolved', got '{req.status}'.",
         )
 
-    # Construction (Pydantic shape) and provenance validation are
-    # unconditional, regardless of status: AGENTS.md and extractor.md both
-    # promise commit_record "requires a syntactically valid payload shape
-    # either way" -- status="unresolved" means specific fields may carry
-    # provenance_label=UNRESOLVED (already require value=None + a real
-    # unresolved_reason, enforced by ir_schema.py's own construction
-    # invariants), not that the payload's shape is unchecked. Whole-graph
-    # dataset_context checks remain "ready"-only below: that check is about
-    # cross-record graph consistency (duplicate names, dangling refs), a
-    # judgment call about readiness to join the graph, not shape validity.
+    # Shape and provenance are checked for every status; whole-graph checks only for "ready".
     errors = _construction_errors(req.entity_type, req.payload)
     if not errors:
         errors.extend(issue.to_dict() for issue in validate_provenance(req.paper_id, req.payload))
 
     if req.status == "ready":
-        # A record whose core fields are UNRESOLVED can only be committed as `unresolved` (Item 15).
+        # A record whose core fields are UNRESOLVED can only be committed as `unresolved`.
         errors.extend(issue.to_dict() for issue in readiness_issues(req.entity_type, req.payload, req.record_id))
 
     warnings: list[dict] = []
@@ -941,13 +845,8 @@ def commit_record(req: CommitRecordRequest) -> dict:
 
 @app.get("/health")
 def health() -> dict:
-    """Reports the schema/validator fingerprint actually loaded in THIS
-    process. A long-running uvicorn process serving a code version older
-    than what's on disk is a real, previously-observed failure mode (an
-    invalid Citation with a bare-null persistent_identifier reached ir-store
-    because the running process still had the pre-fix schema in memory) --
-    `orchestrator.check_health` compares this against a fresh hash of the
-    files on disk and refuses to run against a stale service."""
+    """The schema/validator fingerprint this process loaded; `orchestrator.check_health` compares it with the files on
+    disk and refuses to run against a stale service."""
     return {
         "status": "ok",
         "schema_fingerprint": _SERVICE_SCHEMA_FINGERPRINT,

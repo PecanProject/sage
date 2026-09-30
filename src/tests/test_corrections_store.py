@@ -8,7 +8,6 @@ from corrections_store import (
     append_correction,
     latest_action_for_field,
     read_all,
-    read_for_record,
 )
 
 
@@ -42,29 +41,6 @@ def test_valid_actions_match_review_action_spec():
 def test_append_never_touches_other_papers(isolated_root):
     append_correction("pecan", "Citation", "pecan", action="approve")
     assert read_all("other-paper") == []
-
-
-def test_read_for_record_filters_by_entity_and_record(isolated_root):
-    append_correction("pecan", "Citation", "pecan", action="approve")
-    append_correction("pecan", "Site", "pecan_site", action="approve")
-    result = read_for_record("pecan", "Citation", "pecan")
-    assert len(result) == 1
-    assert result[0]["entity_type"] == "Citation"
-
-
-def test_read_for_record_field_query_includes_record_level_entries(isolated_root):
-    append_correction("pecan", "Citation", "pecan", action="approve")  # record-level
-    append_correction("pecan", "Citation", "pecan", action="correct_value", field_name="title", payload={"new_value": "X"})
-    result = read_for_record("pecan", "Citation", "pecan", field_name="title")
-    assert len(result) == 2  # both the record-level and the field-level entry
-
-
-def test_read_for_record_field_query_excludes_other_fields(isolated_root):
-    append_correction("pecan", "Citation", "pecan", action="correct_value", field_name="title", payload={"new_value": "X"})
-    append_correction("pecan", "Citation", "pecan", action="correct_value", field_name="year", payload={"new_value": 2000})
-    result = read_for_record("pecan", "Citation", "pecan", field_name="title")
-    assert len(result) == 1
-    assert result[0]["field_name"] == "title"
 
 
 def test_latest_action_for_field_returns_most_recent(isolated_root):

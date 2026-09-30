@@ -1,4 +1,4 @@
-"""Phase 1A focused tests: the deterministic evidence tools added to
+"""Focused tests: the deterministic evidence tools added to
 `pipeline/content_reader.py` (`list_sections`, `read_section_by_path`,
 `read_table_row`, `read_table_cell`, `read_nearby`).
 
@@ -180,7 +180,7 @@ def test_read_table_cell_out_of_range_column_not_found(tmp_path):
 
 
 def test_read_table_row_and_cell_always_cite_the_table_anchor_never_a_cell_anchor(tmp_path):
-    # The critical Phase 1 property: no matter which row/cell is asked for,
+    # The critical property: no matter which row/cell is asked for,
     # the citable anchor returned is always the TABLE's own anchor -- never
     # one of the individual (provenance-only, never-rendered) cell anchors
     # like b:9001-b:9006 -- since only the table anchor can ever be
@@ -254,8 +254,7 @@ def test_nearby_preserves_metadata_for_every_returned_block(tmp_path):
 
 
 # --------------------------------------------------------------------- #
-# 8. list_tables / raw_table_cells / read_table_full (table-enumeration
-#    design review, Step A -- see orchestrator.py's run_table_enumeration)
+# 8. list_tables / raw_table_cells (Step A table discovery)
 # --------------------------------------------------------------------- #
 
 def test_list_tables_finds_every_table_block(tmp_path):
@@ -301,20 +300,3 @@ def test_raw_table_cells_missing_provenance_returns_empty(tmp_path):
     assert cr.raw_table_cells("no_provenance_paper", ["b:0006"], papers_root=tmp_path) == []
 
 
-def test_read_table_full_combines_markdown_and_structured_rows(tmp_path):
-    root = write_paper(tmp_path)
-    result = cr.read_table_full(PAPER_ID, "b:0006", papers_root=root)
-    assert result["found"] is True
-    assert result["table_anchor"] == "b:0006"
-    assert "Treatment" in result["markdown_table"]
-    assert result["rows"] == [
-        ["Treatment", "Yield"],
-        ["control", "3.2"],
-        ["n_fert", "4.1"],
-    ]
-
-
-def test_read_table_full_missing_anchor_returns_not_found(tmp_path):
-    root = write_paper(tmp_path)
-    result = cr.read_table_full(PAPER_ID, "b:9999", papers_root=root)
-    assert result["found"] is False

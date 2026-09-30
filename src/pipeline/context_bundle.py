@@ -32,11 +32,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-from pipeline.document_map import DocBlock, DocumentMap, build_document_map
+from pipeline.document_map import DocBlock, build_document_map
 from pipeline.evidence_index import EvidenceIndex, Hit, build_evidence_index, significant_words
 
 STRATEGY_VERSION = "1"
@@ -185,7 +185,7 @@ class ContextBundle:
     terminology: tuple[tuple[str, tuple[str, ...]], ...]
     negative_evidence: tuple[str, ...]
     retrieval_metadata: tuple[tuple[str, Any], ...] = ()
-    # Phase D: the Observation's experimental context -- cell, variable, method, treatment/factor, time, site,
+    # The Observation's experimental context -- cell, variable, method, treatment/factor, time, site,
     # aggregation, statistics, design -- composed from the existing artifacts (Document Map, method map, design.json),
     # stored as a JSON string so the bundle stays immutable and hashable.
     experimental_context: Optional[str] = None
@@ -193,9 +193,6 @@ class ContextBundle:
     @property
     def anchors(self) -> tuple[str, ...]:
         return tuple(item.anchor for item in self.items)
-
-    def status_of(self, concept: str) -> Optional[str]:
-        return next((c.status for c in self.coverage if c.concept == concept), None)
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -363,13 +360,12 @@ def build_context_bundle(
                         linked.add(table.anchors)
                     for ref in dmap.refs_from(anchor):
                         if ref.kind != "table" or not ref.target_anchors:
-                            continue   # a figure reference names no table (Kathryn: "Fig 3" next to table prose)
+                            continue   # a figure reference names no table
                         for table in dmap.tables:
                             if set(table.anchors) & set(ref.target_anchors):
                                 linked.add(table.anchors)
                 if target_phrases:
                     for table in dmap.tables:
-                        texts = [dmap.text(a) for a in table.anchors + table.caption_anchors]
                         if any(index._match(dmap.block(a), target_phrases, [])[0] in (1, 2) for a in table.anchors + table.caption_anchors
                                if dmap.block(a)):
                             linked.add(table.anchors)
@@ -447,7 +443,7 @@ def build_context_bundle(
 
 
 # --------------------------------------------------------------------------- #
-# Phase D: the Observation's experimental context (composed, not rediscovered)
+# The Observation's experimental context (composed, not rediscovered)
 # --------------------------------------------------------------------------- #
 
 def _render_experimental_context(context: dict[str, Any]) -> str:

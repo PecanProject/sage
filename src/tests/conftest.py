@@ -10,7 +10,7 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _no_provider_cooldown(monkeypatch):
-    """Step B waits TABLE_PROVIDER_COOLDOWN_SECONDS between provider-failed rounds (Item 9); tests never sleep."""
+    """Step B waits TABLE_PROVIDER_COOLDOWN_SECONDS between provider-failed rounds; tests never sleep."""
     from pipeline import orchestrator
 
     monkeypatch.setattr(orchestrator, "TABLE_PROVIDER_COOLDOWN_SECONDS", 0)

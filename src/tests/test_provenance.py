@@ -1,4 +1,4 @@
-"""Phase 1 deterministic provenance validator tests."""
+"""Deterministic provenance validator tests."""
 from pathlib import Path
 import pipeline.validators as validators
 
@@ -117,8 +117,7 @@ def test_float_value_still_requires_literal_numeric_match(tmp_path, monkeypatch)
 
 
 # --------------------------------------------------------------------- #
-# Boolean ExtractedField provenance -- Phase 2 redesign.
-#
+# Boolean ExtractedField provenance redesign.
 # Real ExtractedField[bool] uses in the schema: Treatment.control_status,
 # TreatmentPair.use_for_validation, Observation.is_raw_replicate_level.
 # None of these are ever stated in source text as the literal word
@@ -231,7 +230,7 @@ def test_inferred_boolean_with_whitespace_only_reason_is_rejected(tmp_path, monk
 
 
 # --------------------------------------------------------------------- #
-# reported_effect_scope -- Phase C fix: same structural problem as the
+# reported_effect_scope fix: same structural problem as the
 # boolean redesign above, generalized by leaf field name instead of by
 # Python type. Real Oceologia-1998 Observation run 20260915T135025_d291c220
 # showed 0/61 candidates ever got this field past UNRESOLVED: no paper
@@ -307,7 +306,7 @@ def test_inferred_effect_scope_with_real_reason_passes(tmp_path, monkeypatch):
 
 
 # --------------------------------------------------------------------- #
-# Whitespace-robust string matching -- Phase C fix: content.md rendering of
+# Whitespace-robust string matching fix: content.md rendering of
 # chemical/scientific notation (subscripts, superscripts) can insert spurious
 # single spaces inside what is really one token. Confirmed in real
 # Oceologia-1998 content.md, block b:0053: "NH4+-N" renders as "NH 4 + -N".

@@ -1,5 +1,5 @@
 """
-Unresolved-cause taxonomy (Stage 4): WHY a record is not ready, stated as one of a fixed set of causes, so a failure
+Unresolved-cause taxonomy: WHY a record is not ready, stated as one of a fixed set of causes, so a failure
 is never just "unresolved".
 
     NOT_RETRIEVED          the evidence exists in the paper but never reached the model (or an empty answer came after
@@ -13,12 +13,12 @@ is never just "unresolved".
     PROVIDER_FAILURE       the provider failed (timeouts, empty or malformed responses) -- never scientific absence
     VALIDATION_FAILURE     the model's output never had the required shape / never passed deterministic validation
     AI_CONCERN             deterministically valid, but an unanswered AI-validator concern kept it from ready
-    CONFLICT               the source states contradictory values (reserved: Phase C conflict objects)
+    CONFLICT               the source states contradictory values (reserved)
     BLOCKED_PREREQUISITE   not attempted: a record it depends on is not usable
     NOT_READY              valid but a required field is unresolved and no finer cause could be established
 
-Deterministic: derived only from what the record's own artifacts say. The Stage 4 coverage audit, when a bundle was
-used, upgrades a readiness failure into NOT_RETRIEVED / ABSENT / "retrieved but not resolved" (AMBIGUOUS).
+Deterministic: derived only from what the record's own artifacts say. The coverage audit, when a bundle was used,
+upgrades a readiness failure into NOT_RETRIEVED / ABSENT / "retrieved but not resolved" (AMBIGUOUS).
 """
 
 from __future__ import annotations

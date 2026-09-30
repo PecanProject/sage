@@ -1,7 +1,7 @@
-"""Correction pass, Fix 2: provider failures at RECORD level use the separate provider budget.
+"""Provider failures at RECORD level use the separate provider budget.
 
 Real evidence (run felipe_smoke_20260920T132343, Felipe-2010-Cultivar): 15 of 345 model calls surfaced as provider
-failures after `invoke_agent`'s own internal retries -- 13 in record-level Extraction, 2 in enumeration. Item 9 had
+failures after `invoke_agent`'s own internal retries -- 13 in record-level Extraction, 2 in enumeration. The provider budget had
 given Step B a separate provider budget, but `run_record` and `run_enumeration` still counted every failed call as one
 of their numbered attempts: 5 of the 6 records that ended in error had lost an attempt to a provider failure (Crop
 enumeration lost 2 of its 3), so the model never got its full chance to correct a genuine problem.

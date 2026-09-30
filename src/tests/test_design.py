@@ -1,4 +1,4 @@
-"""Phase C: the experimental-design intermediate -- main-effect tables, representability, conflicts.
+"""The experimental-design intermediate -- main-effect tables, representability, conflicts.
 
 Real cases:
   - Philippe-2007-Six Tables 1-3 are MAIN-EFFECT tables (PAR-class rows, then Year rows); the classification called them

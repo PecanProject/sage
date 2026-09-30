@@ -1,4 +1,4 @@
-"""Phase A (multi-record Variable) focused tests for
+"""Multi-record Variable focused tests for
 `api_client.get_review_data` -- must return both Variable records when
 several exist, while every other (single-record) entity type keeps
 working exactly as before. Isolated from real data via IR_RESULTS_ROOT
@@ -271,8 +271,6 @@ def test_correction_is_tagged_with_the_reviewed_records_own_run(tmp_path, monkey
     entry = api_client.submit_correction("p", "Citation", "p", "approve", run_id=results_store.LEGACY_RUN)
 
     assert entry["run_id"] == "legacy_run_7"
-    assert len(api_client.get_corrections("p", "Citation", "p", run_id=results_store.LEGACY_RUN)) == 1
-    assert api_client.get_corrections("p", "Citation", "p_citation", run_id="latest_failed") == []
 
 
 def test_rename_extracted_paper_moves_results_and_ir_store(tmp_path, monkeypatch):

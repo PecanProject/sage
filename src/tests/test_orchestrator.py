@@ -6,7 +6,7 @@ The model is never actually invoked here: `invoke_agent` is swapped for a
 canned sequence of `AgentInvocation`s so the control-flow logic (retry
 counts, when flag_unresolved fires, that AI-validation stays observe-only,
 that nothing is committed until deterministic validation passes) is tested
-deterministically and fast, per this sprint's explicit instruction not to
+deterministically and fast, deliberately, not to
 start broad model testing until the runner itself is reliable.
 
 `ir_service` itself is real (a `TestClient(app)` wrapped in the same
@@ -181,7 +181,7 @@ def test_ai_validation_can_be_disabled(env):
 
 
 def test_ai_validation_plausible_verdict_continues_normally(env):
-    # Phase 1D: SUPPORTED/plausible -> continue normally, exactly one
+    # SUPPORTED/plausible -> continue normally, exactly one
     # AI Validator call, no correction attempt triggered.
     invoke = make_invoke_sequence([
         ("extractor", _inv("extractor", RAW_EXTRACTION)),
@@ -201,7 +201,7 @@ def test_ai_validation_plausible_verdict_continues_normally(env):
 
 
 def test_ai_validation_suspicious_triggers_exactly_one_correction_then_commits(env):
-    # Phase 1D: CONTRADICTED/suspicious -> permit exactly ONE bounded
+    # CONTRADICTED/suspicious -> permit exactly ONE bounded
     # correction attempt. If the corrected payload passes deterministic
     # validation AND is no longer suspicious, it commits normally.
     invoke = make_invoke_sequence([
@@ -229,7 +229,7 @@ def test_ai_validation_suspicious_triggers_exactly_one_correction_then_commits(e
 
 
 def test_ai_validation_still_suspicious_after_correction_is_unresolved_not_committed(env):
-    # Phase 1D: if the record is STILL suspicious after the one bounded
+    # if the record is STILL suspicious after the one bounded
     # correction attempt, it must NOT be force-committed -- fall back to
     # the existing unresolved semantics (deterministic validation passing
     # is necessary but no longer sufficient once the AI Validator is wired in).
@@ -566,7 +566,7 @@ def test_conversion_prompt_directs_provenance_mismatch_toward_anchor_first():
 
 
 def test_conversion_prompt_provenance_mismatch_fetches_real_anchor_text(env):
-    # Phase 1C: the retry prompt must not just TELL the model to check a
+    # the retry prompt must not just TELL the model to check a
     # different anchor -- it must deterministically hand back the REAL,
     # verbatim text of every candidate anchor already in RAW_EVIDENCE, so
     # there is nothing left for the model to recall from memory.
@@ -1283,7 +1283,7 @@ def test_null_fact_with_empty_anchors_is_recovered_by_dropping_it_not_retried(en
 
 
 # --------------------------------------------------------------------- #
-# Phase 1.1: raw evidence grounding gate -- RawFact.raw_text_excerpt is
+# raw evidence grounding gate -- RawFact.raw_text_excerpt is
 # never previously re-verified against the paper's own content.md before
 # this evidence was handed to the sealed Conversion stage. See
 # orchestrator._raw_extraction_grounding_errors's own docstring.
@@ -1386,7 +1386,7 @@ def test_extraction_with_persistently_ungrounded_excerpt_exhausts_attempts_and_e
 
 
 # --------------------------------------------------------------------- #
-# Phase 1.3: extraction-vs-known-table-value cross-check -- catches
+# extraction-vs-known-table-value cross-check -- catches
 # Extraction attributing a DIFFERENT table cell's value to a candidate
 # that Step C already knows the correct reported value for. See
 # orchestrator._extraction_matches_known_value's own docstring.
@@ -1709,7 +1709,7 @@ def test_entity_result_file_shapes_are_stable_across_statuses():
 
 # ---- end-to-end run_paper with mocked agents ---- #
 
-# Item 14: Management is extracted AFTER Treatment (it may link to Treatments, protocol Section 9.3)
+# Management is extracted AFTER Treatment (it may link to Treatments, protocol Section 9.3)
 PAPER_RUN_ORDER = ["Citation", "Site", "Species", "Variable", "Coverage", "Crop", "Method", "Study", "Treatment", "Management", "Observation"]
 # TreatmentPair intentionally excluded: this fixture's multi-record entities
 # (Variable, Treatment) each enumerate exactly ONE candidate, so Treatment
@@ -1773,7 +1773,7 @@ def _paper_payload(entity_type: str, record_id: str, refs: dict) -> dict:
 
 
 # --------------------------------------------------------------------- #
-# Phase A: multi-record Variable -- enumeration + per-candidate run_record()
+# multi-record Variable -- enumeration + per-candidate run_record()
 # --------------------------------------------------------------------- #
 
 
@@ -1874,7 +1874,7 @@ def test_known_refs_omits_variable_when_none_ready():
 
 
 # --------------------------------------------------------------------- #
-# Phase B: multi-record Treatment -- enumeration + per-candidate
+# multi-record Treatment -- enumeration + per-candidate
 # run_record(), and TreatmentPair becoming structurally reachable once
 # >=2 ready Treatment records exist in the same run.
 # --------------------------------------------------------------------- #
@@ -1884,7 +1884,7 @@ def test_two_treatment_candidates_produce_two_unique_ready_records(env):
     # Real-paper motivation (Oceologia-1998): ambient 375 ppm and elevated
     # 700 ppm CO2 are two DISTINCT real Treatments this paper reports --
     # forcing them into one record left Treatment.name/definition UNRESOLVED
-    # (see the Phase B audit). This exercises the same enumeration ->
+    # This exercises the same enumeration ->
     # run_record() control flow already proven for Variable, for Treatment.
     this_run_records = {
         "Citation": {"status": "ready", "record_id": PAPER_ID},
@@ -2122,7 +2122,7 @@ def test_treatment_pair_blocked_skips_enumeration_call_entirely(env):
 
 
 # --------------------------------------------------------------------- #
-# Phase C: multi-record Observation -- enumeration + per-candidate
+# multi-record Observation -- enumeration + per-candidate
 # run_record(), with per-candidate linking to a SPECIFIC Treatment/
 # Variable (both themselves multi-record) when more than one ready
 # candidate of that type exists in this run.
@@ -2597,7 +2597,7 @@ def test_refuse_to_guess_gate_is_selective_a_resolved_field_never_triggers_it(en
 def test_known_refs_and_links_unaffected_when_dependencies_have_one_ready_record_each():
     # Regression: the single-record-dependency case (exactly what
     # Observation looked like immediately after Phase B) must resolve
-    # exactly as before Phase C -- no linking required or consulted.
+    # exactly as before -- no linking required or consulted.
     this_run_records = {
         "Citation": {"status": "ready", "record_id": PAPER_ID},
         "Site": {"status": "ready", "record_id": f"{PAPER_ID}_site"},
@@ -2621,7 +2621,7 @@ def _build_run_paper_invoke_sequence():
     non-blocked entities, in dependency order, with each conversion payload
     correctly using the known_refs produced by earlier entities in the
     sequence. TreatmentPair issues no calls at all (blocked before
-    invoke). Variable (Phase A: multi-record) additionally issues ONE
+    invoke). Variable additionally issues ONE
     enumeration call first, reporting exactly one candidate -- keeping this
     fixture's overall shape (one Variable record produced) identical to
     before multi-record support existed, while exercising the real
@@ -2632,7 +2632,7 @@ def _build_run_paper_invoke_sequence():
         if entity_type in results_store_module.MULTI_RECORD_ENTITY_TYPES:
             enumeration_result = {
                 "entity_type": entity_type,
-                # A Crop's own evidence must name its Species (Phase A2: no binding by elimination) -- b:0001 holds the
+                # A Crop's own evidence must name its Species -- b:0001 holds the
                 # fixture Species' name "A. Author".
                 "candidates": [{"candidate_id": "x", "description": "The single reported variable.",
                                 "anchors": ["b:0003", "b:0001"] if entity_type == "Crop" else ["b:0003"]}],
@@ -2762,7 +2762,7 @@ def test_run_paper_writes_directory_with_all_twelve_files(env):
     ]
     assert single_record_files == sorted(f"{et}.json" for et in single_record_types)
 
-    # Multi-record types (Phase A: Variable) get their own directory
+    # Multi-record types get their own directory
     # instead of a flat <Entity>.json file -- one file per record_id.
     for et in results_store_module.MULTI_RECORD_ENTITY_TYPES:
         assert (paper_dir / et).is_dir()
@@ -2864,7 +2864,7 @@ def test_finalize_paper_writes_to_results_store(env):
 
     store_mod.append_record(paper_id=PAPER_ID, entity_type="Citation", record_id=PAPER_ID, status="ready", payload=valid_citation_payload())
     orchestrator.finalize_paper(PAPER_ID)
-    on_disk = results_store.load_result(PAPER_ID)
+    on_disk = json.loads(results_store.result_path(PAPER_ID).read_text())
     assert on_disk["paper_id"] == PAPER_ID
     assert len(on_disk["entities"]["Citation"]["ready"]) == 1
 

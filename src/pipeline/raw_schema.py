@@ -1,24 +1,6 @@
-"""`pipeline/raw_schema.py` -- the sealed raw-evidence format the Extraction
-AI produces, and the ONLY thing the Conversion AI is ever shown of the
-source paper.
+"""The sealed raw-evidence format the Extraction AI produces: the only view of the paper the Conversion AI gets.
 
-Architecture decision (this sprint): Extraction and Conversion are two
-separate, narrowly-scoped AI stages. Extraction AI has `content.md` read
-tools and no knowledge of the Sage IR contract; Conversion AI has the IR
-schema tools (`get_schema`, `lookup_vocab`, `apply_reconstruction`) and NO
-`content.md` read tools at all. `RawExtraction` is the sealed handoff
-between them -- deliberately looser than `ir_schema.py`'s IR models, since
-this stage's job is "what does the source say and where", not "shape it
-into the exact IR Pydantic contract."
-
-The one invariant carried over unchanged from the IR layer: every fact must
-cite at least one `content.md` block anchor it was actually read from
-(`SourceLocator`/`ExtractionSource.locators` in `ir_schema.py` enforce the
-same thing at the IR layer; `min_length=1` here is the same rule one stage
-earlier). Nothing in this module is EXTRACTED/INFERRED/UNRESOLVED-labeled --
-that provenance-label decision belongs to the Conversion AI, which is the
-one actually mapping into the IR contract, working only from this sealed
-package.
+Every fact cites at least one content.md anchor it was read from; provenance labels are assigned later, by Conversion.
 """
 
 from __future__ import annotations
@@ -29,11 +11,8 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 def _blank_to_none(value: Any) -> Any:
-    """An OPTIONAL free-text field given as "" or whitespace means "not provided": None, never a value and never a
-    reason to reject the whole answer. Real evidence (Smulker-2012-Assessment, run 20260924T063634_43cf5bc7): Step B
-    wrote `units: ""` for a variable with no units, `min_length=1` rejected it, and tables b:0043 and b:0239 failed their
-    attempts on it (hiding a second, separate defect in the same answers). Applied to Optional fields only; required fields keep min_length=1, and a non-empty value
-    is validated exactly as before."""
+    """An optional free-text field given as "" or whitespace means "not provided" (None); required fields keep
+    min_length=1."""
     return None if isinstance(value, str) and not value.strip() else value
 
 
@@ -74,8 +53,8 @@ class CandidateDimension(BaseModel):
     the factor as the source calls it, `dimension` what it IS (the same
     vocabulary as `TableFactor.dimension`), `level` its literal level. Lets a
     free-form candidate and a table-derived candidate be compared by the same
-    canonical identity (item 8): key names never define identity, dimensions
-    and levels do."""
+    canonical identity: key names never define identity, dimensions and levels
+    do."""
 
     name: str = Field(min_length=1)
     dimension: FactorDimension
@@ -83,8 +62,7 @@ class CandidateDimension(BaseModel):
 
 
 class EnumerationCandidate(BaseModel):
-    """Multi-record extraction (Phase A: Variable only) -- one distinct
-    real-world instance of an entity type that a paper reports, identified
+    """Multi-record extraction: one distinct real-world instance of an entity type that a paper reports, identified
     BEFORE full field-level extraction runs for it. Deliberately as sealed
     and evidence-anchored as `RawFact` above: a candidate with no real
     anchor is not a candidate, it's an invention.
@@ -95,8 +73,8 @@ class EnumerationCandidate(BaseModel):
     anchors: list[str] = Field(min_length=1, description="content.md block anchors actually read that support this being a real, distinct instance.")
     linked_candidates: dict[str, str | list[str]] = Field(
         default_factory=dict,
-        description="Reserved for later phases (e.g. an Observation candidate linking to a Treatment/Variable "
-                    "candidate_id) -- always empty for Variable in Phase A. A value is one slug, or -- for a field "
+        description="Links to already-known records (e.g. an Observation candidate linking to a Treatment/Variable "
+                    "slug). A value is one slug, or -- for a field "
                     "that names SEVERAL records (a Management event's `treatment_ids`) -- a list of slugs.",
     )
     context: dict[str, Any] = Field(
@@ -175,14 +153,8 @@ class EnumerationResult(BaseModel):
 # another field such as site, cultivar, replicate, or date").
 
 
-# One statement of the crop / treatment boundary for a multi-cultivar mixture, shared
-# by Step B, free-form Treatment enumeration and the TableFactor description so the
-# three can never disagree. Decision recorded for Felipe-2010-Cultivar: a DESIGNED
-# mixture level is a treatment-dimension level (the paper calls the mixtures "subplot
-# treatments" and states the mixture-vs-monoculture contrast as its central question;
-# protocol Section 6.3 defines a treatment as an experimental condition or system
-# contrast), while each individual cultivar remains `crop` (Section 6.3: cultivar
-# information is not represented by a Treatment).
+# The crop / treatment boundary for a cultivar mixture, shared by every prompt that needs it: a designed mixture is a
+# treatment level, each individual cultivar stays `crop` (protocol Section 6.3).
 MIXTURE_LEVEL_RULE = (
     "'crop' means an INDIVIDUAL cultivar, variety, population or genotype. A designed mixture or composition "
     "level of several cultivars grown together (e.g. a one-, three- and five-cultivar mixture) is a 'treatment' "
@@ -263,10 +235,8 @@ class UnitHintFlag(BaseModel):
 
 
 class MethodHintFlag(BaseModel):
-    """A method hint the paper's own prose does not support (set only by the orchestrator, never by the model).
-    Real evidence (Felipe-2010-Cultivar Table 1): the classification model never read Methods, so it gave no hint at
-    all; a hint it does give is only useful for Method linking if the source says it. One whose significant words no
-    single prose block contains is WITHHELD from candidates (so it can neither link nor seed a Method) and flagged."""
+    """A method hint whose significant words no single prose block contains (set by the orchestrator, never the
+    model): withheld from candidates and flagged."""
 
     scope: Literal["variable", "column"]
     key: str = Field(description="The variable label (scope 'variable') or value_column_id (scope 'column').")
@@ -330,8 +300,7 @@ class TableValueColumn(BaseModel):
     )
     treatment_level_hint: Optional[str] = Field(
         default=None,
-        description="Fix 5 (column-as-treatment, table-enumeration fix-pass design review), real "
-                    "Felipe-2010-Cultivar evidence: set when the column ITSELF encodes a distinct EXPERIMENTAL "
+        description="Set when the column ITSELF encodes a distinct EXPERIMENTAL "
                     "TREATMENT LEVEL, e.g. a table with separate 'Fallow'/'Mustard' sub-columns, rather than the "
                     "treatment being named in a row/factor column. When this is set on a table's value_columns, "
                     "row-level factor_values (e.g. a DAP time point, or which variable is being reported) are "
@@ -348,19 +317,8 @@ class TableValueColumn(BaseModel):
 
 
 class TableRowGroup(BaseModel):
-    """Table enumeration (Step B): one logical data row of the
-    reconstructed table. May correspond to a SPLIT of a single raw
-    geometric table cell -- real confirmed case (Daren-1997-Canopy Table 2,
-    content.md anchor b:0119): the raw cell for one population's
-    Total-yield-at-Ames column is the single string '0.19 0.90 1.16',
-    which is really three logical rows, one per maturity stage. Splitting
-    a packed cell like this into the correct number of logical rows is
-    exactly the reconstruction judgment this stage asks of the model,
-    rather than trusting raw row/col indices uncritically (Marker's own
-    geometric row clustering is not reliable on every page -- see this
-    same real paper's Table 2 continuation block, b:0178, where a footnote
-    row breaks up the visual layout and several unrelated rows get
-    clustered into one row_index)."""
+    """Table enumeration (Step B): one logical data row of the reconstructed table. A packed raw cell
+    ('0.19 0.90 1.16') may be split into several logical rows, since Marker's row clustering is not always reliable."""
 
     row_group_id: str = Field(min_length=1, description="Short, stable slug, unique within this table classification.")
     factor_values: dict[str, str] = Field(default_factory=dict, description="e.g. {'Population': 'Trailblazer', 'Maturity': 'Vegetative'}.")
@@ -409,8 +367,7 @@ class TableClassification(BaseModel):
     )
     aggregation_scope: Literal["cell_level", "aggregated_summary"] = Field(
         default="cell_level",
-        description="Fix 2 (table-enumeration fix-pass design review), real Daren-1997-Canopy Table 7 evidence: "
-                    "'cell_level' (default) means each row/column reports a real, individually-measured value for "
+        description="'cell_level' (default) means each row/column reports a real, individually-measured value for "
                     "one experimental unit -- normal candidate generation applies. 'aggregated_summary' means this "
                     "table reports a POOLED/AVERAGED main-effect summary instead -- e.g. a value averaged 'across "
                     "populations', 'across locations and maturities', or otherwise explicitly pooled -- per the "

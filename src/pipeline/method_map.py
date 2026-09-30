@@ -1,11 +1,6 @@
 """
-Variable -> Method map (Phase B / Stage 5): which Method measured which Variable, decided ONCE per paper and inherited
-by every table cell, instead of each cell guessing on its own.
-
-Why: every Observation of Philippe (118/118), Kathryn (12/12), Felipe (23/24) and Smukler (198/198) was left unresolved
-because `method_id` was ambiguous. Methods are named by their instrument or procedure ("LI-6400 gas-exchange analyzer"),
-cells by their variable ("Vcmax"); nothing recorded which method measures which variable, so the per-cell matcher --
-correctly -- refused to guess.
+Variable -> Method map: which Method measured which Variable, decided once per paper and inherited by every table
+cell, since Methods are named by instrument or procedure and cells by variable.
 
 Tiers, in order; a lower tier never overrides a higher one, and nothing is ever guessed:
   1. hint      the table's own method hint resolves to exactly one Method (the existing matcher);
@@ -207,9 +202,8 @@ def _distinctive(text: str, common: frozenset[str] = frozenset()) -> set[str]:
 
 
 def common_words(index: Optional[EvidenceIndex]) -> frozenset[str]:
-    """Words in more than COMMON_WORD_BLOCK_SHARE of the paper's blocks (the study organism, "sapling", "leaf"): they
-    name no Method. Real case (Philippe run 20260926T190955_435c16fa): the hint "counted after 3-D digitising of each
-    sapling" was linked to gap-fraction photography by the single shared word "sapling" (44 of 160 blocks)."""
+    """Words in more than COMMON_WORD_BLOCK_SHARE of the paper's blocks (the study organism, "leaf"): they name no
+    Method."""
     if index is None or not index.dmap.blocks:
         return frozenset()
     counts: dict[str, int] = {}
@@ -268,8 +262,7 @@ def evidence_tier(entry: VariableEntry, methods: dict[str, dict[str, Any]], inde
         return MethodLink(LINKED, "evidence", methods[rid]["slug"], rid, anchors,
                           f"its own evidence {anchors[0]} states: {sentence[:160]!r}")
     if len(hits) > 1:
-        # No positional tie-break: tried and measured wrong (Felipe "Total fruit" -> nitrogen analysis; Kathryn SOC ->
-        # titration alone, though SOC is total minus inorganic C). Shared-block cases go to the verified model tier.
+        # No positional tie-break: shared-block cases go to the verified model tier.
         return MethodLink(AMBIGUOUS, reason=f"{len(hits)} Methods' evidence states how {entry.label!r} was measured",
                           candidates=sorted(methods[r]["slug"] for r in hits))
     return MethodLink(NONE, reason=f"no Method's evidence states how {entry.label!r} was measured")

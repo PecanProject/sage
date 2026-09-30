@@ -1,4 +1,4 @@
-"""Item 12: units and canonical variable name (plan section 10).
+"""Units and canonical variable name (plan section 10).
 
 Evidence (real run 20260919T085532_98015a8a, Daren-1997-Canopy): ready Observations carried the units `kg DI`
 (Marker's split of "kg DM m-2": the real table block b:0119 renders "kg DI | M m -2") and the literal placeholder
@@ -6,7 +6,7 @@ Evidence (real run 20260919T085532_98015a8a, Daren-1997-Canopy): ready Observati
 ...); and the `units_hint` Step B produced never reached Extraction -- the candidate only had the variable name
 inside its description text.
 
-Item 12: the variable name and the units hint travel as sealed, UNVERIFIED context. The name follows the hint (a
+ the variable name and the units hint travel as sealed, UNVERIFIED context. The name follows the hint (a
 naming judgment) and every spelling that resolves to one Variable record shares that record's name; units come from
 the source text (datapackage: `reported_units` = "units as reported by the source") and the hint is used only where
 it agrees. A hint the source text does not support is flagged and withheld -- never silently adopted, never silently
@@ -24,8 +24,8 @@ from pathlib import Path
 
 import pytest
 
-from pipeline import orchestrator, run_store
-from pipeline.raw_schema import TableClassification, TableFactor, TableRowGroup, TableValueColumn, TableVariable, UnitHintFlag
+from pipeline import orchestrator
+from pipeline.raw_schema import TableClassification, TableFactor, TableRowGroup, TableValueColumn, TableVariable
 from pipeline.validators import _load_rendered_blocks
 from test_orchestrator import RAW_EXTRACTION, env as ir_env, make_invoke_sequence, valid_citation_payload, _inv, PAPER_ID  # noqa: F401
 

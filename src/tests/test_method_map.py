@@ -1,4 +1,4 @@
-"""Phase B: the paper-level Variable -> Method map.
+"""The paper-level Variable -> Method map.
 
 Real failure: every Observation of Philippe (118/118), Kathryn (12/12), Felipe (23/24) and Smukler (198/198) was
 unresolved because `method_id` was ambiguous. The map links a variable to its Method once, with evidence, and refuses

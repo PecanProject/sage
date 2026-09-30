@@ -316,7 +316,7 @@ def test_site_optional_field_unresolved_when_not_stated():
 
 
 # --------------------------------------------------------------------- #
-# Variable, Crop, TreatmentPair, Coverage (added this sprint)
+# Variable, Crop, TreatmentPair, Coverage
 # --------------------------------------------------------------------- #
 
 

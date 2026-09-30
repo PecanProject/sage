@@ -1,4 +1,4 @@
-"""Item 9: provider failures in Step B (`run_table_classification` / the pass).
+"""Provider failures in Step B (`run_table_classification` / the pass).
 
 Real evidence (live Step B checks): 65% of raw invocations in the first pass came back with no final
 text, a later regime hit the 300 s limit, and gpt-oss leaked a harmony token into tool-call names.
@@ -115,7 +115,6 @@ def test_a_real_subprocess_timeout_is_classified_as_a_timeout_not_an_empty_respo
 
 def test_provider_classes_are_exactly_the_no_answer_classes():
     assert orchestrator.PROVIDER_FAILURE_CLASSES == {"provider_empty", "provider_timeout", "provider_malformed", "provider_unavailable"}
-    assert {"invalid_json", "schema_invalid", "validation_failure"} <= orchestrator.FAILURE_CLASSES - orchestrator.PROVIDER_FAILURE_CLASSES
 
 
 # --------------------------------------------------------------------- #

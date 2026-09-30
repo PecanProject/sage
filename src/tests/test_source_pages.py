@@ -1,4 +1,4 @@
-"""Correction pass, Fix 8: `source.page_number` comes from provenance.json, never from a model.
+"""Correction pass, `source.page_number` comes from provenance.json, never from a model.
 
 Real evidence (Daren run 20260919T211137_77879c98 + Felipe run felipe_smoke_20260920T132343): across all committed
 payloads, 160 `page_number` values were 1 (118) or 0 (42) while the cited blocks sit on pages 2-6 -- the model is never
@@ -62,15 +62,6 @@ def _expected(provenance, anchor):
 def test_physical_page_is_one_indexed_like_the_review_ui():
     assert content_reader.physical_page("page_0") == 1 and content_reader.physical_page("page_5") == 6
     assert content_reader.physical_page(None) is None and content_reader.physical_page("cover") is None
-
-
-def test_the_real_felipe_anchors_map_to_their_real_pages(felipe):
-    assert content_reader.page_for_anchor(FELIPE, "b:0002", FIXTURES) == 1            # the title, page_0
-    for anchor in ("b:0026", "b:0030", "b:0056", "b:0069"):
-        assert content_reader.page_for_anchor(FELIPE, anchor, FIXTURES) == _expected(felipe, anchor)
-    assert content_reader.page_for_anchor(FELIPE, "⟦b:0030⟧", FIXTURES) == _expected(felipe, "b:0030")   # bracketed form
-    assert content_reader.page_for_anchor(FELIPE, "b:9999", FIXTURES) is None and content_reader.page_for_anchor(FELIPE, "", FIXTURES) is None
-    assert content_reader.page_for_anchor("no_such_paper", "b:0001", FIXTURES) is None
 
 
 # --------------------------------------------------------------------- #

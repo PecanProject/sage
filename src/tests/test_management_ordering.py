@@ -1,4 +1,4 @@
-"""Item 14: Management ordering, guidance and treatment links (plan section 13; the approved order's "Management
+"""Management ordering, guidance and treatment links (plan section 13; the approved order's "Management
 ordering/guidance"). The date validator and the harvest warning of that plan section are a separate item (validators.py).
 
 Evidence (real runs 20260919T085532_98015a8a and 20260918T192235_fb6030ba): of the 18 ready Management records, none has
@@ -9,7 +9,7 @@ planting, mowing and residue incorporation belong to the Mustard treatment. Mana
 protocol Section 6.6), event types were free text ("nitrogen application", "Transplanting of seedlings", "laser leveled")
 instead of PEcAn-aligned, and a harvest date carried a year (1997, the publication year) the source never gave for the event.
 
-Item 14: (1) Management is extracted after Treatment; (2) `treatment_ids` is an OPTIONAL link, offered to enumeration as a
+(1) Management is extracted after Treatment; (2) `treatment_ids` is an OPTIONAL link, offered to enumeration as a
 pool and admitted only for a Treatment whose name both the event's description and its cited text state -- never every event to
 every treatment, never a `known_ref` that would bind the only ready Treatment; (3) Conversion is guarded so no other id can
 appear; (4) the Management guidance follows protocol Sections 6.6, 9.1 and 9.2.

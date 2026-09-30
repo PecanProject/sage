@@ -1,9 +1,5 @@
-pandas
-numpy
 pydantic
 pytest
-jupyter
-python-dotenv
 httpx
 
 # IR service (src/pipeline/ir_service.py), called over HTTP by
@@ -14,8 +10,6 @@ uvicorn
 # Streamlit review UI (streamlit_app/)
 streamlit[pdf]
 pypdfium2
-reportlab
-playwright
 
 # Marker CLI, invoked as a subprocess by streamlit_app/marker_pipeline.py
 marker-pdf

@@ -1,4 +1,4 @@
-"""Item 15: readiness for UNRESOLVED values (plan section 8).
+"""Readiness for UNRESOLVED values (plan section 8).
 
 Evidence (stored runs): 206 Observations were committed as `ready`; 81 of them have an UNRESOLVED `value` (36 of 108 in
 run 20260919T040723_06df825d) and 8 an UNRESOLVED `variable_name` -- a "ready" measurement with no measurement or no
@@ -6,7 +6,7 @@ name -- while 186 have an UNRESOLVED `temporal_info`, which protocol Section 10.
 be recovered, leave the date fields blank and explain why"). The service accepted all of them: structural validity was the
 only gate.
 
-Item 15: `validators.readiness_issues` (Observation: `value` and `variable_name` must be resolved; `temporal_info` need not
+`validators.readiness_issues` (Observation: `value` and `variable_name` must be resolved; `temporal_info` need not
 be); `propose_record` reports `ready` and the issues (validity and attempts unchanged); `commit_record(status="ready")`
 rejects such a record with a 422; the orchestrator commits it as `unresolved` with the payload kept and spends no
 AI-validation call on it. The service's fingerprint now also covers `ir_service.py` and `reconstruction.py`.
@@ -17,7 +17,6 @@ Fixtures: tests/fixtures/item15/ (real stored payloads). Tests marked SYNTHETIC 
 from __future__ import annotations
 
 import json
-import shutil
 import sys
 from pathlib import Path
 
@@ -99,8 +98,8 @@ def test_synthetic_the_unresolved_label_alone_makes_a_field_unresolved_even_with
 
 
 def test_synthetic_the_readiness_scope_is_observation_plus_the_demonstrated_core_identities():
-    """Scope after correction-pass Fix 7 (was: Observation only). Identity fields only; nothing else is ever required."""
-    # Treatment added in Phase A5 on real evidence (Kathryn-2020-Winter run 20260925T225646: Treatments "4" with no name
+    """Identity fields only; nothing else is ever required."""
+    # Treatment added on real evidence (Kathryn-2020-Winter run 20260925T225646: Treatments "4" with no name
     # and "mean" with neither name nor definition were committed READY); protocol Section 6.3's minimum.
     assert validators.READINESS_REQUIRED_FIELDS == {
         "Observation": ("value", "variable_name"), "Variable": ("name",), "Method": ("name",),
@@ -284,8 +283,7 @@ def test_the_fingerprint_covers_the_service_and_the_reconstruction_tools(tmp_pat
 
 
 # --------------------------------------------------------------------- #
-# Correction pass, Fix 7: core identity (Variable.name, Method.name, Crop cultivar-or-common_name)
-#
+# Core identity (Variable.name, Method.name, Crop cultivar-or-common_name)
 # Real hollow "ready" records: Daren Variable leaf_blade_dry_weight (name, description, units and notes ALL UNRESOLVED, each with
 # the spurious reason "page number not available"), Daren Crop Trailblazer (cultivar UNRESOLVED, no common name), Felipe
 # Variable plant_nitrogen_content (null name) and Felipe Method disease_scoring (null name). Optional metadata is untouched:

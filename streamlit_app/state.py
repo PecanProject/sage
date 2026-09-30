@@ -9,13 +9,7 @@ re-read on demand -- session_state here only tracks transient UI state that
 has no other home: which page is open, which records are expanded, which
 locators the PDF viewer should currently highlight.
 
-Expansion is tracked per RECORD (entity_type, record_id), not per field
-(Phase: two-pane evidence-review redesign) -- the review pane's primary
-scannable unit is now one compact row per record, with every one of that
-record's fields shown in full once the record itself is opened. Multiple
-records may be expanded at once (a set, not a single value) so a scientist
-can keep two Species open side by side while scrolling, rather than being
-forced back to one at a time as the old single-field design was.
+Expansion is tracked per record (entity_type, record_id); several records may be open at once.
 """
 
 from __future__ import annotations
@@ -60,7 +54,7 @@ def go_to_library():
 
 
 def set_review_run(run_id: str | None):
-    """Switch the results set under review; the record/PDF selection belongs to the old one, so it is cleared."""
+    """Switch the results set under review and clear the record/PDF selection."""
     st.session_state.review_run = run_id
     st.session_state.expanded_records = set()
     st.session_state.active_locators = []

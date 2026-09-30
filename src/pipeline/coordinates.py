@@ -1,16 +1,5 @@
-"""
-Geographic coordinates: the reported text stays the evidence, the decimal value is a documented transformation.
-
-Protocol Section 6.2 asks for latitude/longitude; Section 11.1/11.2 say to store what the source reports and, when a
-transformation is unavoidable, record the original, the formula and the rationale. Papers write coordinates as
-degree-minute(-second) text ("45°42′ N", "36˚37´N", "-121˚32´W") -- none of which is a single number, so a decimal
-value can never be quoted from the source. Before this module a model-computed decimal in `reported_numeric_value`
-was (correctly) rejected by grounding, the field was left empty, and Site went unresolved (Philippe-2007-Six,
-Kathryn-2020-Winter), blocking every Treatment and Observation of both papers.
-
-Here the decimal is DERIVED DETERMINISTICALLY from the quoted text -- never taken from the model -- and stored in the
-QuantityValue's existing conversion fields; `reported_text` keeps the literal the grounding check verifies.
-"""
+"""Coordinates: `reported_text` keeps the source's degree-minute text; the decimal is derived from it in code, never
+by the model, and stored in the QuantityValue's conversion fields."""
 
 from __future__ import annotations
 
@@ -147,9 +136,8 @@ def coordinates_in_text(text: str) -> list[dict[str, Any]]:
 
 
 def stated_equivalently(reported_text: str, block_texts: list[str]) -> bool:
-    """Phase A6: is `reported_text` the same coordinate (same value AND same hemisphere) as one a cited block writes,
-    only spelled differently -- "35°03' N" for the source's "35°3' N" (Paul-1998-Foliar b:0023, which left its Site
-    unresolved and blocked Treatment and Observation)? A different coordinate is never equivalent."""
+    """Is `reported_text` the same coordinate (value and hemisphere) as one a cited block writes, spelled differently
+    ("35°03' N" vs "35°3' N")?"""
     parsed = parse_coordinate(reported_text)
     if parsed is None:
         return False

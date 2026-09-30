@@ -46,7 +46,7 @@ def paper(tmp_path, monkeypatch):
 # Finding while writing these tests: the blank units were NOT the answers' only defect. Pydantic runs field checks before
 # the model-level checks, so `units: ""` hid a second, independent error: the model pointed value columns at each
 # variable's `variable_name` ("EC", "no3_n") instead of its `label` ("EC (µS cm–1)", "NO₃‑N"). That is a separate Step B
-# issue, now repaired deterministically before any retry (F1; see the end-to-end test below).
+# issue, now repaired deterministically before any retry.
 
 
 def _declared_labels(raw: dict) -> dict:
@@ -90,7 +90,7 @@ def _step_b(answer: dict):
 
 @pytest.mark.parametrize("key", ["b_0043", "b_0239"])
 def test_step_b_repairs_the_variable_name_slip_deterministically_and_accepts_the_real_answer(paper, key):
-    """F1 (the separate defect this file found): a column naming its variable by `variable_name` ("EC") instead of
+    """The separate defect this file found: a column naming its variable by `variable_name` ("EC") instead of
     the declared `label` ("EC (µS cm–1)") is repaired without a model call -- exactly one declared variable carries
     that name -- and recorded. Before, the table spent every attempt re-classifying from scratch on it."""
     invoke, prompts = _step_b(_answer(key))

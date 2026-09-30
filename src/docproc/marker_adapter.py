@@ -1,24 +1,15 @@
 """
 Marker JSON -> (content.md, provenance.json) adapter.
 
-Playbook Section 4 rule: JSON block-tree is the only thing requested from Marker;
-content.md and provenance.json are both produced from ONE walk of that tree, never
-generated independently and reconciled afterward.
-
-This module was written against a REAL Marker output file (light-use-2007.json,
-generated with --use_llm), not against assumptions. Several things about the real
-schema differ from what Section 4 (as originally written) assumed -- see the
-"SPRINT 1 FINDINGS" comment block at the bottom of this file and the Playbook diff
-that accompanies this sprint's handoff. Key points encoded below:
+content.md and provenance.json are both produced from ONE walk of Marker's JSON block tree. What the walk relies on:
 
   - Every block (leaf or container) has the SAME shape:
       {id, block_type, html, polygon, bbox, children, section_hierarchy, images}
     Content lives in `html` (HTML, not plain text) for leaf blocks.
   - `id` is already a globally-unique, stable string of the form
       /page/{page_idx}/{BlockType}/{seq}
-    with `seq` unique across the WHOLE document (not reset per page). We reuse
-    this directly as the stable block_id -- no separate id-assignment scheme
-    needed, contra an earlier assumption that we'd have to mint our own.
+    with `seq` unique across the WHOLE document (not reset per page), reused
+    directly as the stable block_id.
   - `section_hierarchy` is already computed BY MARKER on every single block
     (not just headers): {"<level>": "<SectionHeader block id active at that
     level>"}. We resolve this to a list of heading strings for section_path --
@@ -28,37 +19,24 @@ that accompanies this sprint's handoff. Key points encoded below:
     and is preserved as-is, not renumbered.
   - Container/wrapper blocks (TableGroup, FigureGroup, ListGroup) do NOT carry
     real content in their own `html` -- it's a templated skeleton of
-    <content-ref src='...'/> placeholders. Confirmed (light-use-2007.json) that
-    children[] order always matches the content-ref order, so we simply recurse
-    into children in order and never render a Group's own `html`.
+    <content-ref src='...'/> placeholders; children[] order matches the
+    content-ref order, so we recurse into children and never render a Group's
+    own `html`.
   - Table.html (unlike Group.html) IS the fully-rendered real table (actual
     <td> content, not content-refs). We render content.md's table anchor from
     Table.html directly, converted to a markdown table. The TableCell children
-    (confirmed flat, NOT nested under an intermediate "row" block) carry no
-    explicit row/col index field -- only geometry (bbox/polygon). Row/column
-    provenance is therefore DERIVED here via geometric clustering (group cells
-    into rows by y-overlap, order by x within a row), not read directly off a
-    field Marker provides. This contradicts an earlier assumption that
-    per-cell row/col addressing came for free -- flagged in the Playbook diff.
+    are flat and carry no row/col index, only geometry, so row/column
+    provenance is derived by geometric clustering (rows by y-overlap, columns
+    by x within a row).
   - Figure blocks carry the actual base64 image bytes directly in their own
     `images` dict (keyed by their own id) -- there is no separate image-extraction
     pass needed to get pixel data for a future source_panel vision pass.
-  - The real leaf/citable block-type set needed to be TWO WIDER than Section 4's
-    original list (Text, TableCell, Table, Figure, Caption, SectionHeader,
-    ListItem): this real paper also has genuine, citable content in Footnote
-    (author affiliations, corresponding-author email) and Equation (numbered
-    formulas) blocks. Both are now treated as first-class citable leaves.
-  - PageHeader/PageFooter are running journal furniture (repeated per page,
-    no informational content in this file) -- excluded from the rendered
-    content.md view but still logged in provenance.json (capture first, never
-    silently drop information, even information we don't expect to need).
-  - Marker's `--use_llm` postprocessing introduced a real, systematic corruption:
-    every Footnote block in this file has its <sup> tags double-HTML-escaped
-    (e.g. `<sup>&amp;</sup>lt;sup&gt;1&lt;/sup&gt;` instead of `<sup>1</sup>`).
-    We patch this exact signature (see _fix_marker_llm_sup_corruption) rather
-    than silently losing the footnote marker number. This is a known --use_llm
-    artifact, not something to "fix" by disabling --use_llm -- flag it for
-    curator visual spot-checking instead of assuming it's fully solved.
+  - Citable leaves: Text, TableCell, Table, Figure, Caption, SectionHeader,
+    ListItem, Footnote and Equation.
+  - PageHeader/PageFooter are running furniture: excluded from content.md but
+    still logged in provenance.json.
+  - `--use_llm` can double-HTML-escape <sup> tags in Footnote blocks; that
+    signature is repaired by _fix_marker_llm_sup_corruption.
 """
 
 from __future__ import annotations
@@ -81,10 +59,7 @@ CITABLE_LEAF_TYPES = {
     "Table",       # rendered as a whole table from Table.html
     "Figure",      # rendered as a placeholder + caption text
     "Picture",     # same placeholder+image-bytes handling as Figure, but the
-                    # caption pairing Figure gets via its FigureGroup wrapper
-                    # is NOT guaranteed for Picture (seen standalone, no group,
-                    # no sibling Caption in the wild -- pecan.json, page 15) --
-                    # render unconditionally, caption or not.
+                    # a Picture may stand alone with no Caption: render it anyway
     "Caption",
     "ListItem",
     "Footnote",    # widened from the original Section 4 list -- see module docstring
@@ -114,13 +89,7 @@ STRUCTURAL_CONTAINER_TYPES = {
     "TableGroup",
     "FigureGroup",
     "PictureGroup",  # same content-ref-skeleton shape as FigureGroup, pairing
-                     # a Picture with its Caption instead of a Figure -- seen
-                     # in the wild (Winter cover.json, page 7: an image-
-                     # rendered table with a real "Table 2..." caption).
-                     # Confirmed empty own html (content fully represented by
-                     # its Picture+Caption children), same as every other
-                     # Group type here -- handled identically to FigureGroup
-                     # in walk() below, not a new document object.
+                     # a Picture with its Caption; handled like FigureGroup
     "ListGroup",
 }
 
@@ -194,23 +163,11 @@ def _math_to_text(raw_html: str) -> str:
 def html_to_text(raw_html: Optional[str]) -> str:
     """Best-effort HTML -> plain text for a single leaf block's `html` field.
 
-    Order matters and was corrected after testing against the real file:
-      1. Fix the known Footnote double-escape corruption signature first
-         (a single generic unescape does not fully repair that pattern --
-         verified empirically).
-      2. Turn ESCAPED formatting tags back into real tags. The --use_llm
-         postprocessing bug is WIDER than just Footnote blocks: ordinary body
-         Text blocks also contain single-escaped pseudo-tags (e.g. literal
-         "&lt;sup&gt;-2&lt;/sup&gt;" mixed inline with correctly-formed real
-         <math> tags in the same sentence -- confirmed in light-use-2007.json,
-         block /page/2/Text/9), and they must be stripped like real tags.
+    Order matters:
+      1. Fix the Footnote double-escape signature.
+      2. Turn escaped formatting tags ("&lt;sup&gt;") back into real tags.
       3. Strip real tags.
-      4. Unescape entities LAST, so a real less-than sign in the paper survives
-         as text. The previous order (unescape everything, then strip) turned
-         "P &lt; 0.05" into "P < 0.05" and then deleted everything up to the
-         next ">" as if it were a tag -- real loss in every paper (174 places
-         across 13 papers; Felipe-2010-Cultivar lost its cover-crop C/N ratio,
-         both survival rates, a harvest N value and every significance level).
+      4. Unescape entities last, so a literal "P < 0.05" survives as text.
       5. Collapse whitespace.
     """
     if not raw_html:
@@ -227,10 +184,8 @@ def html_to_text(raw_html: Optional[str]) -> str:
 def table_html_to_markdown(raw_html: Optional[str]) -> str:
     """Convert a Table block's own (fully-rendered) html into a markdown table.
 
-    Table.html is real <table><tr><td>...</td></tr></table> markup (confirmed
-    against light-use-2007.json) -- not a content-ref skeleton like the other
-    Group wrapper types. We do a lightweight row/cell extraction rather than
-    pulling in a full HTML parser dependency for Sprint 1.
+    Table.html is real <table><tr><td> markup; a lightweight row/cell
+    extraction, no HTML parser dependency.
     """
     if not raw_html:
         return "*[empty table]*"
@@ -270,11 +225,8 @@ def table_html_to_markdown(raw_html: Optional[str]) -> str:
 def derive_row_col(cells: list[dict]) -> dict[str, tuple[int, int]]:
     """Cluster TableCell blocks into (row_index, col_index) by bbox geometry.
 
-    Marker gives no explicit row/col field on TableCell (confirmed against
-    light-use-2007.json) -- only bbox/polygon. We cluster by y-center overlap
-    to form rows, then sort left-to-right within each row for column index.
-    This is a heuristic, not a guarantee -- documented as a Sprint 1 finding,
-    not as a solved problem. Merged/spanning cells are not specially handled.
+    Rows by y-center overlap, columns left-to-right within a row. A heuristic:
+    merged/spanning cells are not specially handled.
     """
     if not cells:
         return {}
@@ -554,15 +506,7 @@ def walk_document(doc: dict) -> WalkResult:
                     if c is not caption and c is not figure:
                         walk(c)
             elif bt == "PictureGroup":
-                # Same content-ref-skeleton shape as FigureGroup (confirmed:
-                # Winter cover.json page 7 -- an image-rendered table paired
-                # with a real "Table 2..." caption), pairing a Picture with
-                # its Caption instead of a Figure -- handled identically,
-                # via the same already-generic render_figure() (its own
-                # `label = node.get("block_type") or "Figure"` already
-                # displays "Picture" correctly for a Picture node; this
-                # exact call shape is already exercised for a STANDALONE
-                # Picture with no caption, below).
+                # A Picture with its Caption: rendered like a FigureGroup.
                 caption = next((c for c in children if c["block_type"] == "Caption"), None)
                 picture = next((c for c in children if c["block_type"] == "Picture"), None)
                 if picture:
@@ -605,22 +549,7 @@ def walk_document(doc: dict) -> WalkResult:
             record_provenance(anchor, node, render=False)
             return
 
-        # Unknown block type: never silently drop it (P1). Log it plainly so
-        # a future paper that introduces a new Marker block type surfaces as
-        # a visible gap instead of vanishing.
-        #
-        # render=False is REQUIRED here, not the record_provenance default:
-        # this branch never appends anything to content_lines, so the
-        # anchor it mints never actually appears in content.md. Confirmed
-        # real bug (Winter cover.json, PictureGroup before it had its own
-        # branch above): omitting render=False left provenance.json
-        # claiming "rendered_in_content_md": true for an anchor that
-        # existed nowhere in content.md, which is exactly what
-        # qc_gate.round_trip_check's rendered_true_missing_from_content_md
-        # check exists to catch -- the check was correct; the entry was
-        # lying about what actually happened. This is a general fix, not
-        # PictureGroup-specific: ANY future unrecognized block type hits
-        # this same path and must make the same honest claim.
+        # Unknown block type: logged, never dropped. render=False because nothing is written to content.md.
         anchor = next_anchor()
         record_provenance(anchor, node, extra={"unhandled_block_type": True}, render=False)
 
@@ -651,7 +580,7 @@ def _heading_level(node: dict) -> int:
 
 
 # ---------------------------------------------------------------------------
-# CLI entry point for Sprint 1 smoke-testing
+# CLI entry point
 # ---------------------------------------------------------------------------
 
 def process_paper(marker_json_path: str, out_dir: str) -> WalkResult:

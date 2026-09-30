@@ -1,67 +1,8 @@
-"""Focused tests for marker_pipeline._needs_extraction -- the "does this
-paper still need a real orchestrator.run_paper() call" check used by the
-full-paper-processing workflow. Isolated from real data via IR_RESULTS_ROOT
-pointed at a tmp_path per test, matching pipeline.results_store's own
-env-resolved-at-call-time pattern.
-"""
+"""Tests for marker_pipeline: per-paper Marker/conversion steps, extraction progress and pre-flight."""
 
 from __future__ import annotations
 
 import marker_pipeline
-from pipeline import results_store
-
-
-def _write_result(results_root, paper_id: str, entity_type: str, status: str):
-    # Format-aware, not a hand-rolled flat-file write: entity_type may use
-    # either storage convention (see results_store.MULTI_RECORD_ENTITY_TYPES),
-    # and this must keep working as that set grows (Universal Multi-Record
-    # pass moved Site/Species/Method/Crop/Management/Study/TreatmentPair/
-    # Coverage into it) without every test needing to know which one applies.
-    record_id = f"{paper_id}_{entity_type.lower()}_1"
-    data = {"paper_id": paper_id, "entity_type": entity_type, "record_id": record_id, "status": status}
-    if entity_type in results_store.MULTI_RECORD_ENTITY_TYPES:
-        results_store.save_multi_entity_results(paper_id, entity_type, [data])
-    else:
-        results_store.save_entity_result(paper_id, entity_type, data)
-
-
-def test_no_results_needs_extraction(tmp_path, monkeypatch):
-    monkeypatch.setenv("IR_RESULTS_ROOT", str(tmp_path))
-    assert marker_pipeline._needs_extraction("SomePaper") is True
-
-
-def test_only_error_results_needs_extraction(tmp_path, monkeypatch):
-    monkeypatch.setenv("IR_RESULTS_ROOT", str(tmp_path))
-    _write_result(tmp_path, "SomePaper", "Citation", "error")
-    _write_result(tmp_path, "SomePaper", "Site", "error")
-    assert marker_pipeline._needs_extraction("SomePaper") is True
-
-
-def test_only_blocked_results_needs_extraction(tmp_path, monkeypatch):
-    monkeypatch.setenv("IR_RESULTS_ROOT", str(tmp_path))
-    _write_result(tmp_path, "SomePaper", "Study", "blocked")
-    _write_result(tmp_path, "SomePaper", "Treatment", "blocked")
-    assert marker_pipeline._needs_extraction("SomePaper") is True
-
-
-def test_genuinely_successful_extraction_does_not_need_extraction(tmp_path, monkeypatch):
-    monkeypatch.setenv("IR_RESULTS_ROOT", str(tmp_path))
-    _write_result(tmp_path, "SomePaper", "Citation", "ready")
-    _write_result(tmp_path, "SomePaper", "Site", "unresolved")
-    # TreatmentPair is a disclosed, permanent "blocked" limitation of a
-    # single full-paper run -- its presence must not force a re-run.
-    _write_result(tmp_path, "SomePaper", "TreatmentPair", "blocked")
-    assert marker_pipeline._needs_extraction("SomePaper") is False
-
-
-def test_mixed_successful_and_error_results_needs_extraction(tmp_path, monkeypatch):
-    """A partially-errored run (some entities ready/unresolved, at least one
-    error) is not a genuinely completed extraction -- error must never be
-    outweighed by an unrelated success elsewhere in the same run."""
-    monkeypatch.setenv("IR_RESULTS_ROOT", str(tmp_path))
-    _write_result(tmp_path, "SomePaper", "Citation", "ready")
-    _write_result(tmp_path, "SomePaper", "Site", "error")
-    assert marker_pipeline._needs_extraction("SomePaper") is True
 
 
 # --------------------------------------------------------------------- #

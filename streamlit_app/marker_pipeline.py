@@ -1,24 +1,13 @@
 """
 marker_pipeline.py
 ================
-Triggers the existing, already-tested two-step conversion pipeline. Does
-NOT reimplement Marker or the adapter -- it runs the real `marker` CLI as
-a subprocess (real PDF parsing/layout, so it must be an external process,
-not something to run inline in Streamlit) and then imports and calls the
-existing, unmodified `docproc/prepare_papers.py:prepare_papers()`
-function, which itself only calls the existing, unmodified
-`marker_adapter.process_paper()` and `run_qc_batch.run_batch()` -- see
-those modules' own docstrings.
+Runs one paper through the `marker` CLI (a subprocess), docproc's prepare_papers(), and the extraction pipeline.
 
     src/docproc/paper/<paper_id>.pdf
           -> `marker` CLI (subprocess)
           -> src/docproc/marker_json/<paper_id>/<paper_id>.json
-          -> prepare_papers.prepare_papers()            [existing, unmodified]
+          -> prepare_papers.prepare_papers()
           -> src/paper/<paper_id>/{content.md, provenance.json, qc_report.json}
-
-`src/docproc/` is the single, canonical source of truth for both original
-PDFs and raw Marker JSON -- there is no other PDF location (see
-sage_paths.py's own docstring).
 """
 
 from __future__ import annotations
@@ -35,44 +24,7 @@ import sage_paths
 
 MARKER_BIN = str(sage_paths.SAGE_ROOT / ".venv" / "bin" / "marker")
 
-# There is no model default in this module any more (it used to hold its own
-# "jetstream-gpt/gpt-oss-120b", silently disagreeing with the orchestrator's).
-# A UI-launched run uses the SAME explicit run config as the CLI
-# (`pipeline.run_config`, `src/eval_config.json`); a caller may pass an
-# explicit `provider/model` override, which the manifest records.
-
-
-def run_marker(timeout: int = 1800) -> dict[str, Any]:
-    """Run the real `marker` CLI over every PDF in src/docproc/paper/,
-    writing raw Marker JSON to src/docproc/marker_json/. Passes
-    Marker's own `--skip_existing` flag so a PDF whose Marker output
-    already exists isn't reprocessed -- the existing, reliable way to
-    avoid unnecessary re-runs of an expensive step, rather than this
-    module inventing its own staleness heuristic for internals it doesn't
-    own."""
-    source_dir = sage_paths.source_pdf_dir()
-    sage_paths.MARKER_JSON_DIR.mkdir(parents=True, exist_ok=True)
-    cmd = [
-        MARKER_BIN, str(source_dir),
-        "--output_dir", str(sage_paths.MARKER_JSON_DIR),
-        "--output_format", "json",
-        "--workers", "1",
-        "--skip_existing",
-    ]
-    try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-    except FileNotFoundError as exc:
-        return {"ok": False, "step": "marker", "cmd": cmd, "error": f"marker executable not found: {exc}"}
-    except subprocess.TimeoutExpired as exc:
-        return {
-            "ok": False, "step": "marker", "cmd": cmd, "error": f"marker timed out after {timeout}s",
-            "stdout": exc.stdout, "stderr": exc.stderr,
-        }
-    return {
-        "ok": proc.returncode == 0, "step": "marker", "cmd": cmd,
-        "returncode": proc.returncode,
-        "stdout": (proc.stdout or "")[-4000:], "stderr": (proc.stderr or "")[-4000:],
-    }
+# A UI-launched run uses the same run config as the CLI (src/eval_config.json) unless a model is passed explicitly.
 
 
 def _describe_qc_failure(entry: dict[str, Any]) -> str:
@@ -97,11 +49,7 @@ def _describe_qc_failure(entry: dict[str, Any]) -> str:
 
 
 def _describe_conversion_failure(summary: dict[str, Any]) -> str:
-    """One short, human-readable reason string from a prepare_papers()
-    summary -- what the Library page actually shows on failure, instead of
-    the full raw summary dict (adapter_results, per-paper QC internals,
-    etc.), which is real evidence kept available but not the primary,
-    always-visible message."""
+    """One short reason string from a prepare_papers() summary, for the Library page."""
     parts = []
     for failure in summary.get("adapter_failures") or []:
         error = failure.get("adapter_error") or failure.get("error") or "unknown adapter error"
@@ -112,47 +60,10 @@ def _describe_conversion_failure(summary: dict[str, Any]) -> str:
     return "; ".join(parts) if parts else "conversion failed for an unspecified reason -- see raw details"
 
 
-def run_conversion() -> dict[str, Any]:
-    """Call the existing, unmodified docproc.prepare_papers pipeline over
-    whatever is currently in src/docproc/marker_json/."""
-    import prepare_papers  # existing module; docproc/ is on sys.path via sage_paths
-
-    summary = prepare_papers.prepare_papers(sage_paths.MARKER_JSON_DIR, sage_paths.PAPER_DIR)
-    ok = not summary["adapter_failures"] and summary["qc"]["papers_failed"] == 0
-    result = {"ok": ok, "step": "conversion", "summary": summary}
-    if not ok:
-        result["error_summary"] = _describe_conversion_failure(summary)
-    return result
-
-
 def run_marker_for_paper(paper_id: str, timeout: int = 1800) -> dict[str, Any]:
-    """Same real `marker` CLI call as run_marker, scoped to exactly ONE
-    paper's PDF. `marker`'s IN_FOLDER argument is always a directory scan
-    with no single-file mode, so scoping happens via a temporary directory
-    containing only a symlink to this one PDF -- output still lands in the
-    real, shared src/docproc/marker_json/ (Marker names its own output
-    subdirectory from the input filename, independent of the input
-    directory's other contents).
-
-    Fixes a real, confirmed bug: process_single_paper_full previously
-    called plain run_marker(), which re-scans EVERY PDF in the library on
-    every single "run pipeline for one paper" click -- wasteful, and it
-    meant an unrelated PDF's own Marker failure could report failure for a
-    request that had nothing to do with it.
-
-    Deliberately NO --skip_existing here (unlike the batch run_marker()
-    above, which keeps it -- that one still benefits from not redundantly
-    reprocessing dozens of unrelated, already-converted PDFs). This call is
-    always for exactly the one paper the user explicitly asked to Extract
-    -- a real staleness bug otherwise: sage_paths.delete_paper_source()
-    intentionally removes only the PDF, not its derived Marker JSON/
-    rendered document, so if that paper_id is later reused for a genuinely
-    DIFFERENT PDF, --skip_existing would see the OLD paper's leftover
-    Marker output still on disk and skip reprocessing entirely, silently
-    extracting the new upload from the old paper's content. Always
-    reprocessing the one explicitly-selected paper here is the same
-    "deliberate re-run is never silently skipped" principle the extraction
-    stage already follows."""
+    """Run the `marker` CLI on one paper's PDF, via a temporary directory holding only a symlink to it (Marker has no
+    single-file mode); output lands in src/docproc/marker_json/. No --skip_existing: a reused paper_id must never
+    pick up an old PDF's output."""
     pdf_path = sage_paths.pdf_path(paper_id)
     if pdf_path is None:
         return {"ok": False, "step": "marker", "error": f"no PDF on disk for '{paper_id}'"}
@@ -201,22 +112,8 @@ def _last_meaningful_line(text: Optional[str]) -> str:
 
 
 def run_conversion_for_paper(paper_id: str) -> dict[str, Any]:
-    """Same real prepare_papers() call as run_conversion, scoped to exactly
-    ONE paper. Neither prepare_papers() nor the run_qc_batch() it delegates
-    to (both existing, unmodified, and both unconditionally batch over
-    EVERY subdirectory they're handed -- confirmed by reading both) have a
-    single-paper mode, so scoping happens by giving them a temporary
-    marker-input directory and a temporary output directory containing
-    only this one paper, then moving the real output into place at
-    src/paper/<paper_id>/ afterward.
-
-    Fixes a real, confirmed bug: run_conversion() over the real shared
-    directories QCs and adapts EVERY paper in the library every time, so
-    one unrelated, already-uploaded paper failing QC (confirmed live: a
-    paper called "Winter cover" fails block-type-coverage QC over an
-    unhandled PictureGroup block) silently made EVERY OTHER paper's
-    conversion stage report failure too, regardless of whether that other
-    paper's own conversion was perfectly fine."""
+    """Run prepare_papers() for one paper through temporary input/output directories (it has no single-paper mode),
+    then move the output to src/paper/<paper_id>/, so another paper's QC failure never affects this one."""
     import prepare_papers
 
     marker_dir = sage_paths.MARKER_JSON_DIR / paper_id
@@ -246,28 +143,8 @@ def run_conversion_for_paper(paper_id: str) -> dict[str, Any]:
     return result
 
 
-def process_all_papers(timeout: int = 1800) -> dict[str, Any]:
-    """Run the complete pipeline: real PDFs -> raw Marker JSON -> Sage
-    paper artifacts. Returns a status dict the UI renders directly; never
-    raises for an expected failure (missing binary, bad PDF, QC failure)
-    -- those come back as ok=False with a reason attached."""
-    marker_result = run_marker(timeout=timeout)
-    if not marker_result["ok"]:
-        return {"ok": False, "marker": marker_result, "conversion": None}
-
-    conversion_result = run_conversion()
-
-    import provenance_adapter
-    provenance_adapter.clear_cache()  # provenance.json may have just changed
-
-    return {"ok": conversion_result["ok"], "marker": marker_result, "conversion": conversion_result}
-
-
 def preflight() -> tuple[bool, str]:
-    """Everything an extraction run needs from its environment, checked BEFORE anything starts, so a broken
-    deployment is reported as one clear message instead of as a run whose Citation dies and blocks every other
-    entity type (real case: the public-URL runs of 2026-09-22 -- the service PATH had no /snap/bin, so `opencode` was
-    never found). Checks, in order: the `opencode` executable exists and runs (`run_config.check_opencode`), and the
+    """Everything an extraction run needs from its environment, checked before anything starts. Checks, in order: the `opencode` executable exists and runs (`run_config.check_opencode`), and the
     IR service is reachable and running the current schema/validator code (`orchestrator.check_health`).
     (True, summary) or (False, the first failure's reason). Never starts a run and never writes results."""
     from pipeline import orchestrator, run_config
@@ -287,41 +164,6 @@ def _preflight_event() -> Optional[dict[str, Any]]:
     if ok:
         return None
     return {"stage": "preflight", "status": "error", "message": message}
-
-
-def _needs_extraction(paper_id: str) -> bool:
-    """True unless this paper has a genuinely completed extraction.
-
-    orchestrator.run_record's only real, disclosed terminal outcomes are
-    "ready" and "unresolved" (see orchestrator.py's own CLI exit-code check:
-    `0 if result.status in ("ready", "unresolved") else 1`). "error" is a
-    genuine failure, and "blocked" is never itself a completed result -- it
-    is only ever a knock-on consequence of another entity's status (a
-    missing/errored prerequisite, or -- for TreatmentPair specifically -- a
-    disclosed, permanent limitation of a single-record-per-type run; see
-    orchestrator.run_paper's docstring). So a paper counts as needing
-    (re-)extraction unless at least one entity type reached "ready"/
-    "unresolved" AND none reached "error" -- stale error results (e.g. from
-    a since-fixed ir_service outage) must never be mistaken for a completed
-    extraction, and a partially-errored run must never be treated as done
-    just because some other entity type happened to succeed."""
-    from pipeline import results_store
-    from pipeline.ir_schema import ENTITY_MODELS
-
-    statuses = []
-    for entity_type in ENTITY_MODELS:
-        # load_any_entity_results reads whichever storage convention this
-        # entity_type actually uses (a single file, or -- Phase A: Variable
-        # -- a directory of several) and always returns a list, 0-or-more
-        # entries, so this loop never needs to know which one it is.
-        for result in results_store.load_any_entity_results(paper_id, entity_type):
-            statuses.append(result.get("status"))
-
-    if not statuses:
-        return True
-    if any(status == "error" for status in statuses):
-        return True
-    return not any(status in ("ready", "unresolved") for status in statuses)
 
 
 def _poll_new_completions(run_id: str, seen: set[str]) -> list[str]:
@@ -358,17 +200,7 @@ def _classify_run_outcome(records: dict[str, Any]) -> tuple[str, list[tuple[str,
     catastrophic "couldn't even run" case (that's "failed", handled
     separately where the actual exception is caught). Returns
     ("success", []) when nothing errored, or ("completed_with_errors",
-    [(entity_type, record_id), ...]) naming exactly which candidates did.
-
-    Fixes a real, confirmed bug: the previous `ok = all(status in (...))`
-    boolean treated ANY single "error" anywhere in a ~90-record paper the
-    same as a total pipeline crash -- a real run (Winter cover,
-    20260916T050510_41f112a0) with 2 isolated provider-glitch extraction
-    failures out of ~90 records was reported to the user as "Extraction
-    failed for Winter cover", indistinguishable from a run that produced
-    nothing at all. "blocked" is unchanged -- still a normal, disclosed,
-    expected outcome (e.g. TreatmentPair genuinely needing 2 Treatments
-    that don't both exist), never counted as an error."""
+    [(entity_type, record_id), ...]) naming exactly which candidates did. "blocked" is never an error."""
     error_records: list[tuple[str, str]] = []
     for entity_type, r_or_list in records.items():
         for r in (r_or_list if isinstance(r_or_list, list) else [r_or_list]):
@@ -383,20 +215,8 @@ def _run_extraction_for_paper(paper_id: str, model: Optional[str]) -> Iterator[d
     (pipeline.orchestrator.run_paper) for one paper -- never a second,
     parallel extraction implementation. Health-checks ir_service first
     since orchestrator refuses to run against an unreachable or stale
-    service (see orchestrator.check_health's docstring).
-
-    A GENERATOR, not a single return -- fixes a real, confirmed UX problem:
-    run_paper() is one long, blocking call (well over an hour on a real
-    paper with many multi-record entities) with no progress callback of
-    its own, so the Library page previously showed one single "Extracting
-    entities for <paper>..." message and then nothing else until the
-    ENTIRE run finished, indistinguishable from a hang. This runs
-    run_paper() in a background thread and polls ITS OWN run_store
-    artifacts (runs/<run_id>/records/.../final.json) on disk every couple
-    of seconds, yielding one real progress event per record as it actually
-    completes. Every yielded dict has `"progress": True` except the LAST
-    one, which carries the real final ok/statuses/run_id -- exactly what
-    every existing caller of this function already expects."""
+    service. Runs run_paper() in a background thread and yields a progress event per completed record (polled from
+    runs/<run_id>/records/); the last event carries the final ok/statuses/run_id."""
     import httpx
     from pipeline import orchestrator
 
@@ -406,10 +226,7 @@ def _run_extraction_for_paper(paper_id: str, model: Optional[str]) -> Iterator[d
         yield {"ok": False, "step": "extraction", "error": msg, "run_outcome": "failed"}
         return
 
-    # Run isolation: one active run per paper. A second Extract click (or a
-    # second browser session) used to start a second thread on the same
-    # paper and interleave its outputs with the first run's. Refuse it here,
-    # up front and readably; run_paper itself enforces the same lock.
+    # One active run per paper: refuse up front (run_paper enforces the same lock).
     from pipeline import run_lock
 
     holder = run_lock.active_holder(paper_id)
@@ -462,10 +279,7 @@ def _run_extraction_for_paper(paper_id: str, model: Optional[str]) -> Iterator[d
         return
 
     result = outcome["result"]
-    # result["records"][entity_type] is a single record_info dict for most
-    # entity types, or a list of them for a multi-record type (Phase A:
-    # Variable) -- normalize both into the same {entity_type: status(es)}
-    # summary shape for callers/UI (still reported in full, unchanged).
+    # A single record_info dict, or a list for a multi-record type: normalise to {entity_type: status(es)}.
     statuses: dict[str, Any] = {
         et: (r["status"] if not isinstance(r, list) else [x["status"] for x in r])
         for et, r in result["records"].items()
@@ -478,26 +292,8 @@ def _run_extraction_for_paper(paper_id: str, model: Optional[str]) -> Iterator[d
 
 
 def _run_extraction_with_ui_progress(paper_id: str, model: Optional[str]) -> Iterator[dict[str, Any]]:
-    """Consumes _run_extraction_for_paper's progress-event generator and
-    re-yields it as the same {"stage": "extraction", "status": ..., ...}
-    shape process_single_paper_full/process_all_papers_full already yield
-    for every other stage, ending with the final terminal event -- so both
-    callers stay simple call sites rather than each re-implementing "which
-    of these events is the real final one".
-
-    Three, not two, terminal `status` values (see _classify_run_outcome):
-      "done"             -- run_outcome == "success": every candidate
-                             terminal without errors.
-      "done_with_errors" -- run_outcome == "completed_with_errors": the
-                             pipeline completed, but names EXACTLY which
-                             candidates errored -- never a bare count, and
-                             never presented as if the whole run crashed.
-      "error"            -- run_outcome == "failed": the pipeline itself
-                             could not complete (e.g. ir_service
-                             unreachable, a network exception) -- the
-                             ORIGINAL, more severe meaning "error" already
-                             had; two isolated candidate failures no
-                             longer collapse into this."""
+    """Re-yield _run_extraction_for_paper's events in the {"stage": "extraction", "status": ...} shape the other stages
+    use, ending with the final event."""
     final: Optional[dict[str, Any]] = None
     for event in _run_extraction_for_paper(paper_id, model):
         if event.get("progress"):
@@ -533,80 +329,9 @@ def _run_extraction_with_ui_progress(paper_id: str, model: Optional[str]) -> Ite
         }
 
 
-def process_all_papers_full(model: str | None = None, timeout: int = 1800) -> Iterator[dict[str, Any]]:
-    """The complete, single, user-triggered processing session for every
-    PDF in src/docproc/paper/: Marker conversion (skipping PDFs already
-    converted) -> Sage document preparation -> full extraction pipeline
-    for whichever papers still need it -> review data availability.
-
-    A generator, not a single return, so the UI can show real per-stage
-    progress rather than one opaque spinner -- each yielded dict is one
-    stage's outcome as it actually happens, never simulated/fake progress.
-    Extraction is evaluated per-paper and is NEVER skipped just because
-    Marker conversion was skipped for an already-converted PDF -- those
-    are independent stages with independent staleness checks.
-    """
-    failed = _preflight_event()
-    if failed:
-        yield failed
-        return
-    yield {"stage": "marker", "status": "running", "message": "Processing PDF(s) with Marker..."}
-    marker_result = run_marker(timeout=timeout)
-    if not marker_result["ok"]:
-        yield {
-            "stage": "marker", "status": "error",
-            "message": marker_result.get("error_summary") or marker_result.get("error") or "Marker processing failed.",
-            "detail": marker_result,
-        }
-        return
-    yield {"stage": "marker", "status": "done", "message": "Marker processing complete.", "detail": marker_result}
-
-    yield {"stage": "conversion", "status": "running", "message": "Preparing document (Sage paper artifacts)..."}
-    conversion_result = run_conversion()
-    import provenance_adapter
-    provenance_adapter.clear_cache()
-    if not conversion_result["ok"]:
-        yield {
-            "stage": "conversion", "status": "error",
-            "message": conversion_result.get("error_summary") or conversion_result.get("error") or "Document preparation failed.",
-            "detail": conversion_result,
-        }
-        return
-    yield {"stage": "conversion", "status": "done", "message": "Document preparation complete.", "detail": conversion_result}
-
-    paper_ids = sage_paths.list_source_paper_ids()
-    to_extract = [pid for pid in paper_ids if sage_paths.is_processed(pid) and _needs_extraction(pid)]
-
-    if not to_extract:
-        yield {"stage": "extraction", "status": "done", "message": "No papers need extraction (already extracted)."}
-    for paper_id in to_extract:
-        yield from _run_extraction_with_ui_progress(paper_id, model)
-
-    yield {"stage": "review_data", "status": "running", "message": "Preparing review data..."}
-    yield {"stage": "review_data", "status": "done", "message": "Review data ready in Scientist Review."}
-
-    yield {"stage": "complete", "status": "done", "message": "Complete."}
-
-
 def process_single_paper_full(paper_id: str, model: str | None = None, timeout: int = 1800) -> Iterator[dict[str, Any]]:
-    """The complete pipeline for exactly ONE user-selected paper_id --
-    Marker conversion -> Sage document preparation -> full extraction --
-    never every paper that happens to need it (that blanket behavior is
-    process_all_papers_full, above, kept for a future explicit "process
-    everything" action but no longer the only option in the UI).
-
-    Every stage is scoped to exactly this paper_id (run_marker_for_paper /
-    run_conversion_for_paper / the extraction stage's own run_id) --
-    confirmed real bug this fixes: the previous whole-directory batch calls
-    meant a completely unrelated, already-uploaded paper failing Marker or
-    QC silently made THIS paper's run report failure too, and the
-    "Extracting entities for <paper>..." stage showed no further progress
-    for the entire (often 1+ hour) extraction, indistinguishable from a
-    hang. Extraction always runs when explicitly requested here -- a
-    deliberate, user-triggered re-run (e.g. after a code/prompt fix) is not
-    silently skipped just because a PREVIOUS extraction already exists,
-    unlike process_all_papers_full's "only if it still needs it" batch
-    default."""
+    """The complete pipeline for one paper -- Marker conversion -> document preparation -> extraction -- as a
+    generator of per-stage progress events. Extraction always runs, even if earlier results exist."""
     failed = _preflight_event()
     if failed:
         yield failed

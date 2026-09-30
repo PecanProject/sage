@@ -1,4 +1,4 @@
-"""Phase A (multi-record Variable) focused tests: the sealed
+"""Multi-record Variable focused tests: the sealed
 `EnumerationCandidate`/`EnumerationResult` schema (pipeline/raw_schema.py)
 and the bounded, deterministically-validated `orchestrator.run_enumeration`
 pass built on top of it.
@@ -127,7 +127,7 @@ def test_empty_enumeration_is_valid():
 
 
 def test_candidate_known_value_defaults_to_none_for_free_form_enumeration():
-    # Phase 1.3 (extraction-vs-known-table-value cross-check): known_value
+    # (extraction-vs-known-table-value cross-check): known_value
     # is set ONLY by table-enumeration Step C's own deterministic
     # construction, never by the model -- a free-form-authored candidate
     # (which never mentions this field) must default to None, not error or
@@ -152,7 +152,7 @@ def test_candidate_known_value_round_trips_when_explicitly_set():
 
 
 def test_enumeration_prompt_includes_the_real_paper_id():
-    # Real regression (pecan, first Phase A run): the prompt never
+    # Real regression: the prompt never
     # mentioned the actual paper_id anywhere, so the model guessed wrong
     # values ('current', 'paper', or none at all) for every tool call,
     # found nothing, and correctly reported zero candidates -- not because

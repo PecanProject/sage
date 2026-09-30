@@ -1,10 +1,10 @@
-"""Correction pass, Fix 6: ONE canonical spelling for the Management treatment link (`treatment_ids`).
+"""ONE canonical spelling for the Management treatment link (`treatment_ids`).
 
 Real bug (run felipe_smoke_20260920T132343, Felipe-2010-Cultivar, Management): the enumeration prompt taught the link key
 with a hard-coded example, `{"treatment_id": "ambient_co2"}`, even when the offered field was the list `treatment_ids`.
 The model copied it: its mustard planting / mowing / incorporation events came back linked with the SINGULAR key
 `{"treatment_id": "mustard"}`. `run_enumeration` only validated keys that were offered fields, so the singular key was
-silently ignored -- no link was ever proposed to `_verified_treatment_links`, Item 14's verification never ran, and the
+silently ignored -- no link was ever proposed to `_verified_treatment_links`, the link verification never ran, and the
 run wrote no `treatment_links` artifact at all.
 
 Now: the prompt example uses a field this entity type is actually offered (a list for `_ids`), a singular/plural near-miss is
@@ -24,7 +24,6 @@ import pytest
 
 from pipeline import orchestrator, run_store
 from pipeline.raw_schema import EnumerationCandidate
-from pipeline.validators import _load_rendered_blocks
 
 FIXTURES = Path(__file__).parent / "fixtures" / "pass2"
 PAPER = "Felipe-2010-Cultivar"

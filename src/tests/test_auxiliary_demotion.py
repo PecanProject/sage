@@ -1,4 +1,4 @@
-"""Correction pass, Fix 3: ungrounded AUXILIARY facts / fields no longer sink an otherwise valid record.
+"""Ungrounded AUXILIARY facts / fields no longer sink an otherwise valid record.
 
 Real evidence (Daren-1997-Canopy run 20260919T211137_77879c98, Felipe-2010-Cultivar run felipe_smoke_20260920T132343).
 Replaying the stored Extraction attempts of every record that ended in `error` (tests/fixtures/pass2/replay_extractions.json,
@@ -8,7 +8,7 @@ harvest index), `measurement_units` (soluble solids), `effect_size_percent` (tot
 (shoot biomass `unit`) and a Study's design descriptions. On the Conversion side, Daren's internode-length Variable was
 lost to an optional `notes` that says "Name of the variable as described in the methods.".
 
-Item 13 dropped such a fact only for TABLE candidates (a known cell value proves the value fact real). This generalises
+Table candidates already dropped such a fact (a known cell value proves the value fact real). This generalises
 it by field NAME, per entity type, from the IR schema/protocol: an ungrounded fact named like an identity/value-bearing
 field of its entity is never dropped, nothing is dropped without a grounded fact remaining, a pipeline-level error is never
 hidden, and Observation is excluded. On the Conversion side only DESCRIPTIVE optional fields may be demoted, and only when

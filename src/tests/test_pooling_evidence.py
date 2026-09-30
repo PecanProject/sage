@@ -98,7 +98,7 @@ def test_across_every_real_fixture_table_only_those_two_statements_are_accepted(
 
 def test_table_6_never_reads_table_7s_caption():
     chain = ["b:0607", "b:0656"]
-    assert cr.table_continuation_chains(DAREN, FIXTURES).count(chain) == 1
+    assert cr.table_continuation_map(DAREN, FIXTURES).get("b:0656") == "b:0607"
     windows = pe.pooling_windows(DAREN, chain, FIXTURES)
     assert ("own_caption", "b:0606") in windows  # its own caption sits before the FIRST block of the chain
     assert "b:0760" not in [a for _, a in windows]  # the next table's caption is a boundary, not a note

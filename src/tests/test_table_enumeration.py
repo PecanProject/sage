@@ -342,7 +342,7 @@ def test_match_row_group_prefers_exact_match_over_substring():
 
 
 # --------------------------------------------------------------------- #
-# 3b. _match_row_group_to_pool -- Fix 1 (Method-linking directional bug,
+# 3b. _match_row_group_to_pool (Method-linking directional bug,
 # real Daren-1997-Canopy evidence): method_hint is a long descriptive
 # clause the table-classification prompt explicitly asks for, while a real
 # Method entity's own `name` is a short label -- the OLD substring rule
@@ -466,7 +466,7 @@ def test_step_c_not_applicable_produces_no_candidates():
 
 
 def test_step_c_aggregated_summary_produces_no_candidates():
-    # Fix 2, real Daren-1997-Canopy Table 7 shape: applicable=True (it DID
+    # real Daren-1997-Canopy Table 7 shape: applicable=True (it DID
     # reconstruct), but aggregation_scope=aggregated_summary -- pooled
     # main-effects rows must never cross-product into Observation
     # candidates like "LAI for Location=Ames, IA" (no real Treatment).
@@ -482,7 +482,7 @@ def test_step_c_aggregated_summary_produces_no_candidates():
 
 
 def test_step_c_sets_known_value_to_the_reported_cell_text():
-    # Phase 1.3 (extraction-vs-known-table-value cross-check): Step C
+    # (extraction-vs-known-table-value cross-check): Step C
     # already knows the exact cell value it cross-produced this candidate
     # from -- carry it through on known_value so the orchestrator can
     # later verify Extraction actually read THIS cell, not a different one.
@@ -986,7 +986,7 @@ def test_treatment_candidates_not_applicable_classification_contributes_nothing(
 
 
 def test_treatment_candidates_aggregated_summary_contributes_nothing():
-    # Fix 2, real Daren-1997-Canopy Table 7 shape: this is exactly what
+    # real Daren-1997-Canopy Table 7 shape: this is exactly what
     # previously produced the nonsense Treatment(name="Ames, IA") and
     # Treatment(name="Trailblazer") (no site/maturity) records -- both the
     # "Location, across populations" and "Population, across locations and
@@ -1059,7 +1059,7 @@ def test_treatment_candidates_column_encoded_with_site_hint_also_splits_by_site(
 
 def test_treatment_candidates_row_encoded_unaffected_by_treatment_level_hint_field_existing():
     # Regression guard: a table with NO value_column ever setting
-    # treatment_level_hint must behave EXACTLY as before Fix 5 -- the new
+    # treatment_level_hint must behave EXACTLY as before - the new
     # field defaults to None and the row-encoded branch is unchanged.
     tc = TableClassification(
         applicable=True, table_anchors=["b:0119"],
@@ -1314,7 +1314,7 @@ def test_dedupe_candidate_record_ids_handles_three_way_collision():
 
 def test_dedupe_candidate_record_ids_preserves_known_value():
     # model_copy(update=...) must only touch candidate_id -- every other
-    # field (including the Phase 1.3 known_value) carries over unchanged.
+    # field carries over unchanged.
     a = EnumerationCandidate(candidate_id="x", description="a", anchors=["b:0001"], linked_candidates={}, known_value="3.2")
     b = EnumerationCandidate(candidate_id="x", description="b", anchors=["b:0002"], linked_candidates={}, known_value="4.1")
     deduped, _ = orchestrator._dedupe_candidate_record_ids([a, b])
@@ -1439,7 +1439,7 @@ def test_run_multi_record_entity_merges_table_and_freeform_candidates_for_observ
 
 
 def test_run_multi_record_entity_disambiguates_colliding_candidate_ids_instead_of_overwriting(env, monkeypatch):
-    # Phase 1.2 (candidate collision detection): a table-derived candidate
+    # (candidate collision detection): a table-derived candidate
     # and a free-form candidate independently choosing the SAME
     # candidate_id must both still be attempted, under distinct record_ids
     # -- never one silently overwriting the other's run_record() results.
@@ -1490,7 +1490,7 @@ def test_run_multi_record_entity_disambiguates_colliding_candidate_ids_instead_o
 
 
 def test_run_multi_record_entity_drops_freeform_subsumed_by_table_links(env, monkeypatch):
-    # Item 8 (replaces Fix 3's link-overlap rule for Treatment): real Daren-1997-Canopy
+    # real Daren-1997-Canopy
     # Treatment shape -- table enumeration produces candidates; free-form, grounded in
     # Methods-section prose (not any table anchor), produces one with the SAME canonical
     # identity (declared dimensions; key names differ) -- dropped as covered -- and one
@@ -1597,7 +1597,7 @@ def test_run_multi_record_entity_daren_shaped_convergence(env, monkeypatch):
         lambda **kwargs: {"b_0119": cell_level_table, "b_0761": aggregated_table},
     )
 
-    # Item 8: free-form candidates now declare dimensions. The first names the same
+    # free-form candidates now declare dimensions. The first names the same
     # treatment identity as a table candidate (covered); the second declares only a
     # population and a site (crop/site are never a Treatment, protocol Section 6.3).
     freeform_candidates = [

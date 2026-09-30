@@ -1,18 +1,7 @@
 """
 Batch QC runner.
 
-Per this session's explicit instruction: run the QC gate as a single batch
-script over all papers' files ON DISK (`for paper in papers/*: run_qc(paper)`),
-never by loading or reviewing the raw JSON manually for each, and only the
-resulting qc_report.json SUMMARIES (pass/fail counts, flagged block types,
-tag-leak hits) should come back into the calling session's context -- never
-the underlying paper content.md/provenance.json themselves.
-
-This script enforces that shape structurally: it prints/returns only a
-compact aggregate summary. If a report shows a real failure worth
-investigating, the intended follow-up is to pull up that one paper's
-qc_report.json (already small) or a specific flagged slice of its
-provenance.json -- not the whole file, and not this script's job.
+Runs the QC gate over every paper on disk and returns only a compact aggregate summary.
 
 Usage:
     python3 run_qc_batch.py <papers_root_dir>

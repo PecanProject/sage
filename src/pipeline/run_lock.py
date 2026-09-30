@@ -1,12 +1,4 @@
-"""`pipeline/run_lock.py` -- one active extraction run per paper.
-
-Real, confirmed failure this exists for: the Streamlit Extract button starts
-`orchestrator.run_paper` in a background thread, and nothing stopped a second
-click (or a second browser session) from starting a second run on the SAME
-paper while the first was still going. Both then wrote into the same
-`ir-store` and results snapshot, so the outputs of two different runs were
-mixed under one paper (three different run ids were found inside a single
-`results/<paper>/` snapshot).
+"""One active extraction run per paper, so two runs never write into the same ir-store and results.
 
 The lock is a file `runs/.locks/<paper_id>.lock` created with
 `O_CREAT|O_EXCL` (atomic on a local filesystem) holding the holder's pid and
@@ -15,9 +7,6 @@ run id. A lock whose holder pid is no longer alive is STALE (crashed process,
 another thread of THIS process, which has the same pid -- refuses the new run
 with `RunAlreadyActive`. Release only removes the lock if it still names the
 releasing run, so a late release can never free someone else's lock.
-
-Scope: purely run bookkeeping. It never inspects or alters extraction
-behavior, prompts, or results.
 """
 
 from __future__ import annotations

@@ -86,7 +86,7 @@ def test_clean_dataset_with_studies_passes():
 
 def test_treatment_name_unique_within_study_not_citation():
     # Two treatments named "control", same study, different citations ->
-    # should now conflict (Option B: scope is study_id, not citation_id).
+    # should now conflict.
     ds = IRDataset(
         dataset_id="ds1",
         citations=[base_citation("paperA"), base_citation("paperB")],
@@ -166,7 +166,7 @@ def test_study_dangling_citation_ref_is_error():
 
 
 def test_observation_citation_id_may_differ_from_treatment_citation_id():
-    # Option B: Observation.citation_id no longer required to equal
+    # Observation.citation_id no longer required to equal
     # Treatment.citation_id -- this must NOT be flagged as an error.
     ds = IRDataset(
         dataset_id="ds1",
@@ -322,7 +322,7 @@ def test_distinct_site_names_pass():
 
 
 # --------------------------------------------------------------------- #
-# Variable, Crop, TreatmentPair, Coverage whole-graph checks (added this sprint)
+# Variable, Crop, TreatmentPair, Coverage whole-graph checks
 # --------------------------------------------------------------------- #
 
 
@@ -508,9 +508,9 @@ def test_value_supported_by_text_em_and_en_dash_normalize_too():
 
 # ---------------------------------------------------------------------------
 # _value_supported_by_text -- Management.event_type / Observation.variable_name
-# free-text exemption (Fix 1, design-review session). Both fields are named
+# free-text exemption. Both fields are named
 # by pipeline/vocab.py's own docstring and ir_schema.py's ProvenanceLabel
-# docstring as "deliberately free text at this layer" (Playbook Section 5),
+# docstring as "deliberately free text at this layer",
 # alongside the already-exempted reported_effect_scope -- the literal-match
 # requirement made them structurally unable to pass whenever the paper
 # describes an event/quantity in prose rather than naming it. Real cases

@@ -1,20 +1,8 @@
 """
 IR schema — Pydantic models.
 
-Source of truth: `IR Architecture Specification v1.0` (the base spec) PLUS every
-amendment agreed in Playbook Section 5 and the Option B Study design agreed in
-Section 5.1 (approved for implementation this sprint, per explicit instruction
--- Option A was the fallback if fixture review found no multi-citation study;
-this session was told to build Option B directly rather than wait on that
-gate).
-
-This module holds ONLY data shape (Pydantic models + enums). Construction-time
-invariants that Pydantic can express as field/model validators live here too
-(Section 9.1, IR spec) since they're inseparable from "what does a valid
-instance look like." Whole-graph invariants (Section 9.2 / Table 19, Option B
-diff) that require seeing the whole IRDataset live in `validators.py`, not
-here -- a single entity's own fields being locally consistent is a different
-question from whether it's consistent with the rest of the graph.
+Based on the IR Architecture Specification v1.0, with a Study entity grouping citations. Holds data shape and
+per-entity construction invariants; whole-graph invariants live in `validators.py`.
 """
 
 from __future__ import annotations
@@ -22,7 +10,6 @@ from __future__ import annotations
 from datetime import date
 from enum import Enum
 from typing import Generic, Literal, Optional, TypeVar, Union
-from typing import Optional
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -44,8 +31,7 @@ class ProvenanceLabel(str, Enum):
 
 
 class SourcePriorityTier(str, Enum):
-    """Playbook Section 5 amendment: added to ExtractionSource, matching the
-    Protocol's source-priority order."""
+    """The Protocol's source-priority order."""
 
     ARCHIVED_DATA = "archived_data"
     SUPPLEMENT = "supplement"
@@ -56,10 +42,7 @@ class SourcePriorityTier(str, Enum):
 
 
 class InferenceSource(str, Enum):
-    """Playbook Section 5 amendment: added alongside `confidence` on
-    ExtractedField. A raw LLM confidence score is not treated as calibrated
-    -- this field exists so a reviewer/validator can tell which regime a
-    confidence value came from."""
+    """Which regime a `confidence` value came from (a raw LLM score is not calibrated)."""
 
     LLM = "llm"
     CURATOR = "curator"
@@ -97,7 +80,7 @@ class SourceLocator(BaseModel):
 
 
 class ExtractionSource(BaseModel):
-    """IR spec Section 6.2 + Playbook `source_priority_tier` amendment."""
+    """IR spec Section 6.2, plus `source_priority_tier`."""
 
     source_document_id: str
     # The 1-indexed PDF page of the FIRST cited block, filled deterministically from provenance.json by the orchestrator
@@ -113,8 +96,7 @@ class ExtractionSource(BaseModel):
 
 
 class ExtractedField(BaseModel, Generic[T]):
-    """IR spec Section 6.1 + Playbook amendments (`inference_source`,
-    confidence 0-100 int).
+    """IR spec Section 6.1, plus `inference_source` and a 0-100 int confidence.
 
     Construction-time invariants enforced here (Section 9.1, Table 18, row 1):
       - EXTRACTED/INFERRED -> value is not None
@@ -146,10 +128,7 @@ class ExtractedField(BaseModel, Generic[T]):
             raise ValueError(
                 "provenance_label=INFERRED requires unresolved_reason populated as an inference-basis note"
             )
-        # P4/propose_record rule (Playbook Section 6): EXTRACTED/INFERRED
-        # fields must carry at least one real locator -- an empty locators
-        # list already fails ExtractionSource's min_length=1, so this is a
-        # belt-and-suspenders re-check, not new logic.
+        # EXTRACTED/INFERRED fields must carry at least one locator.
         if self.provenance_label != ProvenanceLabel.UNRESOLVED and not self.source.locators:
             raise ValueError("EXTRACTED/INFERRED field requires at least one source locator")
         return self
@@ -228,7 +207,7 @@ class StatisticalSummary(BaseModel):
 ExtractedReference = str  # text id pointer; never a nested copy (Section 10)
 
 # ---------------------------------------------------------------------------
-# Entities (IR spec Section 7, + Study per Playbook Section 5.1 Option B)
+# Entities (IR spec Section 7, plus Study)
 # ---------------------------------------------------------------------------
 
 
@@ -241,11 +220,8 @@ class Citation(BaseModel):
 
 
 class Study(BaseModel):
-    """NEW under Option B (Playbook Section 5.1). Pure identity/grouping
-    entity: a real-world study that may be reported across multiple
-    citations. Holds no scientific fields itself yet (design_type /
-    experimental_unit / replicate_unit are future work per Section 5.1's
-    Option A tradeoff discussion -- out of scope for this sprint)."""
+    """Identity/grouping entity: a real-world study that may be reported across several citations. Holds no
+    scientific fields."""
 
     id: str
     citation_ids: list[ExtractedReference] = Field(min_length=1)
@@ -295,20 +271,8 @@ class Method(BaseModel):
 
 
 class Variable(BaseModel):
-    """Added this sprint: promotes the calibration/validation datapackage's
-    `variables` table (name, description, units, notes; primary key `name`)
-    to a first-class IR entity, adapted from the earlier `src2/` design
-    (`src2/betydb_extraction/ir/entities/variable.py`) to this schema's bare
-    `ExtractedReference` convention.
-
-    This does NOT replace `Observation.variable_name` -- that field is
-    unchanged and remains the verbatim, capture-first text of what the
-    source actually calls the measured quantity (the free-text-at-the-IR-
-    layer decision this module previously documented under "Playbook
-    Section 5" applied to *that* field, not to whether a Variable registry
-    entity could also exist). `Observation.variable_id` (below) is the new,
-    optional link from an observation to a normalized Variable record,
-    additive to variable_name, not a replacement for it."""
+    """The datapackage's `variables` table. `Observation.variable_name` stays the source's verbatim name;
+    `Observation.variable_id` is an optional link to this record."""
 
     id: str
     name: ExtractedField[str]
@@ -318,14 +282,8 @@ class Variable(BaseModel):
 
 
 class Crop(BaseModel):
-    """Added this sprint: promotes the calibration/validation datapackage's
-    `crops` table to a first-class IR entity, deliberately NOT a duplicate
-    of Species. Species (above) is the pure taxonomic identity (genus /
-    species_epithet / scientific_name) and is reusable across any number of
-    papers and cultivars. Crop is the paper-specific agricultural identity
-    actually used in one experiment -- typically a named cultivar/variety --
-    and references Species for its taxonomy rather than restating it, the
-    same way Treatment references Site rather than embedding site fields."""
+    """The datapackage's `crops` table: the paper-specific crop (typically a cultivar), referencing Species for its
+    taxonomy."""
 
     id: str
     citation_id: ExtractedReference
@@ -339,31 +297,14 @@ class Treatment(BaseModel):
     id: str
     citation_id: ExtractedReference
     site_id: ExtractedReference
-    study_id: ExtractedField[ExtractedReference]  # NEW under Option B; may be UNRESOLVED
+    study_id: ExtractedField[ExtractedReference]  # may be UNRESOLVED
     name: ExtractedField[str]
     definition: ExtractedField[str]
     control_status: Optional[ExtractedField[bool]] = None
 
 
 class TreatmentPair(BaseModel):
-    """Added this sprint: a previously-confirmed-then-dropped entity.
-    `src2/betydb_extraction/ir/entities/treatment_pair.py` (a separate,
-    never-wired-in implementation elsewhere in this repo) already built this
-    once, with the note "Added post-freeze per PROJECT_STATE_HANDOFF.md
-    ('Confirmed gap to fix')" -- that handoff document no longer exists
-    anywhere in the repository, but the entity it justified is reinstated
-    here, adapted to this schema's bare-ExtractedReference convention
-    (src2's version wrapped every reference in its own provenance-carrying
-    model; this codebase's `ExtractedReference = str` choice, Section 10,
-    stays consistent with every other entity here).
-
-    Represents an explicit named treatment-contrast comparison -- the one
-    Treatment<->Treatment relationship this schema didn't previously have
-    any way to express. Calibration/Validation Protocol Section 7.3: "By
-    convention, treatment_id_1 is the baseline treatment," and the table is
-    "required when the task depends on named treatment comparisons... not
-    required for every curated dataset" -- so, like Management and Study,
-    an empty treatment_pairs list is the normal case, not an error."""
+    """A named treatment contrast; treatment_id_1 is the baseline (Protocol Section 7.3). An empty list is normal."""
 
     id: str
     citation_id: ExtractedReference
@@ -415,11 +356,11 @@ class Observation(BaseModel):
     site_id: ExtractedReference
     treatment_id: ExtractedReference  # singular, per BETYdb constraint
     species_id: Optional[ExtractedReference] = None
-    crop_id: Optional[ExtractedReference] = None  # NEW: optional link to Crop, same pattern as species_id
+    crop_id: Optional[ExtractedReference] = None  # optional link to Crop
     method_id: ExtractedReference
     replicate_id: Optional[ExtractedField[str]] = None
     variable_name: ExtractedField[str]
-    variable_id: Optional[ExtractedReference] = None  # NEW: optional link to Variable; variable_name is unchanged
+    variable_id: Optional[ExtractedReference] = None  # optional link to Variable
     value: ExtractedField[QuantityValue]
     statistical_encoding: Optional[ExtractedField[StatisticalSummary]] = None
     reported_effect_scope: ExtractedField[ReportedEffectScope]
@@ -460,21 +401,8 @@ class Observation(BaseModel):
 
 
 class Coverage(BaseModel):
-    """Added this sprint: promotes the calibration/validation datapackage's
-    `coverage` table (a planning matrix of how much curated data exists per
-    site/variable, used to decide where more curation effort is needed) to
-    a first-class IR entity.
-
-    Deliberately different in kind from every other entity above: a row
-    count or a magnitude-target label is not something a paper's text
-    states with a citable anchor -- it's a rollup computed from what has
-    already been curated, or a planning judgment a curator records. None of
-    its fields are wrapped in ExtractedField for that reason (the same
-    reasoning that already applies to Study, which also carries zero
-    ExtractedField content: not every entity in this schema represents a
-    claim extracted from text). It is still scoped per-paper (citation_id)
-    and lives in IRDataset as a list, like every other entity, since a
-    single paper can report on several site/variable combinations."""
+    """The datapackage's `coverage` table: how much curated data exists per site/variable. A curation rollup, not
+    a claim from the text, so no field is an ExtractedField."""
 
     id: str
     citation_id: ExtractedReference
@@ -492,14 +420,14 @@ class Coverage(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Root aggregate (IR spec Section 3, Option B shape per Section 5.1)
+# Root aggregate (IR spec Section 3)
 # ---------------------------------------------------------------------------
 
 
 class IRDataset(BaseModel):
     dataset_id: str
     citations: list[Citation] = Field(default_factory=list)  # CHANGED: was singular primary_citation
-    studies: list[Study] = Field(default_factory=list)  # NEW
+    studies: list[Study] = Field(default_factory=list)
     sites: list[Site] = Field(default_factory=list)
     species: list[Species] = Field(default_factory=list)
     crops: list[Crop] = Field(default_factory=list)

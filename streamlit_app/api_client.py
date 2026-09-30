@@ -1,12 +1,10 @@
 """
 api_client.py
 ================
-This module is the ONLY place the Streamlit UI talks to for data --
-unchanged promise from the original skeleton. It now reads REAL Sage
-artifacts (src/results/, src/paper/, src/pipeline/corrections_store)
-instead of mock_data.py. UI components (app.py, components/*) must keep
-calling only functions in this file -- never import pipeline.* or
-mock_data directly.
+This module is the ONLY place the Streamlit UI talks to for data. It
+reads real Sage artifacts (src/results/, src/paper/,
+src/pipeline/corrections_store). UI components (app.py, components/*)
+must call only functions in this file -- never import pipeline.* directly.
 
 No extraction/business logic lives here beyond simple read-shaping and
 delegating to existing pipeline modules (results_store, corrections_store,
@@ -25,9 +23,6 @@ from pipeline.ir_schema import ENTITY_MODELS
 from pipeline.validators import _value_supported_by_text, _load_rendered_blocks
 
 ENTITY_TYPES: list[str] = list(ENTITY_MODELS.keys())  # canonical order, straight from the real schema
-
-REVIEW_ACTIONS = sorted(corrections_store.VALID_ACTIONS)
-
 
 # ---------------------------------------------------------------------------
 # Paper library
@@ -90,15 +85,8 @@ def default_review_run(paper_id: str) -> Optional[str]:
 def is_extracted(paper_id: str) -> bool:
     """True when ANY results set of this paper (any run, or the legacy flat layout) has at least one real record to
     review (ready/unresolved) -- distinct from `processed` (Marker/document preparation done), which says nothing about
-    whether the extraction pipeline itself has ever been run.
-
-    Deliberately NOT `marker_pipeline._needs_extraction` inverted: that function answers a different question ("should
-    the batch pipeline re-run extraction for this paper"), and its "any single error anywhere means treat the WHOLE
-    paper as not extracted" rule is right for that. Whether a paper has data worth reviewing is a much lower bar -- ANY
-    real ready/unresolved record, regardless of unrelated errors elsewhere (real case: Oceologia-1998, 89 of 92 records
-    ready/unresolved and 2 stray errors). Nor is it only the LATEST run: a latest run that failed at Citation (everything
-    else blocked) must not hide an earlier run's real results (real case: Oceologia-1998 and Paul-1998-Foliar, whose
-    latest runs failed while their earlier flat-layout results hold 81 and 39 ready records)."""
+    whether the extraction pipeline itself has ever been run. Errors elsewhere, or a failed latest run, do not hide
+    reviewable records."""
     return any(_is_reviewable(_run_status_counts(paper_id, run_id)) for run_id in _candidate_runs(paper_id))
 
 
@@ -115,14 +103,7 @@ def list_papers() -> list[dict]:
     referenced against its own processed/extracted/error state. `processed`
     and `extracted` are deliberately separate signals: a paper can be
     processed (Marker + document preparation done) without ever having
-    been extracted yet.
-
-    Deliberately independent of list_extracted_papers() below -- a real,
-    confirmed bug this fixes: this function used to be the ONLY listing,
-    so deleting a paper's PDF made it disappear from BOTH Stored Papers
-    AND Extracted Papers, even when real, reviewable results/<paper_id>/
-    data was still sitting on disk untouched. Each section now enumerates
-    from its own real source of truth (PDFs here; results/ there)."""
+    been extracted yet. Independent of list_extracted_papers(), which lists from results/."""
     rows = []
     for paper_id in sage_paths.list_source_paper_ids():
         processed = sage_paths.is_processed(paper_id)
@@ -142,9 +123,7 @@ def list_papers() -> list[dict]:
 
 def list_extracted_papers() -> list[dict]:
     """The Extracted Papers listing -- one row for EVERY paper_id with a results/<paper_id>/ directory on disk
-    (results_store.list_paper_ids()), independent of whether that paper's PDF is still in the library (a real,
-    confirmed bug: deleting a PDF used to hide its results) and of whether its latest run succeeded (a real,
-    confirmed bug: a latest run that failed at Citation hid the paper entirely, earlier real results included).
+    (results_store.list_paper_ids()), whether or not its PDF is still in the library or its latest run succeeded.
 
     Each row names the results set the review opens (`review_run`, see `default_review_run`), whether that is the
     LATEST run, and -- when no results set has anything to review -- `reviewable=False` with `failure` saying why (the
@@ -291,26 +270,6 @@ def get_pdf_bytes(paper_id: str) -> Optional[bytes]:
         return None
 
 
-def run_marker_processing(timeout: int = 1800) -> dict[str, Any]:
-    """Trigger the real, existing Marker + adapter pipeline. See
-    marker_pipeline.py -- this never reimplements Marker or the adapter."""
-    import marker_pipeline
-
-    return marker_pipeline.process_all_papers(timeout=timeout)
-
-
-def run_full_paper_processing(model: Optional[str] = None, timeout: int = 1800):
-    """The complete, single, user-triggered processing session: Marker
-    conversion -> Sage document preparation -> full extraction pipeline
-    (pipeline.orchestrator.run_paper) for every paper that still needs it
-    -> review data availability. A generator of per-stage progress dicts
-    (see marker_pipeline.process_all_papers_full) so the Library page can
-    show real stage-by-stage status rather than one opaque spinner."""
-    import marker_pipeline
-
-    yield from marker_pipeline.process_all_papers_full(model=model, timeout=timeout)
-
-
 def run_pipeline_for_paper(paper_id: str, model: Optional[str] = None, timeout: int = 1800):
     """The complete processing session SCOPED TO ONE user-selected paper --
     Marker conversion -> Sage document preparation -> extraction for
@@ -388,16 +347,8 @@ def _normalize_field(
 
 
 def get_review_data(paper_id: str, run_id: Optional[str] = None) -> dict[str, list[dict]]:
-    """Every one of the 12 entity types for this paper, each holding
-    whatever real result(s) exist for it -- 'not_extracted' when nothing
-    does yet, never fabricated. Most entity types store at most one record
-    (`results/<paper_id>/<Entity>.json`); a multi-record type (Phase A:
-    Variable) can hold several (`results/<paper_id>/<Entity>/<record_id>.json`)
-    -- `results_store.load_any_entity_results` reads whichever convention
-    this entity_type actually uses, so this function itself never needs to
-    know or care which one that is. Field values reflect corrections
-    already applied (effective_value), while `value` always keeps the
-    ORIGINAL extraction untouched, per the immutability requirement.
+    """Every entity type for this paper with whatever results exist for it ('not_extracted' when none).
+    `effective_value` has corrections applied; `value` keeps the original extraction.
 
     `run_id` selects the results set (a run id, or `results_store.LEGACY_RUN`); by default the one
     `default_review_run` picks, so a failed latest run never hides earlier, real results."""
@@ -480,15 +431,6 @@ def review_summary(paper_id: str, run_id: Optional[str] = None) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Entity pickers for "Relink Entity" (existing records, never raw id typing)
-# ---------------------------------------------------------------------------
-
-def list_record_ids(paper_id: str, entity_type: str, run_id: Optional[str] = None) -> list[str]:
-    data = get_review_data(paper_id, run_id)
-    return [r["record_id"] for r in data.get(entity_type, []) if r["status"] == "ready"]
-
-
-# ---------------------------------------------------------------------------
 # Review actions -- append to the correction log, never mutate results_store/ir-store
 # ---------------------------------------------------------------------------
 
@@ -557,15 +499,6 @@ def _correction_run_id(paper_id: str, record: Optional[dict], run_id: Optional[s
     if run_id is not None and run_id != results_store.LEGACY_RUN:
         return run_id
     return results_store.latest_run_id(paper_id)
-
-
-def get_corrections(
-    paper_id: str, entity_type: str, record_id: str, field_name: Optional[str] = None, run_id: Optional[str] = None,
-) -> list[dict]:
-    record = next((r for r in get_review_data(paper_id, run_id).get(entity_type, []) if r["record_id"] == record_id), None)
-    return corrections_store.read_for_record(
-        paper_id, entity_type, record_id, field_name, run_id=_correction_run_id(paper_id, record, run_id),
-    )
 
 
 def get_block_text(paper_id: str, block_anchor: str) -> Optional[str]:

@@ -1,22 +1,5 @@
-"""
-`lookup_vocab` — Playbook Section 5: "variable_name / event_type: confirmed
-free text at the IR layer... lookup_vocab is advisory only, never gating."
-
-This module NEVER blocks anything; `ir_service.lookup_vocab` returns
-suggestions with a similarity note, and `propose_record`/`commit_record`
-never call into this module at all -- vocabulary matching is not part of the
-validation path. That separation is deliberate and mirrors P3 (keep curation
-separate from harmonization): controlled-vocabulary matching is a
-materialization-time concern, this is just a curator/agent convenience
-during curation.
-
-Seed vocabulary: a small stand-in for the PEcAn `events_schema_v0.1.1.json`
-list named in the Playbook. Loading the real file over the network is
-explicitly Sprint 3+ fixture-review scope, not Sprint 2 infrastructure --
-kept as a local seed list here, clearly labeled as such, so `lookup_vocab`
-is exercisable and testable now without an unreviewed external fetch baked
-into the service's startup path.
-"""
+"""`lookup_vocab`: advisory vocabulary suggestions, never part of validation. The seed list is a local stand-in for
+PEcAn's `events_schema_v0.1.1.json`."""
 
 from __future__ import annotations
 
@@ -68,11 +51,10 @@ def lookup_vocab(term: str, entity_type: str, max_results: int = 5) -> dict:
         "advisory_only": True,
         "matches": matches,
         "note": (
-            "Advisory only -- never gating. Free text is always accepted at the IR layer "
-            "(Playbook Section 5); controlled-vocabulary matching happens at materialization."
+            "Advisory only -- never gating. Free text is always accepted at the IR layer; "
+            "controlled-vocabulary matching happens at materialization."
         )
         if not matches
         else "Advisory only -- never gating.",
-        "seed_source": "local stand-in seed list (Sprint 2); intended seed is PEcAn events_schema_v0.1.1.json, "
-        "not yet loaded from source -- see Playbook Section 9.",
+        "seed_source": "local stand-in seed list; intended seed is PEcAn events_schema_v0.1.1.json.",
     }

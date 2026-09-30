@@ -1,13 +1,8 @@
 """
-prepare_papers.py -- bridges Marker's own output directory to the existing,
-validated Sprint 1 pipeline. Orchestration only: every content-producing step
-below is a direct, unmodified call into marker_adapter.py / run_qc_batch.py
-(qc_gate.py transitively). Nothing about the adapter's tree-walk, cleanup
-heuristics, or the QC gate's three checks is touched or reimplemented here.
+prepare_papers.py -- runs marker_adapter.py and run_qc_batch.py over a Marker output directory. Orchestration only.
 
 --------------------------------------------------------------------------
-Where this fits: you run Marker yourself, first, exactly as already decided
-(Playbook Section 4, point 1 -- JSON output mode, --use_llm):
+Run Marker first (JSON output mode):
 
     marker data/marker_file --output_dir data/marker_output \\
         --output_format json --workers 1
@@ -16,15 +11,10 @@ Then this script:
 
     python3 docproc/prepare_papers.py data/marker_output --output_dir papers
 
-Marker never runs inside this script. This script only ever reads a Marker
-output directory that already exists on disk -- consistent with the rest of
-this sprint's principle of never re-deriving something two separate ways.
+Marker never runs inside this script.
 --------------------------------------------------------------------------
 
-Marker's own on-disk convention (verified against marker-pdf==2.0.0's actual
-source -- marker/output.py:save_output, marker/config/parser.py:
-get_output_folder/get_base_filename -- not assumed from memory or docs):
-for an input PDF named `<paper_id>.pdf`, Marker creates exactly one
+Marker's on-disk convention (marker-pdf 2.0.0): for an input PDF named `<paper_id>.pdf`, Marker creates exactly one
 subdirectory per PDF, named after the PDF's stem, and writes:
 
     <marker_output_dir>/<paper_id>/<paper_id>.json        <- the block tree
@@ -37,9 +27,7 @@ subdirectory per PDF, named after the PDF's stem, and writes:
                                                                the main file
     <marker_output_dir>/<paper_id>/<extracted image files>
 
-So `<paper_id>` -- the Marker subdirectory name -- becomes this project's
-paper_id directly; no separate id-assignment scheme is needed here either,
-same spirit as the adapter's own block_id decision in Section 4.
+The Marker subdirectory name is the paper_id.
 
 --------------------------------------------------------------------------
 Determinism:
@@ -51,12 +39,8 @@ Determinism:
     qc_report.json ordering is exactly whatever run_qc_batch.run_batch()
     already produces. Given the same Marker output directory, re-running
     this script produces byte-identical output every time.
-  - A paper whose JSON can't be unambiguously resolved is never silently
-    skipped (P1: never silently drop information). Its output directory is
-    still created (empty), so run_qc_batch's existing "content.md or
-    provenance.json missing" handling in qc_gate.py surfaces it in the
-    aggregate report as a real, visible failure rather than an absence
-    nobody notices.
+  - A paper whose JSON can't be resolved still gets an (empty) output
+    directory, so the QC report shows it as a failure.
 """
 
 from __future__ import annotations

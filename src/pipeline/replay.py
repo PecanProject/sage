@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, Iterable, Optional
 
 from pipeline import content_reader
-from pipeline.results_store import _results_root as results_root
+from pipeline.results_store import _results_root as results_root, latest_run_id
 from pipeline.run_store import _runs_root as runs_root
 
 EXPECTATIONS_DIR = Path(__file__).resolve().parents[1] / "tests" / "replay" / "expectations"
@@ -266,11 +266,6 @@ def load_results(paper_id: str, run_id: str, root: Optional[Path] = None) -> dic
         if isinstance(data, dict) and "entity_type" in data:
             by_type.setdefault(data["entity_type"], []).append(data)
     return by_type
-
-
-def latest_run_id(paper_id: str, root: Optional[Path] = None) -> Optional[str]:
-    marker = (root or results_root()) / paper_id / "LATEST"
-    return marker.read_text(encoding="utf-8").strip() if marker.is_file() else None
 
 
 # --------------------------------------------------------------------------- #
@@ -540,7 +535,7 @@ def redecide_run(paper_id: str, run_id: str, runs_dir: Optional[Path] = None) ->
             if detail.get("unresolved_by") == "ai_validation":
                 payload, verdict = detail.get("payload"), orchestrator._scope_ai_concerns(detail.get("ai_validation") or {})
                 if verdict.get("verdict") == "plausible":
-                    # Phase A3: every concern was about a pipeline-owned field -- nothing left to settle.
+                    # every concern was about a pipeline-owned field -- nothing left to settle
                     settled_rows.append({"entity_type": entity_type, "record_id": info["record_id"], "settled": True,
                                          "now_status": "ready", "withdrawn": [], "open_concerns": [],
                                          "errors": [], "scoped_out": [i.get("field") for i in verdict.get("scoped_out", [])]})
@@ -574,8 +569,8 @@ def redecide_run(paper_id: str, run_id: str, runs_dir: Optional[Path] = None) ->
                     info["status"] = "ready" if ready else "unresolved"
                     info["detail"] = {**detail, "payload": demoted, "ai_validation": verdict}
             settled_rows.append(row)
-    # Records committed READY that the current readiness rules would refuse (Phase A5), and Crops whose species link
-    # their own evidence does not support (Phase A2).
+    # Records committed READY that the current readiness rules would refuse, and Crops whose species link their own
+    # evidence does not support.
     now_refused = []
     for entity_type, infos in records.items():
         for info in infos:
@@ -609,16 +604,15 @@ def redecide_run(paper_id: str, run_id: str, runs_dir: Optional[Path] = None) ->
 
 
 # --------------------------------------------------------------------------- #
-# Observation replay (Phase D): compose each table cell's experimental context from a recorded run
+# Observation replay: compose each table cell's experimental context from a recorded run
 # --------------------------------------------------------------------------- #
 
 def observation_replay(paper_id: str, run_id: str, runs_dir: Optional[Path] = None) -> dict[str, Any]:
     """From a recorded run's table classifications and records, with the CURRENT deterministic path and no model call:
     every table cell's experimental context (method from the map's deterministic tiers, aggregation from design.py,
     statistics from the cell), the cells blocked by representation, and which Observations the run committed READY
-    that the Phase D relationship checks would now send back."""
+    that the relationship checks would now send back."""
     import collections
-    import types
 
     from pipeline import document_map, evidence_index, method_map, orchestrator, design as design_mod
     from pipeline.raw_schema import TableClassification
@@ -643,7 +637,6 @@ def observation_replay(paper_id: str, run_id: str, runs_dir: Optional[Path] = No
     for classification in classifications.values():
         for candidate in orchestrator._table_classification_to_candidates(classification, {}, links, blocked):
             known = {}
-            method_slug = (candidate.linked_candidates or {}).get("method_id")
             if len(methods_ready) == 1:
                 known["method_id"] = methods_ready[0]["record_id"]
             context, _ = orchestrator._observation_experimental_context(paper_id, candidate, known, records, links, summary)
@@ -661,7 +654,6 @@ def observation_replay(paper_id: str, run_id: str, runs_dir: Optional[Path] = No
         if info["status"] != "ready":
             continue
         candidate_ctx = None
-        attempt = run_dir / "records" / f"Observation__{info['record_id']}" / "extraction" / "attempt1.json"
         payload = (info["detail"] or {}).get("payload") or {}
         for classification in classifications.values():
             for candidate in orchestrator._table_classification_to_candidates(classification, {}, links):
@@ -719,7 +711,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--verify", action="store_true", help="only verify the corpus against content.md and the PDF")
     parser.add_argument("--json", type=Path, help="also write the full report as JSON to this path")
     parser.add_argument("--observations", action="store_true",
-                        help="compose each table cell's experimental context from a recorded run (Phase D), no model call")
+                        help="compose each table cell's experimental context from a recorded run, no model call")
     parser.add_argument("--packets", action="store_true",
                         help="report which verified evidence each entity type's enumeration packet supplies up front")
     parser.add_argument("--redecide", action="store_true",

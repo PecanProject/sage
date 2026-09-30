@@ -1,4 +1,4 @@
-"""Fixes from the Philippe live run 20260926T190955_435c16fa (after F1-F4).
+"""Fixes from the Philippe live run 20260926T190955_435c16fa.
 
 1. Binding by elimination: 2 of 3 PAR Treatments failed readiness; `_resolve_known_refs` bound Observation.treatment_id
    to the ONLY ready one, and all 30 ready Observations (PAR 0-0.1 rows, 0.1-0.2 rows, Year rows) were committed with

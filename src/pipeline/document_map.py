@@ -1,17 +1,14 @@
 """
-Canonical Document Map (Stage 3): the paper's structure, derived once and deterministically from the artifacts
+Canonical Document Map: the paper's structure, derived once and deterministically from the artifacts
 document preparation already wrote -- `content.md` (the literal block texts the grounding validator checks against)
 and `provenance.json` (block type, page, bbox, section path, table-cell row/column). Nothing is re-OCR'd, nothing is
 inferred by a model, Marker is not touched.
 
-What it adds on top of those files, each for a failure seen in the regression corpus:
-  - regions (front matter / abstract / introduction / methods / results / discussion / conclusions / acknowledgements /
-    references / supplementary), found POSITIONALLY from the headings in reading order -- Marker's `section_path` is
-    not reliable for this (Felipe's methods subsections hang under a sibling heading; Philippe's "Study site" is a
-    plain Text block);
-  - table <-> caption links for the five caption shapes the corpus contains (a Caption block; a "#### Table 3"
-    SectionHeader whose text follows; a bare "*Table 7*" label; a caption inside a Picture block; a figure caption),
-    plus the existing deterministic continuation chains;
+What it adds on top of those files:
+  - regions (front matter, abstract, methods, results, references, ...), found positionally from the headings in
+    reading order, since Marker's `section_path` is not reliable for this;
+  - table <-> caption links for the caption shapes Marker produces (a Caption block, a "#### Table 3" SectionHeader, a
+    bare "*Table 7*" label, a caption inside a Picture block, a figure caption), plus the continuation chains;
   - cross references ("Table 2", "Fig. 3") from prose to the table/figure they name;
   - the section each block sits in (nearest preceding heading, including short run-in headings).
 
@@ -29,10 +26,6 @@ from typing import Optional
 
 from pipeline import content_reader
 
-REGIONS = (
-    "front_matter", "abstract", "introduction", "methods", "results", "discussion", "conclusions",
-    "acknowledgements", "references", "supplementary",
-)
 # Checked in this order against a heading's text; the first match decides. A heading that matches none (a topical
 # subsection such as "Light-use efficiency") keeps the region it sits in.
 _REGION_HEADING_RULES: tuple[tuple[str, re.Pattern], ...] = (
@@ -54,7 +47,7 @@ _EMBEDDED_CAPTION_RE = re.compile(r"Caption:\s*(?:\*)?\s*((?:table|tab\.|fig(?:u
 _TABLE_REF_RE = re.compile(r"\b(?:Tables?|Tab\.)\s+(\d+)((?:\s*(?:,|and|&|–|-)\s*\d+)*)", re.I)
 _FIGURE_REF_RE = re.compile(r"\b(?:Fig(?:ure)?s?\.?)\s*(\d+)((?:\s*(?:,|and|&|–|-)\s*\d+)*)", re.I)
 _RUN_IN_HEADING_MAX_CHARS = 60
-_CAPTION_LOOKBACK_BLOCKS = 8   # Berntson Table 1: five prose blocks sit between caption and table
+_CAPTION_LOOKBACK_BLOCKS = 8   # prose blocks can sit between a caption and its table
 
 
 @dataclass(frozen=True)
@@ -145,13 +138,6 @@ class DocumentMap:
     def region_blocks(self, *regions: str, prose_only: bool = True) -> list[DocBlock]:
         return [b for b in self.blocks if b.region in regions and (not prose_only or b.block_type in _PROSE_TYPES)]
 
-    def section_blocks(self, anchor: str, prose_only: bool = True) -> list[DocBlock]:
-        block = self.block(anchor)
-        if block is None:
-            return []
-        return [b for b in self.blocks if b.section_anchor == block.section_anchor and b.section_anchor is not None
-                and (not prose_only or b.block_type in _PROSE_TYPES)]
-
     def table_containing(self, anchor: str) -> Optional[TableInfo]:
         """The logical table an anchor belongs to -- a Table block, a continuation, its caption or one of its cells."""
         normalized = content_reader._normalize_anchor(anchor)
@@ -159,9 +145,6 @@ class DocumentMap:
             if normalized in table.anchors or normalized in table.caption_anchors:
                 return table
         return None
-
-    def table_by_label(self, label: str) -> Optional[TableInfo]:
-        return next((t for t in self.tables if t.label and t.label.lower() == label.lower()), None)
 
     def references_to(self, table: TableInfo) -> list[CrossRef]:
         return [r for r in self.cross_refs if set(r.target_anchors) & set(table.anchors)]

@@ -1,10 +1,10 @@
-"""Item 8: free-form / table Treatment candidate deduplication.
+"""Free-form / table Treatment candidate deduplication.
 
 Real evidence: run 20260919T085532_98015a8a (Daren-1997-Canopy) produced 32 free-form
 Treatment candidates ("Trailblazer population at Ames, IA in the vegetative sward
 maturity", ...) that duplicated Table 6's own table-derived candidates. They cited
 `b:0606` -- the table's CAPTION block, not its table block -- and carried no links, so
-neither the anchor-based nor the link-based drop removed them. Item 8 compares the two
+neither the anchor-based nor the link-based drop removed them. Dedup compares the two
 sources by the same canonical identity instead; free-form candidates declare
 `dimensions`, and the comparison is semantic, never a count and never "delete all
 free-form when tables exist".

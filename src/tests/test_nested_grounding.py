@@ -1,4 +1,4 @@
-"""Correction pass, Fix 4: nested value-bearing fields are grounded (and LaTeX-rendered units no longer falsely fail).
+"""Nested value-bearing fields are grounded (and LaTeX-rendered units no longer falsely fail).
 
 Real evidence (Felipe-2010-Cultivar, run felipe_smoke_20260920T132343). `validators._value_supported_by_text` returned True
 for any dict, so the QuantityValue / DateRange inside an ExtractedField was only ever checked for being a dict:
@@ -162,7 +162,7 @@ def test_a_reformatted_date_text_that_adds_something_the_citation_lacks_is_rejec
 
 
 def test_a_date_assembled_from_two_cited_blocks_is_accepted_when_every_word_is_in_them():
-    """Item 11's flow: date_text ('May 18') and year_text ('2006') come from different blocks and are joined."""
+    """The temporal-context flow: date_text ('May 18') and year_text ('2006') come from different blocks and are joined."""
     assert _codes(_date("May 18 2006", None, None, "b:0030", "b:0026")) == []
     assert _codes(_date("May 18 2006", "2006-05-18", "2006-05-18", "b:0030", "b:0026")) == []
 

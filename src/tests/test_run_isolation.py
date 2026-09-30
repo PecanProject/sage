@@ -13,7 +13,6 @@ test_run_characterization.py.
 from __future__ import annotations
 
 import json
-import os
 import threading
 
 import pytest
@@ -131,12 +130,6 @@ def test_context_manager_releases_on_exception(runs_root):
     assert run_lock.read_lock("p") is None
 
 
-def test_lock_directory_is_not_reported_as_a_run(runs_root):
-    run_lock.acquire("p", "run1")
-    run_store.save_run_manifest("run1", {"run_id": "run1"})
-    assert run_store.list_runs() == ["run1"]
-
-
 # --------------------------------------------------------------------- #
 # run_paper: lock, manifest lifecycle, LATEST only on completion
 # --------------------------------------------------------------------- #
@@ -204,7 +197,7 @@ def test_second_concurrent_run_on_the_same_paper_is_refused_without_side_effects
                 invoke=make_invoke_sequence([]), enable_ai_validation=False, run_id="second_run",
             )
         # the refused run left nothing behind: no manifest, no results dir
-        assert "second_run" not in run_store.list_runs()
+        assert not run_store.run_dir("second_run").exists()
         assert "second_run" not in results_store.list_run_ids(PAPER_ID)
     finally:
         release.set()
@@ -258,9 +251,6 @@ def test_corrections_are_scoped_to_the_run_they_were_made_in(tmp_path):
     root = tmp_path
     corrections_store.append_correction("p", "Treatment", "t1", "approve", field_name="name", root=root, run_id="runA")
     corrections_store.append_correction("p", "Treatment", "t1", "note", field_name="name", root=root)  # legacy: no run_id
-    assert len(corrections_store.read_for_record("p", "Treatment", "t1", "name", root=root)) == 2  # no filter: unchanged
-    in_b = corrections_store.read_for_record("p", "Treatment", "t1", "name", root=root, run_id="runB")
-    assert [e["action"] for e in in_b] == ["note"]  # A's approval does not leak into B; legacy entries still apply
     latest_b = corrections_store.latest_action_for_field("p", "Treatment", "t1", "name", root=root, run_id="runB")
     assert latest_b["action"] == "note"
     latest_a = corrections_store.latest_action_for_field("p", "Treatment", "t1", "name", root=root, run_id="runA")

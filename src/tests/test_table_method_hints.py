@@ -1,4 +1,4 @@
-"""Correction pass, Fix 1: grounded method hints for table variables (Felipe Table 1).
+"""Grounded method hints for table variables (Felipe Table 1).
 
 Real evidence (run felipe_smoke_20260920T132343, Felipe-2010-Cultivar): Step B reconstructed Table 1 perfectly on the
 first attempt -- 22 of 22 cells matched the source, pooling over "cultivar mixture" was detected -- but the model made

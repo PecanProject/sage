@@ -33,27 +33,10 @@ STATUS_COLORS = {
     "reference": ("#6e7781", "#f0f1f3"),
 }
 
-# Compact 3-letter status labels (spec: "do not use large pill-shaped
-# badges" -- these replace the old full-word EXTRACTED/UNRESOLVED text).
-# Keyed by every raw status/provenance_label/review_status string this UI
-# ever passes to compact_badge() -- see api_client.py's normalization.
-_STATUS_ABBR = {
-    "EXTRACTED": "EXT", "INFERRED": "INF", "UNRESOLVED": "UNR",
-    "ready": "EXT", "unresolved": "UNR", "blocked": "BLK", "error": "ERR",
-    "not_extracted": "—",
-    "pending": "···", "approved": "APR", "corrected": "COR",
-    "relinked": "LNK", "relocated": "LOC", "confirmed_unresolved": "UNR",
-    "reference": "REF",
-}
-
-
 def inject_base_css():
     st.markdown(
         """
         <style>
-        /* max-width: 1100px previously capped the ENTIRE app regardless of
-           st.set_page_config(layout="wide") -- the primary cause of the
-           review pane not using available desktop width. Removed. */
         .block-container {padding-top: 0.6rem; max-width: 100%;}
         /* Plain, grounded masthead -- deliberately close to a BETYdb-style
            institutional data-tool header (light gray bar, no gradients, no
@@ -91,17 +74,6 @@ def inject_base_css():
         }
         h1, h2, h3 { font-weight: 650; letter-spacing: -0.01em; }
         .subtle { color: #6e7781; font-size: 0.9rem; }
-        .anchor-tag {
-            display: inline-block;
-            font-family: "SFMono-Regular", Consolas, monospace;
-            font-size: 0.78rem;
-            color: #444;
-            background: #eef1f4;
-            border: 1px solid #d7dbe0;
-            border-radius: 4px;
-            padding: 1px 6px;
-            margin: 0 2px;
-        }
         .field-card {
             border: 1px solid #e3e6ea;
             border-radius: 8px;
@@ -334,39 +306,6 @@ def masthead(subtitle: str = ""):
     )
 
 
-def status_badge(status: str) -> str:
-    fg, bg = STATUS_COLORS.get(status, ("#333", "#eee"))
-    return (
-        f'<span style="background:{bg};color:{fg};padding:2px 9px;'
-        f'border-radius:999px;font-size:0.76rem;font-weight:600;'
-        f'letter-spacing:0.03em;">{status}</span>'
-    )
-
-
-def compact_status(status: str) -> str:
-    """The 3-4 char label (EXT/UNR/BLK/ERR/REF/...) for any raw status,
-    review_status, or provenance_label string this UI encounters -- falls
-    back to the first 3 letters uppercased for anything not in the table
-    (never raises on an unrecognized status)."""
-    if not status:
-        return "?"
-    return _STATUS_ABBR.get(status, status[:3].upper())
-
-
-def compact_badge(status: str) -> str:
-    """A small, non-pill status label -- monospace text with a subtle
-    color tint, deliberately NOT the rounded-pill style status_badge()
-    uses (spec: compact status representation should occupy only the
-    space necessary to communicate state)."""
-    fg, bg = STATUS_COLORS.get(status, ("#57606a", "#f0f1f3"))
-    label = compact_status(status)
-    return (
-        f'<span style="background:{bg};color:{fg};padding:1px 5px;'
-        f'border-radius:3px;font-family:\'SFMono-Regular\',Consolas,monospace;'
-        f'font-size:0.72rem;font-weight:700;letter-spacing:0.02em;">{label}</span>'
-    )
-
-
 _PLAIN_RECORD_STATUS = {
     "ready": "Extracted", "unresolved": "Unresolved", "blocked": "Blocked", "error": "Error", "not_extracted": "Not extracted",
 }
@@ -409,7 +348,3 @@ def field_state_parts(field: dict) -> list[str]:
     if confidence is not None:
         parts.append(f"confidence {confidence}%")
     return parts
-
-
-def anchor_tag(anchor: str) -> str:
-    return f'<span class="anchor-tag">⟦{anchor}⟧</span>'

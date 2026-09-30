@@ -1,17 +1,4 @@
-"""`pipeline/fingerprint.py` -- cheap content hashes used to detect drift
-between what's on disk and what a long-running process actually has loaded,
-and to record exactly which schema/config version produced a given run.
-
-This exists because of a concrete, previously-observed failure: a
-long-running `uvicorn pipeline.ir_service:app` process kept an old, more
-permissive copy of `ir_schema.py` in memory after the file on disk was
-edited to make `Citation.persistent_identifier` a required `ExtractedField`.
-A record with a bare `null` for that field was validated and committed
-against the stale in-memory schema, and now sits in `ir-store/` failing
-re-validation against the current code. `schema_fingerprint()` gives both
-`ir_service` (via `/health`) and `orchestrator.check_health` a cheap way to
-notice that gap before it happens again, instead of after.
-"""
+"""Content hashes that detect a running service with stale schema/validator code and record what produced a run."""
 
 from __future__ import annotations
 
@@ -21,10 +8,7 @@ from pathlib import Path
 PIPELINE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = PIPELINE_DIR.parent
 
-# The files whose behavior actually determines whether a record is valid, or what the running service does with
-# one. Deliberately narrow -- this is a staleness check, not a full source hash. `ir_service.py` (propose/commit, and
-# item 15's readiness gate) and `reconstruction.py` (the date/stat/factorial tools Conversion calls through the
-# service) are included because a service running an older copy of either behaves differently from the disk.
+# The files that decide whether a record is valid or what the running service does with it.
 _SCHEMA_FILES = ["ir_schema.py", "validators.py", "ir_service.py", "reconstruction.py"]
 
 

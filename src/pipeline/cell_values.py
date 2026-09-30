@@ -1,21 +1,10 @@
-"""
-Table cell values (Phase D): what one cell literally holds -- the reported mean, a dispersion ("± 1.0") or an interval
-("[9.3, 9.8]"), and mean-separation letters ("a", "AB") -- and which statistic the dispersion IS, taken only from what
-the table's own header, caption or notes state ("mean ± SE", "Means and standard errors", "95% confidence limits").
-
-Real cells: Felipe "20±1.0 a" under the header "Fallow mean ± SE"; Kathryn "9.5 [9.3, 9.8]" with the caption "... 95%
-confidence limits"; Philippe "–0.69 a" (a signed mean with a letter, no dispersion); Smukler "1.2 ± 0.0" with the
-caption "Means and standard errors". Before this, the whole cell text went into the value and `statistical_encoding` was
-null on every ready Observation.
-
-Deterministic, never a guess: a "±" whose statistic the table never names is reported as an unnamed dispersion (no
-statistic_name), not assumed to be an SE.
-"""
+"""Parse a table cell into mean, dispersion or interval, and mean-separation letters. The statistic is named only
+when the table's header, caption or notes state it; otherwise the dispersion stays unnamed."""
 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Iterable, Optional
 
 _NUM = r"[-−–]?\d+(?:[.,]\d+)?"
