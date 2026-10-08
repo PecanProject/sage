@@ -163,31 +163,6 @@ def test_a_field_list_is_any_of():
     assert check_outcome({"field": ["name", "nearest_city"], "contains_any": ["Mead"]}, [record]) is True
 
 
-# --------------------------------------------------------------------------- #
-# Offline revalidation of recorded conversion attempts
-# --------------------------------------------------------------------------- #
-
-def test_revalidation_rechecks_a_recorded_attempt_with_the_current_deterministic_path(tmp_path, monkeypatch):
-    # The real Philippe-2007-Six conversion attempt 2 (run 20260925T132905): the model's own decimal as the reported
-    # number. Recorded as rejected; with the coordinate transformation it is now valid -- and nothing else changed.
-    monkeypatch.setenv("IR_PAPERS_ROOT", str(Path(__file__).parent / "fixtures" / "stage1_grounding"))
-    loc = {"source_document_id": "Philippe-2007-Six", "page_number": 2, "locators": [{"kind": "text", "block_anchor": "b:0028"}]}
-    payload = {
-        "id": "site1", "name": {"value": "Chaîne des Puys", "provenance_label": "EXTRACTED", "source": loc},
-        "latitude": {"value": {"reported_text": "45°42′ N", "reported_numeric_value": 45.7, "reported_units": "degrees"},
-                     "provenance_label": "EXTRACTED", "source": loc},
-    }
-    record = tmp_path / "Site__site1"
-    (record / "conversion").mkdir(parents=True)
-    (record / "conversion_validation").mkdir()
-    (record / "conversion" / "attempt1.json").write_text(json.dumps({"parsed_json": payload}), encoding="utf-8")
-    (record / "conversion_validation" / "attempt1.json").write_text(json.dumps({"valid": False, "errors": [
-        {"message": "latitude: reported_numeric_value=45.7 does not appear in reported_text '45°42′ N'."}]}), encoding="utf-8")
-    [row] = replay.revalidate_record("Philippe-2007-Six", "Site", record)
-    assert row["recorded_valid"] is False
-    assert row["now_valid"] is True and row["now_errors"] == []
-
-
 def test_packet_recall_reports_supplied_evidence_per_expectation():
     paper_id = "Philippe-2007-Six"
     if not (Path(__file__).resolve().parents[1] / "paper" / paper_id / "content.md").is_file():

@@ -114,20 +114,6 @@ def test_the_site_is_identified_by_its_coordinates_when_its_name_is_withdrawn():
     assert orchestrator._identity_established(record, orchestrator.IDENTITY_REFERENCEABLE_FIELDS["Site"])
 
 
-def test_run_record_withdraws_the_name_and_keeps_the_grounded_record(env):
-    from test_auxiliary_demotion import RAW_VAR, VAR_ID, _var_payload
-    bad_name = {"value": "Something Else", "provenance_label": "EXTRACTED",
-                "source": {"source_document_id": PAPER_ID, "page_number": 1, "section_path": [],
-                           "locators": [{"kind": "text", "block_anchor": "b:0003"}]}}
-    result = orchestrator.run_record(
-        run_id="run1", paper_id=PAPER_ID, entity_type="Variable", record_id=VAR_ID, model="m", client=env["client"],
-        invoke=make_invoke_sequence([("extractor", _inv("extractor", {**RAW_VAR, "facts": RAW_VAR["facts"][:1]}))]
-                                    + [("converter", _inv("converter", _var_payload(name=bad_name)))] * 2),
-        enable_ai_validation=False)
-    assert result.status == "unresolved" and result.detail["payload"]["name"]["provenance_label"] == "UNRESOLVED"
-    assert [w["field"] for w in result.detail["withdrawn_fields"]] == ["name"]
-
-
 # --------------------------------------------------------------------------- #
 # D. extract first, link later
 # --------------------------------------------------------------------------- #

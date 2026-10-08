@@ -5,22 +5,9 @@ import html
 import json
 
 import streamlit as st
-import os
 
-_ASSETS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
-_PDFJS_DIR = os.path.join(_ASSETS_DIR, "pdfjs")
-
-
-@st.cache_data(show_spinner=False)
-def _read_text(path: str) -> str:
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read()
-
-
-@st.cache_data(show_spinner=False)
-def _read_b64(path: str) -> str:
-    with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode("ascii")
+_PDFJS_CDN = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build"
+_PDFJS_SRI = "sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e"
 
 
 def render_pdf_page(
@@ -38,8 +25,6 @@ def render_pdf_page(
         )
         return
 
-    pdf_lib_js = _read_text(os.path.join(_PDFJS_DIR, "pdf.min.js"))
-    worker_b64 = _read_b64(os.path.join(_PDFJS_DIR, "pdf.worker.min.js"))
     pdf_b64 = base64.b64encode(pdf_bytes).decode("ascii")
     polygon_json = json.dumps(polygon or [])
     page_number = max(1, int(page_number or 1))
@@ -77,7 +62,7 @@ def render_pdf_page(
       </div>
     </div>
 
-    <script>{pdf_lib_js}</script>
+    <script src="{_PDFJS_CDN}/pdf.min.js" integrity="{_PDFJS_SRI}" crossorigin="anonymous"></script>
     <script>
     (function() {{
       function b64ToUint8Array(b64) {{
@@ -87,11 +72,7 @@ def render_pdf_page(
         return arr;
       }}
 
-      const workerBytes = b64ToUint8Array("{worker_b64}");
-      const workerBlobUrl = URL.createObjectURL(
-        new Blob([workerBytes], {{type: "text/javascript"}})
-      );
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = workerBlobUrl;
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = "{_PDFJS_CDN}/pdf.worker.min.js";
 
       const pdfBytes = b64ToUint8Array("{pdf_b64}");
       const targetPage = {page_number};
@@ -250,7 +231,7 @@ def render_pdf_page(
       zoomOutBtn.addEventListener("click", function() {{ setZoom(zoomFactor - 0.25); }});
       zoomResetBtn.addEventListener("click", function() {{ setZoom(1); }});
 
-      window.pdfjsLib.getDocument({{data: pdfBytes}}).promise.then(function(pdf) {{
+      window.pdfjsLib.getDocument({{data: pdfBytes, isEvalSupported: false}}).promise.then(function(pdf) {{
         pdfDoc = pdf;
         pageCountEl.textContent = pdf.numPages;
         containerWidth = Math.max(200, holder.clientWidth - 4);
