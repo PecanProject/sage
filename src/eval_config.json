@@ -1,0 +1,7 @@
+{
+  "provider": "jetstream-gpt",
+  "model": "gpt-oss-120b",
+  "agent_call_timeout_seconds": 300,
+  "ir_service_timeout_seconds": 120,
+  "note": "Controlled-evaluation configuration. The base URL is resolved from opencode.json's provider block. One model per run; never mix models within an evaluation run."
+}

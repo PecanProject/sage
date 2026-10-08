@@ -1,0 +1,317 @@
+"""Tests for marker_pipeline: per-paper Marker/conversion steps, extraction progress and pre-flight."""
+
+from __future__ import annotations
+
+import marker_pipeline
+
+
+# --------------------------------------------------------------------- #
+# run_marker_for_paper / run_conversion_for_paper -- single-paper scoping
+# --------------------------------------------------------------------- #
+
+
+def test_run_marker_for_paper_errors_cleanly_when_no_pdf(tmp_path, monkeypatch):
+    import sage_paths
+
+    monkeypatch.setattr(sage_paths, "PDF_DIR", tmp_path / "docproc" / "paper")
+    (tmp_path / "docproc" / "paper").mkdir(parents=True)
+
+    result = marker_pipeline.run_marker_for_paper("never_uploaded")
+
+    assert result["ok"] is False
+    assert "no PDF on disk" in result["error"]
+
+
+def test_run_marker_for_paper_never_passes_skip_existing(tmp_path, monkeypatch):
+    # Regression: sage_paths.delete_paper_source() removes only the PDF,
+    # never the derived Marker JSON -- so if a paper_id is later reused for
+    # a genuinely different PDF, --skip_existing would see the OLD paper's
+    # leftover Marker output still on disk and skip reprocessing entirely,
+    # silently extracting the new upload from the old paper's content. A
+    # deliberate, user-triggered Extract must always reprocess fresh.
+    import sage_paths
+
+    pdf_dir = tmp_path / "docproc" / "paper"
+    marker_dir = tmp_path / "docproc" / "marker_json"
+    pdf_dir.mkdir(parents=True)
+    (pdf_dir / "pecan.pdf").write_bytes(b"%PDF-fake")
+    monkeypatch.setattr(sage_paths, "PDF_DIR", pdf_dir)
+    monkeypatch.setattr(sage_paths, "MARKER_JSON_DIR", marker_dir)
+
+    captured_cmd = {}
+
+    class _FakeCompletedProcess:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    def fake_run(cmd, **kwargs):
+        captured_cmd["cmd"] = cmd
+        return _FakeCompletedProcess()
+
+    monkeypatch.setattr(marker_pipeline.subprocess, "run", fake_run)
+
+    result = marker_pipeline.run_marker_for_paper("pecan")
+
+    assert result["ok"] is True
+    assert "--skip_existing" not in captured_cmd["cmd"]
+
+
+def test_run_conversion_for_paper_errors_cleanly_when_no_marker_output(tmp_path, monkeypatch):
+    import sage_paths
+
+    monkeypatch.setattr(sage_paths, "MARKER_JSON_DIR", tmp_path / "docproc" / "marker_json")
+    (tmp_path / "docproc" / "marker_json").mkdir(parents=True)
+
+    result = marker_pipeline.run_conversion_for_paper("never_converted")
+
+    assert result["ok"] is False
+    assert "no Marker output found" in result["error"]
+
+
+def test_run_conversion_for_paper_is_unaffected_by_an_unrelated_failing_paper(tmp_path, monkeypatch):
+    # Regression for a real, confirmed bug: run_conversion() batches
+    # prepare_papers()/run_qc_batch() over EVERY paper, so one unrelated
+    # paper failing QC ("Winter cover", confirmed live) silently failed the
+    # conversion stage for every OTHER paper too. run_conversion_for_paper
+    # must give prepare_papers() a scoped input containing ONLY the
+    # requested paper, so an unrelated failure never reaches it.
+    import sage_paths
+    import prepare_papers
+
+    marker_dir = tmp_path / "docproc" / "marker_json"
+    paper_dir = tmp_path / "paper"
+    monkeypatch.setattr(sage_paths, "MARKER_JSON_DIR", marker_dir)
+    monkeypatch.setattr(sage_paths, "PAPER_DIR", paper_dir)
+    (marker_dir / "good_paper").mkdir(parents=True)
+    (marker_dir / "unrelated_bad_paper").mkdir(parents=True)
+
+    seen_marker_roots = []
+
+    def fake_prepare_papers(marker_output_dir, output_dir):
+        seen_marker_roots.append(sorted(p.name for p in marker_output_dir.iterdir()))
+        # Simulate a successful adapt+QC for whatever single paper this
+        # call was actually scoped to (never "unrelated_bad_paper" -- if
+        # scoping were broken, that name would show up in seen_marker_roots).
+        paper_id = sorted(p.name for p in marker_output_dir.iterdir())[0]
+        (output_dir / paper_id).mkdir(parents=True, exist_ok=True)
+        (output_dir / paper_id / "content.md").write_text("scoped content")
+        return {
+            "adapter_results": [{"paper_id": paper_id, "marker_json_resolved": True}],
+            "adapter_failures": [],
+            "qc": {"papers_found": 1, "papers_passed": 1, "papers_failed": 0, "per_paper": []},
+        }
+
+    monkeypatch.setattr(prepare_papers, "prepare_papers", fake_prepare_papers)
+
+    result = marker_pipeline.run_conversion_for_paper("good_paper")
+
+    assert result["ok"] is True
+    # Confirms real scoping: prepare_papers only ever saw "good_paper" --
+    # "unrelated_bad_paper" never entered the call at all.
+    assert seen_marker_roots == [["good_paper"]]
+    # Confirms real relocation: the produced output landed at the REAL
+    # (non-scoped) src/paper/good_paper/, not left in a temp directory.
+    assert (paper_dir / "good_paper" / "content.md").read_text() == "scoped content"
+
+
+# --------------------------------------------------------------------- #
+# _poll_new_completions -- live extraction progress
+# --------------------------------------------------------------------- #
+
+
+def test_poll_new_completions_reports_each_record_once(tmp_path, monkeypatch):
+    from pipeline import run_store
+
+    monkeypatch.setenv("IR_RUNS_ROOT", str(tmp_path))
+    run_store.save_final("run1", "Observation__obs_a", {"status": "ready"})
+    run_store.save_final("run1", "Observation__enumeration", {"status": "n/a"})
+
+    seen = set()
+    first_pass = marker_pipeline._poll_new_completions("run1", seen)
+    assert any("obs_a" in m and "ready" in m for m in first_pass)
+    assert any("enumeration complete" in m for m in first_pass)
+
+    # A record with no final.json yet must not be reported.
+    run_store.save_stage_attempt("run1", "Observation__obs_b", "extraction", 1, {})
+    second_pass = marker_pipeline._poll_new_completions("run1", seen)
+    assert second_pass == []  # obs_b has no final.json; obs_a/enumeration already seen
+
+    # Once obs_b actually finishes, it's reported exactly once.
+    run_store.save_final("run1", "Observation__obs_b", {"status": "unresolved"})
+    third_pass = marker_pipeline._poll_new_completions("run1", seen)
+    assert any("obs_b" in m and "unresolved" in m for m in third_pass)
+    assert marker_pipeline._poll_new_completions("run1", seen) == []
+
+
+# --------------------------------------------------------------------- #
+# _classify_run_outcome / _run_extraction_with_ui_progress -- 3-way
+# aggregate run status. Regression for a real, confirmed bug: a run with 2
+# isolated provider-glitch errors out of ~90 records (Winter cover,
+# 20260916T050510_41f112a0) was reported as "Extraction failed", identical
+# to a run that produced nothing at all.
+# --------------------------------------------------------------------- #
+
+
+def test_classify_run_outcome_success_when_nothing_errored():
+    records = {
+        "Citation": {"status": "ready", "record_id": "p"},
+        "Site": [{"status": "ready", "record_id": "p_site_a"}],
+        "TreatmentPair": [{"status": "blocked", "record_id": "p_treatmentpair"}],
+    }
+    outcome, errors = marker_pipeline._classify_run_outcome(records)
+    assert outcome == "success"
+    assert errors == []
+
+
+def test_classify_run_outcome_names_every_error_record_not_just_a_count():
+    records = {
+        "Citation": {"status": "ready", "record_id": "p"},
+        "Variable": [
+            {"status": "ready", "record_id": "p_variable_a"},
+            {"status": "error", "record_id": "p_variable_b"},
+        ],
+        "Treatment": [{"status": "error", "record_id": "p_treatment_c"}],
+    }
+    outcome, errors = marker_pipeline._classify_run_outcome(records)
+    assert outcome == "completed_with_errors"
+    assert set(errors) == {("Variable", "p_variable_b"), ("Treatment", "p_treatment_c")}
+
+
+def test_run_extraction_with_ui_progress_maps_success_to_done(monkeypatch):
+    def fake_gen(paper_id, model):
+        yield {"ok": True, "step": "extraction", "run_id": "r1", "statuses": {}, "run_outcome": "success", "error_records": []}
+
+    monkeypatch.setattr(marker_pipeline, "_run_extraction_for_paper", fake_gen)
+    events = list(marker_pipeline._run_extraction_with_ui_progress("SomePaper", "test-model"))
+    assert len(events) == 1
+    assert events[0]["status"] == "done"
+
+
+def test_run_extraction_with_ui_progress_maps_isolated_errors_to_done_with_errors_not_error(monkeypatch):
+    def fake_gen(paper_id, model):
+        yield {
+            "ok": False, "step": "extraction", "run_id": "r1", "statuses": {},
+            "run_outcome": "completed_with_errors",
+            "error_records": [("Variable", "p_variable_b"), ("Treatment", "p_treatment_c")],
+        }
+
+    monkeypatch.setattr(marker_pipeline, "_run_extraction_for_paper", fake_gen)
+    events = list(marker_pipeline._run_extraction_with_ui_progress("SomePaper", "test-model"))
+    assert len(events) == 1
+    assert events[0]["status"] == "done_with_errors"  # NOT "error" -- the core regression this fixes
+    assert "Variable/p_variable_b" in events[0]["message"]
+    assert "Treatment/p_treatment_c" in events[0]["message"]
+
+
+def test_run_extraction_with_ui_progress_still_maps_catastrophic_failure_to_error(monkeypatch):
+    def fake_gen(paper_id, model):
+        yield {"ok": False, "step": "extraction", "error": "ConnectionError: ir_service unreachable", "run_outcome": "failed"}
+
+    monkeypatch.setattr(marker_pipeline, "_run_extraction_for_paper", fake_gen)
+    events = list(marker_pipeline._run_extraction_with_ui_progress("SomePaper", "test-model"))
+    assert len(events) == 1
+    assert events[0]["status"] == "error"
+    assert "ir_service unreachable" in events[0]["message"]
+
+
+# --------------------------------------------------------------------- #
+# Run isolation / explicit run config (infrastructure only)
+# --------------------------------------------------------------------- #
+
+
+def _healthy_orchestrator(monkeypatch):
+    from pipeline import orchestrator
+
+    from pipeline import run_config
+
+    monkeypatch.setattr(orchestrator, "check_health", lambda url: (True, "ir_service healthy"))
+    monkeypatch.setattr(run_config, "check_opencode", lambda: (True, "/snap/bin/opencode (1.18.27)"))
+    return orchestrator
+
+
+def test_extraction_is_refused_up_front_when_another_run_holds_the_paper_lock(monkeypatch, tmp_path):
+    from pipeline import run_lock
+
+    monkeypatch.setenv("IR_RUNS_ROOT", str(tmp_path))
+    _healthy_orchestrator(monkeypatch)
+    run_lock.acquire("SomePaper", "already_running")  # holder = this process (alive)
+    events = list(marker_pipeline._run_extraction_for_paper("SomePaper", None))
+    assert len(events) == 1 and events[0]["ok"] is False and events[0]["run_outcome"] == "failed"
+    assert "already active" in events[0]["error"] and "already_running" in events[0]["error"]
+
+
+def test_a_missing_or_invalid_run_config_stops_extraction_with_a_readable_error(monkeypatch, tmp_path):
+    from pipeline import run_config
+
+    monkeypatch.setenv("IR_RUNS_ROOT", str(tmp_path))
+    orchestrator = _healthy_orchestrator(monkeypatch)
+
+    def no_config(**kwargs):
+        raise run_config.RunConfigError("run config not found")
+
+    monkeypatch.setattr(orchestrator, "prepare_run", no_config)
+    events = list(marker_pipeline._run_extraction_for_paper("SomePaper", None))
+    assert len(events) == 1 and events[0]["ok"] is False
+    assert events[0]["error"].startswith("run configuration error:")
+
+
+def test_the_launcher_has_no_model_default_of_its_own():
+    assert not hasattr(marker_pipeline, "_DEFAULT_EXTRACTION_MODEL")
+
+
+# --------------------------------------------------------------------- #
+# Pre-flight (deployment): a broken environment is reported up front and
+# no extraction run is started (real case: the public-URL service PATH had
+# no /snap/bin, so every run's Citation died with "opencode executable not
+# found" and blocked every other entity type).
+# --------------------------------------------------------------------- #
+
+
+def test_preflight_fails_clearly_when_opencode_is_missing(monkeypatch):
+    from pipeline import orchestrator, run_config
+
+    monkeypatch.setattr(run_config, "check_opencode", lambda: (False, "opencode executable not found: not on PATH"))
+    monkeypatch.setattr(orchestrator, "check_health", lambda url: (True, "ir_service healthy"))
+    ok, message = marker_pipeline.preflight()
+    assert ok is False and "opencode executable not found" in message
+
+
+def test_preflight_fails_clearly_when_the_ir_service_is_stale(monkeypatch):
+    from pipeline import orchestrator, run_config
+
+    monkeypatch.setattr(run_config, "check_opencode", lambda: (True, "/snap/bin/opencode (1.18.27)"))
+    monkeypatch.setattr(orchestrator, "check_health", lambda url: (False, "ir_service is running STALE schema/validator code"))
+    ok, message = marker_pipeline.preflight()
+    assert ok is False and "STALE" in message
+
+
+def test_failed_preflight_stops_before_marker_and_starts_no_run(monkeypatch, tmp_path):
+    from pipeline import orchestrator, run_config
+
+    monkeypatch.setenv("IR_RUNS_ROOT", str(tmp_path / "runs"))
+    monkeypatch.setattr(run_config, "check_opencode", lambda: (False, "opencode executable not found"))
+    monkeypatch.setattr(orchestrator, "check_health", lambda url: (True, "ok"))
+    started = []
+    monkeypatch.setattr(marker_pipeline, "run_marker_for_paper", lambda *a, **k: started.append("marker"))
+    monkeypatch.setattr(orchestrator, "run_paper", lambda **k: started.append("run_paper"))
+
+    events = list(marker_pipeline.process_single_paper_full("SomePaper"))
+
+    assert events == [{"stage": "preflight", "status": "error", "message": "Pre-flight failed: opencode executable not found"}]
+    assert started == []
+    assert not (tmp_path / "runs").exists()          # no run directory, no manifest, no failed results
+
+
+def test_extraction_itself_rechecks_preflight_and_starts_no_run(monkeypatch, tmp_path):
+    from pipeline import orchestrator, run_config
+
+    monkeypatch.setenv("IR_RUNS_ROOT", str(tmp_path / "runs"))
+    monkeypatch.setattr(run_config, "check_opencode", lambda: (False, "opencode executable not found"))
+    monkeypatch.setattr(orchestrator, "check_health", lambda url: (True, "ok"))
+    monkeypatch.setattr(orchestrator, "run_paper", lambda **k: (_ for _ in ()).throw(AssertionError("must not start")))
+
+    events = list(marker_pipeline._run_extraction_for_paper("SomePaper", None))
+
+    assert len(events) == 1 and events[0]["ok"] is False and events[0]["run_outcome"] == "failed"
+    assert "opencode executable not found" in events[0]["error"]

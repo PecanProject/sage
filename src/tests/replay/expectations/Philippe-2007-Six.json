@@ -1,0 +1,369 @@
+{
+  "paper_id": "Philippe-2007-Six",
+  "verified_against": "docproc/paper/Philippe-2007-Six.pdf (pdftotext) and content.md; hand-selected, never copied from a run",
+  "expectations": [
+    {
+      "id": "citation.title",
+      "entity_type": "Citation",
+      "concept": "title",
+      "anchors": [
+        "b:0003"
+      ],
+      "literals": [
+        "Six-year time course of light-use efficiency, carbon gain and growth of beech saplings"
+      ],
+      "outcome": {
+        "field": "title",
+        "contains_any": [
+          "Six-year time course"
+        ]
+      }
+    },
+    {
+      "id": "citation.doi",
+      "entity_type": "Citation",
+      "concept": "persistent identifier",
+      "status": "absent",
+      "pattern": "10\\.\\d{4,9}/",
+      "note": "Neither content.md nor the PDF text carries a DOI: UNRESOLVED is the correct outcome, never a retrieval failure.",
+      "outcome": {
+        "field": "persistent_identifier",
+        "label_in": [
+          "UNRESOLVED"
+        ]
+      }
+    },
+    {
+      "id": "site.name",
+      "entity_type": "Site",
+      "concept": "site name",
+      "anchors": [
+        "b:0028"
+      ],
+      "literals": [
+        "Chaîne des Puys"
+      ],
+      "outcome": {
+        "field": "name",
+        "contains_any": [
+          "Chaîne des Puys"
+        ]
+      },
+      "note": "Run 20260925T132905: name UNRESOLVED 'not explicitly mentioned' although the block states it."
+    },
+    {
+      "id": "site.coordinates",
+      "entity_type": "Site",
+      "concept": "coordinates (degree-minute)",
+      "anchors": [
+        "b:0028"
+      ],
+      "literals": [
+        "45°42′ N",
+        "2°58′ E"
+      ],
+      "outcome": {
+        "field": "latitude"
+      },
+      "note": "DMS: the decimal value is a documented transformation, the literal stays the reported text."
+    },
+    {
+      "id": "site.elevation",
+      "entity_type": "Site",
+      "concept": "elevation",
+      "anchors": [
+        "b:0028"
+      ],
+      "literals": [
+        "900 m a.s.l."
+      ],
+      "outcome": {
+        "field": "elevation",
+        "contains_any": [
+          "900"
+        ]
+      }
+    },
+    {
+      "id": "site.soil",
+      "entity_type": "Site",
+      "concept": "soil context",
+      "anchors": [
+        "b:0028"
+      ],
+      "literals": [
+        "Andisol family",
+        "pH of 6.0"
+      ],
+      "outcome": {
+        "field": "soil_context",
+        "contains_any": [
+          "Andisol"
+        ]
+      }
+    },
+    {
+      "id": "species.overstory",
+      "entity_type": "Species",
+      "concept": "overstory species full binomial",
+      "anchors": [
+        "b:0006"
+      ],
+      "literals": [
+        "Pinus sylvestris L."
+      ],
+      "outcome": {
+        "field": "scientific_name",
+        "contains_any": [
+          "Pinus sylvestris"
+        ]
+      }
+    },
+    {
+      "id": "management.planting",
+      "entity_type": "Management",
+      "concept": "planting event + date",
+      "anchors": [
+        "b:0030"
+      ],
+      "literals": [
+        "planted in November 2000"
+      ],
+      "outcome": {
+        "field": "date",
+        "contains_any": [
+          "November 2000"
+        ],
+        "where": {
+          "field": "event_type",
+          "contains_any": [
+            "plant"
+          ]
+        }
+      }
+    },
+    {
+      "id": "management.thinning",
+      "entity_type": "Management",
+      "concept": "thinning event that creates the light gradient",
+      "anchors": [
+        "b:0030"
+      ],
+      "literals": [
+        "thinned to different degrees",
+        "500 to 4000 stem ha"
+      ],
+      "outcome": {
+        "field": "event_type",
+        "contains_any": [
+          "thin"
+        ]
+      },
+      "note": "Missing from run 20260925T132905: the event that defines the treatments."
+    },
+    {
+      "id": "management.herbaceous_cutting",
+      "entity_type": "Management",
+      "concept": "herbaceous vegetation cut",
+      "anchors": [
+        "b:0030"
+      ],
+      "literals": [
+        "herbaceous vegetation within a 0.5 m radius around the sapling was cut"
+      ],
+      "outcome": {
+        "field": "event_type",
+        "contains_any": [
+          "cut"
+        ]
+      }
+    },
+    {
+      "id": "variable.table1_header_units",
+      "entity_type": "Variable",
+      "concept": "basal stem diameter (BSD) units in Table 1 header",
+      "anchors": [
+        "b:0053"
+      ],
+      "literals": [
+        "BSD 1 (mm)",
+        "BSD 6 (mm)"
+      ],
+      "outcome": {
+        "field": "units",
+        "contains_any": [
+          "mm"
+        ],
+        "where": {
+          "field": "name",
+          "contains_any": [
+            "basal stem diameter",
+            "stem basal diameter",
+            "BSD"
+          ],
+          "not_contains_any": [
+            "increment"
+          ]
+        }
+      }
+    },
+    {
+      "id": "variable.table3_leaf_mass_per_area",
+      "entity_type": "Variable",
+      "concept": "Ma (leaf dry matter per area) from Table 3",
+      "anchors": [
+        "b:0193",
+        "b:0192"
+      ],
+      "literals": [
+        "Ma (g m–2)",
+        "leaf dry matter content per unit area"
+      ],
+      "outcome": {
+        "field": "name",
+        "contains_any": [
+          "dry matter content",
+          "M_a",
+          "(Ma"
+        ]
+      },
+      "note": "Variable only in Table 3 header/caption; absent from run 20260925T132905 (prose-only variable extraction)."
+    },
+    {
+      "id": "variable.table3_na_units",
+      "entity_type": "Variable",
+      "concept": "Na units in Table 3 header",
+      "anchors": [
+        "b:0193"
+      ],
+      "literals": [
+        "Na (g m–2)"
+      ],
+      "outcome": {
+        "field": "units",
+        "contains_any": [
+          "g m"
+        ],
+        "where": {
+          "field": "name",
+          "contains_any": [
+            "area basis",
+            "N_a",
+            "Na",
+            "per unit area"
+          ]
+        }
+      }
+    },
+    {
+      "id": "variable.table2_total_vs_mean_leaf_area",
+      "entity_type": "Variable",
+      "concept": "sapling total LA (m2) distinct from mean leaf area (cm2)",
+      "anchors": [
+        "b:0115"
+      ],
+      "literals": [
+        "Sapling total leaf area (m 2 )",
+        "Leaf area (cm 2 )"
+      ]
+    },
+    {
+      "id": "method.3d_digitizing",
+      "entity_type": "Method",
+      "concept": "3D digitizing method",
+      "anchors": [
+        "b:0038"
+      ],
+      "literals": [
+        "3D-digitizing technique (Sinoquet and Rivet 1997)"
+      ],
+      "outcome": {
+        "field": "name",
+        "contains_any": [
+          "digitiz"
+        ]
+      }
+    },
+    {
+      "id": "method.rd_two_procedures",
+      "entity_type": "Method",
+      "concept": "Rd measured directly 2001-2003, extrapolated 2004/2006",
+      "anchors": [
+        "b:0044"
+      ],
+      "literals": [
+        "direct measurements about 20 minutes after switching off the illumination",
+        "by extrapolation of the $A/C_i$ curves in 2004 and 2006"
+      ]
+    },
+    {
+      "id": "design.classes_and_n",
+      "entity_type": "Study",
+      "concept": "post-hoc PARt classes with 6 saplings each; 18 saplings",
+      "anchors": [
+        "b:0046",
+        "b:0030"
+      ],
+      "literals": [
+        "divided into three classes (0-0.1, 0.1-0.2 and 0.2-0.37)",
+        "(6, 6, 6)",
+        "18 F. sylvatica saplings"
+      ]
+    },
+    {
+      "id": "treatment.levels_table1",
+      "entity_type": "Treatment",
+      "concept": "PARt class levels as table row labels",
+      "anchors": [
+        "b:0053"
+      ],
+      "literals": [
+        "PAR t 0-0.1",
+        "PAR t 0.1-0.2",
+        "0.2-0.35"
+      ]
+    },
+    {
+      "id": "conflict.part_bounds",
+      "entity_type": "Treatment",
+      "concept": "conflicting PARt range statements",
+      "anchors": [
+        "b:0006",
+        "b:0030",
+        "b:0046",
+        "b:0053"
+      ],
+      "literals": [
+        "(PAR t ; 0–0.35)",
+        "PAR transmittance range of 0.1 to 0.4",
+        "0.2-0.37",
+        "0.2-0.35"
+      ],
+      "note": "Four different statements of the class/range bounds; a conflict to surface, never silently resolved."
+    },
+    {
+      "id": "table.aggregation_table2",
+      "entity_type": "Table",
+      "concept": "Table 2 rows are PARt main effects and Year main effects",
+      "anchors": [
+        "b:0114",
+        "b:0115"
+      ],
+      "literals": [
+        "relative to transmitted photosynthetically active radiation (PAR t ) and the year of growth after planting",
+        "Year 2001"
+      ]
+    },
+    {
+      "id": "observation.negative_rd",
+      "entity_type": "Observation",
+      "concept": "negative Rd values written with an en dash",
+      "anchors": [
+        "b:0193"
+      ],
+      "literals": [
+        "–0.69 a"
+      ]
+    }
+  ]
+}
