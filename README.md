@@ -1,112 +1,136 @@
 # SAGE
 
-**Structured Agronomic and ecological data extraction Generation.** SAGE uses LLM agents to extract agronomic and ecological data from scientific papers into a structured intermediate representation (IR). Every extracted value is tied to the exact passage of the paper it came from. A review app then lets a scientist check each value against the source PDF and correct it.
+SAGE reads agronomy and ecology field-study papers (PDFs) and extracts the experiments into structured records: citations, sites, species, crops, methods, variables, treatments, management events and observations. Every value carries evidence, meaning the anchor and the verbatim text in the paper it came from. You check the results in a review screen that draws each value's source on the PDF.
 
 ## How it works
 
-```mermaid
-flowchart LR
-    pdf[PDF] -->|Marker| doc["content.md + provenance.json<br/>(anchored text, page geometry)"]
-    doc --> ext["extractor / reader<br/>raw evidence"]
-    ext --> conv["converter<br/>IR record"]
-    conv --> svc{"IR service<br/>deterministic validation"}
-    svc -->|invalid: feedback, retry| conv
-    svc -->|valid| val["ir_validator<br/>AI review"]
-    val --> store[("IR store<br/>committed / flagged")]
-    store --> app["Review app<br/>approve / correct"]
-    app --> corr[("corrections log")]
-```
+1. **Parse.** `sage add` reads the PDF's text layer with pdftext and stores every text block with its page and box.
+2. **Transcribe tables.** At the start of an extraction, a model transcribes each table image into a grid of cells. Code then matches every cell to the PDF's own text, so each number has a box on the page.
+3. **Extract.** One Claude agent reads the paper and writes records into a draft. A deterministic checker answers every write with exact errors: a quote that isn't in the paper, a number missing from its quote, a table not yet extracted, a treatment level with no record. The agent fixes them and finishes when no blocking problem is left, or when it runs out of its turn or cost budget.
+4. **Settle.** Code, never the model, gives every value a status. A value is verified when it passed every check, flagged when a person should look, or unresolved with a cause such as "only shown in a figure". Code also recomputes every derived number: decimal coordinates, dates and unit conversions.
+5. **Review.** You accept, edit or reject values against the PDF. Every decision is saved with the paper.
 
+The data model, the evidence rules and the statuses are defined in [docs/domain.md](docs/domain.md). The architecture is in [docs/design/](docs/design/).
 
+## Install
 
-1. **Document processing** (`src/docproc/`). [Marker](https://github.com/VikParuchuri/marker) parses the PDF. The adapter writes `content.md`, which is the paper's text with an anchor such as `b:0042` on every block. It also writes `provenance.json`, which gives each block's page, polygon, section and table cell. A QC gate checks the pair.
-2. **IR** (`src/pipeline/ir_schema.py`). There are twelve entity types: Citation, Study, Site, Species, Crop, Method, Variable, Treatment, TreatmentPair, Management, Observation and Coverage. Each field records whether its value was *extracted*, *inferred* or left *unresolved*, and which block it comes from.
-3. **Extraction**. The orchestrator works through a paper one entity type at a time, in dependency order. For each type it finds the candidate records, then each record goes through the agents (run via the [opencode](https://opencode.ai) CLI):
-  - `extractor` and `reader` gather raw evidence from the paper
-  - `converter` turns that evidence into IR records
-  - the IR service validates each record deterministically
-  - `ir_validator` reviews it
-   Each record is then committed or flagged. Data tables are reconstructed row by row and checked against the source grid.
-4. **IR service** (`src/pipeline/ir_service.py`). A FastAPI service that the agents reach through a TypeScript plugin. It re-validates every proposed record on the server and caps the number of attempts per record.
-5. **Review** (`streamlit_app/`). The review app shows the source PDF with the cited evidence highlighted, next to the extracted records. A reviewer can approve, correct, relocate evidence or leave notes. Corrections go to an append-only log, and the original extraction is never overwritten.
-
-
-
-## Setup
-
-Requires Python 3.12 and the `[opencode](https://opencode.ai)` CLI on your `PATH` (or set `OPENCODE_BIN`).
+You need Python 3.13, [uv](https://docs.astral.sh/uv/), Node.js and [pnpm](https://pnpm.io/). Node is needed only to build the UI.
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+git clone https://github.com/PecanProject/sage.git
+cd sage
+uv sync
+cd web && pnpm install && pnpm build && cd ..
 ```
 
-**Model provider.** Agents and providers are defined in `src/opencode.json`. `src/eval_config.json` selects the provider and model a run uses. Put a real key in the provider's `options.apiKey` field; the repo ships a placeholder.
+`pnpm build` writes the UI to `sage/web_dist/`, which `sage ui` serves. Without it, `sage ui` serves only the API.
 
-## Usage
+To work on SAGE, also install [gitleaks](https://github.com/gitleaks/gitleaks) (`brew install gitleaks`). `scripts/check` runs every static check, including a secret scan, React Doctor and knip, and it fails if gitleaks is missing.
 
-All pipeline commands run from `src/`. By default, run output is written under `src/` (`ir-store/`, `runs/`, `results/`, `corrections/`). To write it elsewhere, set `IR_STORE_ROOT`, `IR_RUNS_ROOT`, `IR_RESULTS_ROOT` and `IR_CORRECTIONS_ROOT`. To read papers from a different location, set `IR_PAPERS_ROOT`.
+## Add your Anthropic API key
 
-### 1. Prepare a paper
+SAGE calls Claude through the Anthropic API. The default model is Claude Haiku 5.5, with a $1.00 cost limit per paper. Set the key in one of three ways:
 
-The easiest way is through the review app: upload a PDF on the library page and process it. To do it by hand instead, put the PDF at `src/docproc/paper/<paper_id>.pdf`, then:
+- Open **Settings** (the gear in the top bar of `uv run sage ui`), paste the key, and click **Test** to check it.
+- Run `uv run sage config set anthropic_api_key <key>`, then `uv run sage config test-key`.
+- Export `SAGE_ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY`. A value set in the environment shows as read-only in Settings.
+
+Settings and `sage config` write `~/.config/sage/config.toml` with mode 0600. `sage ui` starts without a key. Only starting an extraction needs one.
+
+## Extract your first paper
+
+In the browser:
+
+1. Run `uv run sage ui` and open http://127.0.0.1:8765.
+2. Drop a PDF on the **Papers** list.
+3. Open the paper and click **Extract data**.
+4. When the extraction finishes, the paper opens in **Check** mode.
+
+From the command line:
 
 ```bash
-marker src/docproc/paper --output_dir src/docproc/marker_json --output_format json --workers 1
-python src/docproc/prepare_papers.py src/docproc/marker_json --output_dir src/paper
+uv run sage add path/to/paper.pdf            # prints the paper id
+uv run sage run <paper_id>                   # starts the extraction and follows its log
+uv run sage show <run_id>                    # every record, its status and why
+uv run sage export <run_id> -o paper.xlsx    # the PEcAn curation workbook
 ```
 
-This produces `src/paper/<paper_id>/content.md`, `provenance.json` and `qc_report.json`.
+An extraction runs in a background process, so it keeps going if you close the terminal or stop `sage ui`. Ctrl-C in `sage run` stops watching, not the run. An extraction started from the CLI shows up live in the UI.
 
-### 2. Start the IR service
+## The web UI
 
-```bash
-cd src
-uvicorn pipeline.ir_service:app --host 127.0.0.1 --port 8420
-```
+The UI has two screens and a Settings dialog.
 
-The orchestrator looks for the service at `http://127.0.0.1:8420`. Set `IR_SERVICE_URL` to point it elsewhere.
+| Screen | Address | What it does |
+|---|---|---|
+| Papers | `/` | Lists your papers, each with one status: not extracted, extracting, how many items are left to check, all checked, or how its last extraction ended when none found data. Drop PDFs anywhere on the page to add them. |
+| Paper | `/papers/<paper_id>` | The paper in one of three modes. **Check** shows each data item as a card in the margin beside its highlight, like suggestions in Google Docs. Picking one scrolls the PDF to its source. Many values from one table share one card that opens to a grid shaped like the paper's table. **Data** shows the items as tables, one tab per type. **Read** shows the PDF with every highlight. **Export** downloads the PEcAn curation workbook (Excel, or one CSV per tab) or everything (JSON). Export also offers the original PDF. The **Runs** menu holds This run (the live log and usage), History, Extract again and Continue with guidance, which reads Resume for an extraction that failed or was stopped. While an extraction runs, Stop extraction takes the place of the last two. |
+| Settings | `/settings`, or the gear | The API key, the model, the cost limit and the theme. Every other setting is under **Advanced**. |
 
-### 3. Extract
+`/runs/<run_id>` opens that extraction on its paper, with its details.
 
-```bash
-cd src
-python -m pipeline.orchestrator health                         # service reachable, schema up to date
-python -m pipeline.orchestrator run-paper --paper-id <paper_id>
-```
+Check keys:
 
-`run-paper` processes all twelve entity types and writes `results/<paper_id>/`. Useful flags:
+| Key | Action |
+|---|---|
+| `j` / `k` | Next or previous item, or cell in a table |
+| Arrow keys | Move between a table's cells |
+| `a` | Accept |
+| `e` | Edit. Enter saves and Esc cancels. |
+| `r` | Not in the paper, with an optional note |
+| `Shift+A` | Accept a whole cluster, such as a table |
+| `/` | Switch between To check and All |
+| `c` | Change an item you already reviewed |
+| `+` / `-` | Zoom the paper in or out. Ctrl or ⌘ with the wheel, or a pinch, zooms at the pointer. |
+| `0` | Fit the page again |
+| `?` | Every shortcut |
 
-- `--model provider/model` overrides the model for one run.
-- `--no-ai-validation` skips the `ir_validator` review.
-- `--resume-run <run_id> --from <EntityType>` re-runs from one entity type onward.
+Every review is saved as soon as you make it, and the latest review of an item wins. "Accept N good" accepts every item that passed every check and has no review yet.
 
-Two other subcommands work on a paper's committed records:
+## Command line
 
-- `graph-check` runs whole-dataset validation.
-- `finalize` aggregates them into `results/<paper_id>/result.json`.
+Every command takes `--json` for machine-readable output. Under `--json` an error prints as `{"error": {"kind": …, "message": …}}`. `uv run sage <command> --help` gives the full options.
 
+| Command | What it does |
+|---|---|
+| `sage add PDF...` | Adds PDFs to the library. The same file twice is added once. A file that can't be added prints an error and the command exits 1, but the others are still added. |
+| `sage papers` | Lists the library like the Papers screen: each paper's title, pages, latest extraction and its status (with the step while it runs), how many items are left to check, and how many look good. |
+| `sage run PAPER_ID [--model M] [--effort E]` | Starts an extraction and follows its log. `--no-follow` returns at once. `--effort` is `low`, `medium`, `high`, `xhigh` or `max`. |
+| `sage run --resume RUN_ID [--guidance TEXT]` | Continues an unfinished extraction from its saved draft, under what is left of its budget. One that used it all is refused. |
+| `sage run --continue RUN_ID [--guidance TEXT]` | Starts a new extraction from an ended one's records, with a budget of its own, told what to add or fix. Guidance is required unless the earlier one ran out of budget. Your edits, rejections and review notes go too, unless `--no-review-notes`. |
+| `sage stop RUN_ID` | Stops a running extraction. It keeps what it found, and `--resume` carries it on. |
+| `sage runs [PAPER_ID]` | Lists extractions, newest first. |
+| `sage show RUN_ID` | Shows an extraction's records, each one's status, and why anything isn't verified. |
+| `sage logs RUN_ID [--follow]` | Prints an extraction's event log. `-f` keeps streaming until it ends. |
+| `sage export RUN_ID [--format xlsx\|csv\|json] [-o PATH]` | Exports the records. `xlsx` (the default) is the PEcAn curation workbook, one tab per table, values in the paper's units, every row with its status (see `docs/pecan/workbook.md`). `csv` is the same tabs as CSVs in a zip. `json` holds every record as settled and goes to stdout without `-o`. |
+| `sage queue [RUN_ID]` | Lists what is left to check. With no run, each paper's extraction with data and its counts. With a run, every record, missing first, then check this, then looks good, with each one's label, status and latest review. |
+| `sage review RUN_ID RECORD_ID accept\|edit\|reject` | Records a review, like Check mode. `--field` and `--value` give an edit's correction, and `--note` says why. `sage review RUN_ID --accept-looks-good` accepts every record that looks good and has no review yet. |
+| `sage config list` | Shows every setting, its value, and whether it comes from the environment, the config file or the default. |
+| `sage config get KEY` | Prints one setting's value as JSON. |
+| `sage config set KEY VALUE` | Changes a setting in `config.toml`. An empty value restores the default. |
+| `sage config test-key` | Asks Anthropic whether the saved API key works. It costs nothing. |
+| `sage ui [--host H] [--port P]` | Serves the UI and the API on 127.0.0.1:8765 by default. |
+| `sage openapi` | Prints the API's OpenAPI schema. |
 
+`sage ui` has no login. Use `--host 0.0.0.0` only on a network you trust, because anyone who can reach the port can use it.
 
-### 4. Review
+## Settings and environment variables
 
-From the repository root:
+`sage config list` and the Settings dialog show every setting with its description. Each one reads the environment variable `SAGE_` plus its name in capitals, for example `SAGE_MAX_COST_USD`. The environment wins over `config.toml`, and `config.toml` wins over the defaults.
 
-```bash
-streamlit run streamlit_app/app.py
-```
+| Variable | Default | What it sets |
+|---|---|---|
+| `SAGE_HOME` | `~/sage-data` | Where papers, extractions and reviews live |
+| `SAGE_CONFIG` | `~/.config/sage/config.toml` | The config file the Settings dialog and `sage config` write |
+| `SAGE_ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY` | unset | The Anthropic API key |
 
-The app also needs the IR service running (step 2).
+## Where the data lives
 
-## Tests
+Each paper has a folder under `$SAGE_HOME/papers/<paper_id>/` that holds the PDF, the parsed text (`document.json`), the reviews (`reviews.jsonl`), and one folder per extraction under `runs/<run_id>/`. An extraction folder holds its settings and usage (`run.json`), its event log (`events.jsonl`), the agent's draft (`draft.json`), the settled records (`records.json`) and the parsed paper it read (`document.json`). These are plain JSON files. [docs/design/01-stack-and-architecture.md](docs/design/01-stack-and-architecture.md) lists every file.
 
-```bash
-cd src
-python -m pytest tests docproc          # pipeline and document processing
-python -m pytest ../streamlit_app/tests # review app
-```
+## Development
 
-Run the two suites separately. The review app sets `IR_*` environment variables at import time, and those would redirect the pipeline tests' paths.
+[AGENTS.md](AGENTS.md) has the layer rules and the conventions. `scripts/check` runs every static check, and `scripts/dev` runs the whole stack live: the API with `uvicorn --reload`, the Vite dev server with hot reload, and a watcher (watchfiles, a dev dependency) that regenerates the web's API types whenever Python changes. Run `SAGE_WEB_HOST=0.0.0.0 scripts/dev` to open it from another device. There is no test suite. Quality comes from `scripts/check` and the runtime checker.
 
 ## License
 

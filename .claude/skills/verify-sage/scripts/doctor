@@ -1,0 +1,27 @@
+#!/bin/sh
+# Read-only: is this instance ours, up, on the right data dir, and serving the current UI build?
+# Usage: doctor <root> [--key]   (--key also asks Anthropic whether the saved key works; free)
+set -u
+root=$1
+. "$root/instance.env"
+unset ANTHROPIC_API_KEY SAGE_ANTHROPIC_API_KEY
+cd "$SAGE_VERIFY_REPO"
+bad=0
+say() { printf "%-6s %s\n" "$1" "$2"; [ "$1" = FAIL ] && bad=1; return 0; }
+
+kill -0 "$SAGE_VERIFY_PID" 2>/dev/null && say ok "launcher pid $SAGE_VERIFY_PID alive" || say FAIL "launcher pid $SAGE_VERIFY_PID gone"
+owner=$(lsof -t -iTCP:"$SAGE_VERIFY_PORT" -sTCP:LISTEN 2>/dev/null | head -1)
+[ "$owner" = "$SAGE_VERIFY_LISTENER" ] && say ok "port $SAGE_VERIFY_PORT held by our server (pid $owner)" \
+  || say FAIL "port $SAGE_VERIFY_PORT held by '${owner:-nobody}', expected $SAGE_VERIFY_LISTENER"
+home=$(curl -fs "$SAGE_VERIFY_URL/api/settings" | jq -r '.values.home')
+[ "$home" = "$SAGE_HOME" ] && say ok "API reads SAGE_HOME $home" || say FAIL "API reads home '$home', expected $SAGE_HOME"
+curl -fs "$SAGE_VERIFY_URL/" | grep -q '<div id="root">' && say ok "app shell served" || say FAIL "no app shell at /"
+stale=$(find web/src web/index.html -type f -newer sage/web_dist/index.html | head -3)
+[ -z "$stale" ] && say ok "UI build is newer than web/src" || say FAIL "UI build is stale (rebuild: cd web && pnpm build): $stale"
+key=$(curl -fs "$SAGE_VERIFY_URL/api/settings" | jq -r '.values.anthropic_api_key // empty')
+if [ -n "$key" ]; then say ok "API key set ($key)"; else say info "no API key: extraction runs fail with missing_key"; fi
+if [ "${2:-}" = "--key" ] && [ -n "$key" ]; then
+  r=$(uv run --quiet sage config test-key --json)
+  [ "$(printf '%s' "$r" | jq -r .ok)" = true ] && say ok "Anthropic accepts the key" || say FAIL "key test: $(printf '%s' "$r" | jq -r .message)"
+fi
+exit $bad

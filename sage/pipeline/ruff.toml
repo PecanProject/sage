@@ -1,0 +1,8 @@
+extend = "../../ruff.toml"
+
+[lint.flake8-tidy-imports.banned-api]
+"pydantic_ai".msg = "pydantic-ai is imported only in sage/agents/"
+"anthropic".msg = "the Anthropic SDK is reached through pydantic-ai in sage/agents/"
+"pdftext".msg = "pdftext is imported only in sage/parse/"
+"pypdfium2".msg = "pypdfium2 is imported only in sage/parse/"
+"sage.core".msg = "pipeline/ sits below core"

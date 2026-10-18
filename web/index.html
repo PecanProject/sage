@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Extract experiment records from agronomy papers, with evidence for every value." />
+    <!-- A local tool, often served on a LAN or tailnet: keep it out of search indexes. -->
+    <meta name="robots" content="noindex, nofollow" />
+    <title>sage</title>
+    <!-- Before first paint: apply the theme next-themes saved ("theme" in localStorage), so dark mode never flashes. -->
+    <script>
+      try {
+        var t = localStorage.getItem("theme") || "system"
+        if (t === "system") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+        document.documentElement.classList.add(t)
+        document.documentElement.style.colorScheme = t
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

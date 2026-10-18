@@ -1,0 +1,24 @@
+#!/bin/sh
+# Run one sage command against the instance and keep the proof: command, stdout, stderr, exit code.
+# Usage: cli <root> <label> <sage args...>     e.g. cli "$root" runs runs --json
+set -u
+root=$1 label=$2
+shift 2
+. "$root/instance.env"
+unset ANTHROPIC_API_KEY SAGE_ANTHROPIC_API_KEY
+cd "$SAGE_VERIFY_REPO"
+n=$(find "$root/evidence/cli" -name '*.cmd' | wc -l | tr -d ' ')
+base="$root/evidence/cli/$(printf '%02d' "$n")-$label"
+shown="$*"
+# A secret set on the command line never reaches the evidence: `config set <...key> <value>` is saved redacted.
+if [ "${1:-}" = config ] && [ "${2:-}" = set ]; then
+  case "${3:-}" in *key*) shown="config set $3 <redacted>" ;; esac
+fi
+printf 'sage %s\n' "$shown" >"$base.cmd"
+uv run --quiet sage "$@" >"$base.out" 2>"$base.err"
+code=$?
+echo "$code" >"$base.code"
+cat "$base.out"
+[ -s "$base.err" ] && cat "$base.err" >&2
+echo "[exit $code; proof in $base.*]" >&2
+exit $code

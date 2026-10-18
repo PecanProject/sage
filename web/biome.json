@@ -1,0 +1,14 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "files": { "includes": ["src/**", "*.ts", "*.json", "!src/assets", "!src/api/schema.d.ts"] },
+  "formatter": { "indentStyle": "space", "lineWidth": 110 },
+  "linter": {
+    "rules": {
+      "preset": "recommended",
+      "style": { "noNonNullAssertion": "error" },
+      "suspicious": { "noExplicitAny": "error" }
+    }
+  },
+  "javascript": { "formatter": { "semicolons": "asNeeded" } },
+  "css": { "parser": { "tailwindDirectives": true } }
+}

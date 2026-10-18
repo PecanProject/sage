@@ -1,0 +1,13 @@
+#!/bin/sh
+# Stop the instance this root started and delete its scratch data. The evidence folder stays.
+# Usage: down <root>
+set -u
+root=$1
+. "$root/instance.env"
+for pid in "$SAGE_VERIFY_LISTENER" "$SAGE_VERIFY_PID"; do
+  [ -n "$pid" ] && kill "$pid" 2>/dev/null
+done
+sleep 0.5
+lsof -t -iTCP:"$SAGE_VERIFY_PORT" -sTCP:LISTEN >/dev/null 2>&1 && echo "port $SAGE_VERIFY_PORT still held" >&2
+rm -rf "$root/home" "$root/config.toml"
+echo "stopped; evidence kept in $root/evidence"

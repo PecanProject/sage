@@ -1,0 +1,53 @@
+#!/bin/sh
+# Start a disposable SAGE instance: its own SAGE_HOME and config, the UI on a free port.
+# Usage: up [--key-from <config.toml>] [pdf ...]
+# Prints the instance root. Every other helper takes that root as its first argument.
+set -eu
+repo=$(cd "$(dirname "$0")/../../../.." && pwd)
+keyfrom=""
+if [ "${1:-}" = "--key-from" ]; then keyfrom=$2; shift 2; fi
+
+id=$(date +%Y%m%dT%H%M%S)-$$
+root=/tmp/verify/sage/$id
+mkdir -p "$root/home" "$root/evidence/ui" "$root/evidence/cli"
+port=$(python3 -I -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
+
+cat >"$root/instance.env" <<ENV
+export SAGE_HOME='$root/home'
+export SAGE_CONFIG='$root/config.toml'
+export SAGE_VERIFY_REPO='$repo'
+export SAGE_VERIFY_ROOT='$root'
+export SAGE_VERIFY_PORT='$port'
+export SAGE_VERIFY_URL='http://127.0.0.1:$port'
+ENV
+. "$root/instance.env"
+unset ANTHROPIC_API_KEY SAGE_ANTHROPIC_API_KEY
+cd "$repo"
+
+newest_src=$(find web/src web/index.html -type f -newer sage/web_dist/index.html 2>/dev/null | head -1 || true)
+if [ ! -f sage/web_dist/index.html ] || [ -n "$newest_src" ]; then
+  echo "building the UI (web_dist missing or older than web/src)" >&2
+  (cd web && pnpm install --frozen-lockfile >/dev/null && pnpm build >/dev/null)
+fi
+
+if [ -n "$keyfrom" ]; then
+  key=$(python3 -I -c 'import sys,tomllib; print(tomllib.load(open(sys.argv[1],"rb")).get("anthropic_api_key",""))' "$keyfrom")
+  [ -n "$key" ] || { echo "no anthropic_api_key in $keyfrom" >&2; exit 1; }
+  uv run --quiet sage config set anthropic_api_key "$key" --json >/dev/null
+fi
+
+uv run --quiet sage ui --port "$port" >"$root/ui.log" 2>&1 &
+echo "export SAGE_VERIFY_PID='$!'" >>"$root/instance.env"
+i=0
+until curl -fs "$SAGE_VERIFY_URL/api/settings" >/dev/null 2>&1; do
+  i=$((i + 1))
+  [ $i -lt 120 ] || { echo "UI did not answer on $SAGE_VERIFY_URL within 30s; see $root/ui.log" >&2; exit 1; }
+  sleep 0.25
+done
+listener=$(lsof -t -iTCP:"$port" -sTCP:LISTEN | head -1)
+echo "export SAGE_VERIFY_LISTENER='$listener'" >>"$root/instance.env"
+
+for pdf in "$@"; do
+  uv run --quiet sage add "$pdf" --json | jq -r '.[] | "added \(.paper.id) (\(.paper.pages) pages)"' >&2
+done
+echo "$root"

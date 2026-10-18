@@ -1,0 +1,17 @@
+extend = "../../ruff.toml"
+
+[lint.flake8-tidy-imports.banned-api]
+"pydantic_ai".msg = "pydantic-ai is imported only in sage/agents/"
+"anthropic".msg = "the Anthropic SDK is reached through pydantic-ai in sage/agents/"
+"pdftext".msg = "pdftext is imported only in sage/parse/"
+"pypdfium2".msg = "pypdfium2 is imported only in sage/parse/"
+"sage.store".msg = "ir/ and domain/ are pure: no I/O"
+"sage.parse".msg = "ir/ and domain/ sit below parse/"
+"sage.pipeline".msg = "ir/ and domain/ sit below pipeline/"
+"sage.agents".msg = "ir/ and domain/ sit below agents/"
+"sage.core".msg = "ir/ and domain/ sit below core"
+"pathlib".msg = "ir/ and domain/ are pure: no I/O"
+"datetime.datetime.now".msg = "ir/ and domain/ are pure: the caller passes the time in"
+"datetime.date.today".msg = "ir/ and domain/ are pure: the caller passes the date in"
+"time".msg = "ir/ and domain/ are pure: no clocks"
+"random".msg = "ir/ and domain/ are pure: no randomness"

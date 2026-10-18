@@ -1,0 +1,44 @@
+[project]
+name = "sage"
+version = "2.0.0"
+description = "Extract agronomy experiment records from research papers, with evidence for every value."
+readme = "README.md"
+license = "BSD-3-Clause"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.143.3",
+    "pdftext>=0.7.1",
+    "pillow>=13.0.0",
+    "pydantic>=2.14.1",
+    "pydantic-ai-slim[anthropic]>=2.57.0",
+    "pydantic-settings>=2.16.0",
+    "pypdfium2>=5.10.1",
+    "python-multipart>=0.0.32",
+    "rich>=15.0.0",
+    "tomli-w>=1.2.0",
+    "typer>=0.27.3",
+    "uvicorn>=0.54.0",
+    "xlsxwriter>=3.2.9",
+]
+
+[project.scripts]
+sage = "sage.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["sage"]
+artifacts = ["sage/web_dist/**"]
+
+[dependency-groups]
+dev = [
+    "ast-grep-cli>=0.51.0",
+    "ruff>=0.17.1",
+    "ty>=0.0.89",
+    "watchfiles>=1.3.0",
+]
+
+[tool.ty.rules]
+all = "error"

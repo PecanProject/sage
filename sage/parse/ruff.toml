@@ -1,0 +1,11 @@
+extend = "../../ruff.toml"
+
+[lint.flake8-tidy-imports.banned-api]
+"pydantic_ai".msg = "pydantic-ai is imported only in sage/agents/"
+"anthropic".msg = "the Anthropic SDK is reached through pydantic-ai in sage/agents/"
+"sage.store".msg = "parse/ takes bytes and returns a Document; the store does the I/O"
+"sage.pipeline".msg = "parse/ sits below pipeline/"
+"sage.agents".msg = "parse/ sits below agents/"
+"sage.core".msg = "parse/ sits below core"
+"sage.settings".msg = "parse/ takes its tunables as arguments"
+"sage.events".msg = "parse/ returns data; its caller emits the events"
