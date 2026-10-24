@@ -28,8 +28,8 @@ This page covers the stack, the package layout and its layer rules, the event st
 | Env, packaging | **uv** with the **hatchling** backend | `uv.lock` is committed. The built UI in `sage/web_dist/` goes into the wheel. The package is named `sage`. That name is taken on PyPI, and SAGE is not published. |
 | Lint and format | **ruff** | `select = ["ALL"]` with a short ignore list. Nested `ruff.toml` files enforce the layer rules (§3). |
 | Types | **ty** | Every rule is an error. |
-| LLM | **pydantic-ai-slim[anthropic]** | Typed outputs, Python functions as tools, `ModelRetry` for checker feedback, `UsageLimits` for the budgets, Anthropic prompt-cache breakpoints and cache diagnostics through model settings. |
-| Default model | `anthropic:claude-haiku-5-5` through the Anthropic API | Only Anthropic model ids are accepted. Bedrock is out of scope. |
+| LLM | **pydantic-ai-slim[anthropic,bedrock,google,openai]** | Typed outputs, Python functions as tools, `ModelRetry` for checker feedback, `UsageLimits` for the budgets, and one unified `cache` and `thinking` setting that each provider renders its own way. Anthropic's effort scale and cache diagnostics are still reached through its own settings. |
+| Default model | `claude-haiku-5-5` | Anthropic, OpenAI, Google and Amazon Bedrock. A model id is a bare name, resolved against the ids pydantic-ai knows, or an explicit `provider:name`, which passes through unchecked so a model newer than the pydantic-ai pin still runs. A Bedrock model is always written `bedrock:<id>`, because its ids carry a `:` of their own, and it takes a Bedrock API key plus `bedrock_region`. Vertex is out of scope. |
 | Data models | **pydantic v2** | The IR, and the model of every file on disk |
 | Settings | **pydantic-settings** | Environment, then `config.toml`, then defaults (§6) |
 | CLI | **Typer** + **Rich** | Every command takes `--json`. |
@@ -78,7 +78,7 @@ ruff, ty, ast-grep (from the `ast-grep-cli` PyPI package) and watchfiles are uv 
 └──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-A run does not execute inside the process that asked for it. `core.start_run` starts a detached worker (`python -m sage worker <run_id>`), which waits on its stdin. `core` writes `run.json` as queued with the worker's pid, then closes the pipe. Only then does the worker write `run.json`, so the two never overwrite each other, and a worker that dies early reads as interrupted. The worker outlives the terminal or the server that started it. `sage run` and the UI both follow the run through its `events.jsonl`.
+A run does not execute inside the process that asked for it. `core.start_run` starts a detached worker (`python -m sage worker <run_id>`), which waits on its stdin. `core` writes `run.json` as queued with the worker's pid, then closes the pipe. Only then does the worker write `run.json`, so the two never overwrite each other, and a worker that dies early reads as interrupted. The worker outlives the terminal or the server that started it. `sage run` and the UI both follow the run through its `events.jsonl`. `core.start_batch` (`sage run-all`, `POST /api/batches`) detaches one more process the same way, a supervisor that starts `batch_jobs` runs at a time and starts the next as each worker exits. It owns no files: every paper still gets its own worker and its own `run.json`, so `sage runs` and the Papers screen show a batch with no special case.
 
 ### Package layout
 
@@ -122,7 +122,7 @@ These rules cut across the layers:
 - **File I/O happens only in `store/`.** `rules/io-in-store.yml` flags `open()`, `shutil`, the `os` calls that write or delete, and the `Path` read, write and delete methods anywhere else under `sage/`. Callers use `sage.store.files`.
 - **pdftext and pypdfium2 are imported only in `parse/`.** The root `ruff.toml` bans both, every nested file repeats the ban, and only `sage/parse/ruff.toml` leaves it out.
 - **Pipeline drives agents, never the reverse.** `sage/agents/ruff.toml` bans `sage.pipeline`. `agents/contract.py` defines the `Workspace` protocol that `pipeline/workspace.py` implements, so the agent never needs the pipeline.
-- **`core.py` reaches the provider only through `sage.agents.models`,** for `check_key`. Model ids are checked by the `ModelId` type in `events.py`, not by the provider code.
+- **`core.py` reaches the provider only through `sage.agents.models`,** for `resolve`, `provider_of` and `check_key`. `ModelId` in `events.py` checks a model id's shape; which provider a bare name belongs to, and how to build a client for it, are `agents/models.py`'s business.
 
 Library code has no `print`. ruff's `T201` enforces it everywhere except `cli.py`, and code emits events instead (§5).
 
@@ -190,7 +190,7 @@ worker ──append──► events.jsonl ──read from offset──► /api/r
 - The config file is `~/.config/sage/config.toml`, or the path in `SAGE_CONFIG`. `store/files.write_toml` writes it with mode 0600.
 - There is no `.env` file support.
 
-**Through the UI.** `GET /api/settings` returns every value with secrets masked, where each value comes from (env, file or default), the fields locked by an environment variable, and the model's JSON schema. The Settings dialog builds its form from that schema, so a new `Settings` field appears in the UI with no frontend change. Each field's `group` names its section, so a new group needs no frontend change either. `GROUPS` in `settings.py` requires every group to have a description and puts them in the schema under `groups`, but the dialog doesn't show them. `extraction_model` and `table_model` are `ModelId`s, so a value that isn't an Anthropic model id is refused when it is saved or loaded, before any run starts. `PUT /api/settings` validates the changes together with the rest of the file and rewrites `config.toml`. A field set through the environment shows a lock with the variable's name and refuses edits. `sage config get|set|list` does the same from the CLI.
+**Through the UI.** `GET /api/settings` returns every value with secrets masked, where each value comes from (env, file or default), the fields locked by an environment variable, and the model's JSON schema. The Settings dialog builds its form from that schema, so a new `Settings` field appears in the UI with no frontend change. Each field's `group` names its section, so a new group needs no frontend change either. `GROUPS` in `settings.py` requires every group to have a description and puts them in the schema under `groups`, but the dialog doesn't show them. `extraction_model` and `table_model` are `ModelId`s, so a value whose shape isn't a model name or a `provider:name` for a provider SAGE supports is refused when it is saved or loaded. Whether the name exists is settled when a run starts, by `agents.models.resolve`, so a bad model still fails in the caller's terminal rather than in a detached worker. `PUT /api/settings` validates the changes together with the rest of the file and rewrites `config.toml`. A field set through the environment shows a lock with the variable's name and refuses edits. `sage config get|set|list` does the same from the CLI.
 
 `core.settings()` reads the settings fresh on every call, so a change takes effect without a restart. It reads `config.toml` through `files.read_toml` first, so a config file that is binary, unreadable or a folder is a `corrupt` error that names the file. A value that fails validation is `invalid`, and the message names its source, "(from SAGE_MAX_TURNS)" or "(in <config path>)". `core.update_settings` checks only the values being set (`StoredSettings`, which reads no environment and no file) and writes the rest of the file back as it was, unknown keys included. So a bad value elsewhere, in the file or the environment, never blocks a change, and `sage config set KEY ""` removes a bad value. When the saved settings still don't load, because of a bad value the change didn't touch, the error says "saved, but …".
 
@@ -203,6 +203,7 @@ A missing API key is not a startup error. `sage ui` starts without one. `sage ru
 ```
 $SAGE_HOME/                        default ~/sage-data
   add.lock                         held while a new paper is checked and written
+  batch.log                        the detached batch supervisor's stdout and stderr
   papers/<paper_id>/
     paper.pdf
     paper.json                     id, filename, sha256, pages, title          (PaperInfo)

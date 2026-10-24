@@ -5,8 +5,9 @@ import hashlib
 import os
 import re
 import socket
+import time
 import unicodedata
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -14,7 +15,7 @@ from typing import Literal, get_args
 
 from pydantic import BaseModel, Field, JsonValue, SecretStr, TypeAdapter, ValidationError
 
-from sage.agents.models import check_key
+from sage.agents.models import check_key, provider_of, resolve
 from sage.events import (
     STAGE_STEP,  # noqa: F401 - cli.py words the live stage with it
     Effort,
@@ -34,7 +35,7 @@ from sage.pipeline.quotes import cites, quote_lines
 from sage.pipeline.review import QueueItem, labels, latest_reviews, queue, standing
 from sage.pipeline.run import execute, run_document
 from sage.pipeline.settle import settle
-from sage.settings import Settings, StoredSettings, config_path, env_names, locked_fields
+from sage.settings import Settings, StoredSettings, config_path, env_names, key_field, locked_fields
 from sage.store import files, proc
 from sage.store.models import (
     PaperInfo,
@@ -137,6 +138,9 @@ class SettingsView(BaseModel):
     """Field name -> the environment variable that sets it. Locked fields can't be edited here."""
     json_schema: dict[str, JsonValue]
     config_path: str
+    key_field: str
+    """The API key field the extraction model's provider needs, which the Settings dialog puts first. The other
+    providers' keys are ordinary fields and show with the rest."""
 
 
 def settings_view() -> SettingsView:
@@ -157,7 +161,17 @@ def settings_view() -> SettingsView:
         locked=locked,
         json_schema=Settings.model_json_schema(),
         config_path=str(config_path()),
+        key_field=key_field(_provider_or_anthropic(current.extraction_model)),
     )
+
+
+def _provider_or_anthropic(model_id: str) -> str:
+    """A model nobody can resolve still has to leave the Settings dialog usable, so the key shown is the default
+    provider's until the model is fixed."""
+    try:
+        return provider_of(model_id)
+    except LookupError:
+        return "anthropic"
 
 
 def update_settings(changes: dict[str, JsonValue]) -> SettingsView:
@@ -205,24 +219,31 @@ class KeyCheck(BaseModel):
 
 
 def test_api_key() -> KeyCheck:
-    """Ask Anthropic whether the saved key works, without spending anything."""
-    key = require_api_key(settings())
-    problem = check_key(key)
-    if problem is not None:
-        return KeyCheck(ok=False, message=problem)
-    return KeyCheck(ok=True, message="Anthropic accepted the key")
+    """Whether the extraction model's provider accepts the saved key. Only Anthropic has a call that costs nothing,
+    so only its key is really checked; `check_key` words the answer either way."""
+    s = settings()
+    model_id = _model(s.extraction_model)
+    keys = require_keys(s, model_id)
+    ok, message = check_key(model_id, keys[provider_of(model_id)])
+    return KeyCheck(ok=ok, message=message)
 
 
-def require_api_key(s: Settings) -> str:
-    if s.anthropic_api_key is None or not s.anthropic_api_key.get_secret_value().strip():
-        envs = " or ".join(env_names("anthropic_api_key", Settings.model_fields["anthropic_api_key"]))
-        raise SageError(
-            "missing_key",
-            "No Anthropic API key is set. Add it in Settings in `sage ui`, or run "
-            f"`sage config set anthropic_api_key <key>` (config key anthropic_api_key in {config_path()}, "
-            f"or env {envs}).",
-        )
-    return s.anthropic_api_key.get_secret_value()
+def require_keys(s: Settings, *model_ids: ModelId) -> dict[str, str]:
+    """The API key each model's provider needs, by provider. Raises on the first one that isn't set, naming where to
+    put it, so a run fails in the caller's terminal rather than in a detached worker."""
+    keys: dict[str, str] = {}
+    for provider in dict.fromkeys(provider_of(m) for m in model_ids):
+        key = s.key(provider)
+        if key is None:
+            field = key_field(provider)
+            envs = " or ".join(env_names(field, Settings.model_fields[field]))
+            raise SageError(
+                "missing_key",
+                f"No {provider} API key is set. Add it in Settings in `sage ui`, or run "
+                f"`sage config set {field} <key>` (config key {field} in {config_path()}, or env {envs}).",
+            )
+        keys[provider] = key
+    return keys
 
 
 def _mask(secret: SecretStr) -> str | None:
@@ -451,13 +472,15 @@ def _live_status(info: RunInfo) -> RunInfo:
 def start_run(paper_id: str, *, model: str | None = None, effort: str | None = None) -> RunInfo:
     """Queue a run and start it in a detached worker, so it outlives the terminal or the server that asked."""
     s = settings()
-    require_api_key(s)
+    extraction_model = _model(model or s.extraction_model)
+    table_model = _model(s.table_model)
+    require_keys(s, extraction_model, table_model)
     paper(paper_id)
     info = RunInfo(
         id=_new_run_id(),
         paper_id=paper_id,
-        extraction_model=s.extraction_model if model is None else _model(model),
-        table_model=s.table_model,
+        extraction_model=extraction_model,
+        table_model=table_model,
         effort=s.effort if effort is None else _effort(effort),
         max_turns=s.max_turns,
         max_cost_usd=s.max_cost_usd,
@@ -471,8 +494,8 @@ def resume_run(run_id: str, *, guidance: str | None = None, review_notes: bool =
     budget of its own. New guidance is added to what the run was already given. With `review_notes`, the scientist's
     edits, rejections and notes on the run's records go to the agent too."""
     s = settings()
-    require_api_key(s)
     info = run(run_id)
+    require_keys(s, info.extraction_model, info.table_model)
     if info.status in ("running", "queued"):
         raise SageError("conflict", f"run {run_id} is still {info.status}")
     if info.status == "finished":
@@ -510,8 +533,8 @@ def continue_run(
     The earlier run stays as it was. The new run has its own budget, and its model and effort default to the earlier
     run's. Reviews of records it leaves unchanged carry over to it (`standing`)."""
     s = settings()
-    require_api_key(s)
     parent = run(run_id)
+    require_keys(s, parent.extraction_model, parent.table_model)
     if parent.status in ("running", "queued"):
         raise SageError("conflict", f"run {run_id} is still {parent.status}")
     text = _guidance_text(guidance)
@@ -526,7 +549,7 @@ def continue_run(
         id=_new_run_id(),
         paper_id=parent.paper_id,
         extraction_model=parent.extraction_model if model is None else _model(model),
-        table_model=parent.table_model,
+        table_model=_model(parent.table_model),
         effort=parent.effort if effort is None else _effort(effort),
         max_turns=s.max_turns,
         max_cost_usd=s.max_cost_usd,
@@ -569,11 +592,14 @@ def _effort(value: str) -> Effort:
 
 
 def _model(value: str) -> ModelId:
-    """Settings already checks extraction_model and table_model when it loads; this checks a run's --model."""
+    """A model id in canonical `provider:name` form, which is what run.json keeps. Settings checks the shape of
+    extraction_model and table_model when it loads; only here does a bare name get resolved to its provider."""
     try:
-        return ModelIdAdapter.validate_python(value)
+        return resolve(ModelIdAdapter.validate_python(value))
     except ValidationError as e:
         raise SageError("invalid", f"model {value!r}: {_validation_message(e).removeprefix(': ')}") from e
+    except LookupError as e:
+        raise SageError("invalid", f"no model named {value!r}: {e}") from e
 
 
 def _spawn(info: RunInfo, *, resume: bool, seed: tuple[Draft, Document] | None = None) -> RunInfo:
@@ -603,7 +629,114 @@ def work(run_id: str, *, resume: bool) -> RunInfo:
     proc.wait_for_parent()
     s = settings()
     info = run(run_id)
-    return execute(home(), s, info, api_key=require_api_key(s), resume=resume)
+    return execute(home(), s, info, keys=require_keys(s, info.extraction_model, info.table_model), resume=resume)
+
+
+# Batches ----------------------------------------------------------------------------------------------------------
+
+POLL_SECONDS = 2.0
+"""How often a batch looks at its live runs: long enough to cost nothing, short enough to fill a free slot promptly."""
+
+
+class BatchPaper(BaseModel):
+    """One paper's place in a batch: the run it got and how that ended, or why it never started."""
+
+    paper_id: str
+    run_id: str | None = None
+    status: RunStatus | None = None
+    error: ErrorBody | None = None
+
+
+class Batch(BaseModel):
+    pid: int
+    """The supervisor's pid. Each paper's own worker has its own, in that run's run.json."""
+    papers: list[str]
+
+
+def pending_papers() -> list[str]:
+    """Papers with no records standing and nothing live on them: what a batch takes when it is given no ids."""
+    return [
+        s.paper.id
+        for s in papers()
+        if s.data_run is None and (s.latest_run is None or s.latest_run.status not in ("queued", "running"))
+    ]
+
+
+def start_batch(
+    paper_ids: list[str] | None = None,
+    *,
+    jobs: int | None = None,
+    model: str | None = None,
+    effort: str | None = None,
+) -> Batch:
+    """Extract many papers, `jobs` at a time, in a detached supervisor that outlives the terminal or the server.
+    Every paper still gets its own worker and its own run.json, so `sage runs` shows the batch as it goes."""
+    s = settings()
+    at_once = s.batch_jobs if jobs is None else jobs
+    if at_once < 1:
+        raise SageError("invalid", f"jobs must be at least 1, not {at_once}")
+    # Fail in the caller's terminal rather than in a detached log that nobody is watching.
+    require_keys(s, _model(model or s.extraction_model), _model(s.table_model))
+    if effort is not None:
+        _effort(effort)
+    chosen = pending_papers() if paper_ids is None else [paper(p).id for p in paper_ids]
+    if not chosen:
+        raise SageError("invalid", "nothing to extract: every paper already has records")
+    args = [
+        "batch",
+        "--jobs",
+        str(at_once),
+        *(["--model", model] if model is not None else []),
+        *(["--effort", effort] if effort is not None else []),
+        "--",
+        *chosen,
+    ]
+    # Nothing to write under a lock: each run writes its own run.json. The block only releases the supervisor.
+    with proc.spawn_sage(args, home().batch_log) as pid:
+        pass
+    return Batch(pid=pid, papers=chosen)
+
+
+def work_batch(
+    paper_ids: list[str],
+    *,
+    jobs: int,
+    model: str | None = None,
+    effort: str | None = None,
+    say: Callable[[str], None],
+) -> list[BatchPaper]:
+    """The detached supervisor's body: keep `jobs` runs live until every paper has had one. A paper that can't start
+    is recorded and the rest still run, so one conflict never sinks the batch."""
+    proc.wait_for_parent()
+    # `sage batch` is hidden but reachable, and a 0 here would spin forever on a slot that never frees.
+    at_once = max(1, jobs)
+    todo = list(paper_ids)
+    live: list[RunInfo] = []
+    done: list[BatchPaper] = []
+    while todo or live:
+        while todo and len(live) < at_once:
+            paper_id = todo.pop(0)
+            try:
+                info = start_run(paper_id, model=model, effort=effort)
+            except SageError as e:
+                done.append(BatchPaper(paper_id=paper_id, error=ErrorBody(kind=e.kind, message=e.message)))
+                say(f"skipped {paper_id}: {e.message}")
+                continue
+            live.append(info)
+            say(f"started {info.id} on {paper_id}")
+        if not live:
+            continue
+        time.sleep(POLL_SECONDS)
+        waiting: list[RunInfo] = []
+        for info in live:
+            if info.pid is not None and proc.alive(info.pid):
+                waiting.append(info)
+                continue
+            final = run(info.id)
+            done.append(BatchPaper(paper_id=info.paper_id, run_id=info.id, status=final.status))
+            say(f"{info.id} {final.status}")
+        live = waiting
+    return done
 
 
 class EventPage(BaseModel):

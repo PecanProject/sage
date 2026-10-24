@@ -29,3 +29,5 @@ ban-relative-imports = "all"
 
 [lint.per-file-ignores]
 "sage/cli.py" = ["T201", "PLC0415"]
+# Each provider SDK is imported in the branch that needs it: google-genai alone costs more to import than SAGE.
+"sage/agents/models.py" = ["PLC0415"]

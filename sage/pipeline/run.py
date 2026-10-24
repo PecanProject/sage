@@ -51,7 +51,7 @@ class Run:
     home: Home
     settings: Settings
     info: RunInfo
-    api_key: str
+    keys: dict[str, str]
     resume: bool
     base_usage: Usage = field(init=False)
     base_turns: int = field(init=False)
@@ -75,12 +75,12 @@ class Run:
         files.write_model(self.paths.info, self.info)
 
 
-def execute(home: Home, settings: Settings, info: RunInfo, *, api_key: str, resume: bool) -> RunInfo:
+def execute(home: Home, settings: Settings, info: RunInfo, *, keys: dict[str, str], resume: bool) -> RunInfo:
     """Run to the end in this process and return the final run.json. Any error is recorded, never raised, and
     run.json never keeps `running` or `queued` once this returns or unwinds: a Ctrl-C or exit leaves `interrupted`,
     anything else `failed`. A BaseException is caught too, because a Rust panic in pydantic-core
     (`pyo3_runtime.PanicException`) derives from it."""
-    run = Run(home=home, settings=settings, info=info, api_key=api_key, resume=resume)
+    run = Run(home=home, settings=settings, info=info, keys=keys, resume=resume)
     resumed = resume and info.started_at is not None
     info.status = "running"
     info.pid = os.getpid()
@@ -247,7 +247,7 @@ async def _table_pass(run: Run, doc: Document, data: bytes) -> tuple[Document, U
     if stale:
         run.emit(Note(text=f"grounded {len(stale)} cached tables again with grounder {GROUNDER_VERSION}"))
     previous = doc.table_pass.cost_usd if doc.table_pass is not None else 0.0
-    table_pass = TablePass(model=s.table_model, cost_usd=previous + used.cost_usd)
+    table_pass = TablePass(model=run.info.table_model, cost_usd=previous + used.cost_usd)
     staged = doc.with_tables(out, table_pass)
     marked = staged.model_copy(update={"blocks": mark_table_blocks(staged)})
     return marked.with_tables(attach_notes(marked), table_pass), used
@@ -255,8 +255,9 @@ async def _table_pass(run: Run, doc: Document, data: bytes) -> tuple[Document, U
 
 async def _transcribe(run: Run, doc: Document, data: bytes, pending: list[Table]) -> dict[str, tables.TableResult]:
     s = run.settings
-    model = models.anthropic(s.table_model, api_key=run.api_key)
-    model_settings = models.cached_instructions(models.settings(s.table_effort))
+    # The model run.json recorded, not the live setting: it is the one `require_keys` got a key for.
+    model = models.build(run.info.table_model, keys=run.keys, bedrock_region=s.bedrock_region)
+    model_settings = models.cached_instructions(models.settings(run.info.table_model, s.table_effort))
     runner = tables.agent()
     gate = asyncio.Semaphore(s.max_concurrency)
     pages = {p.number: p for p in doc.pages}
@@ -329,8 +330,12 @@ async def _agent(run: Run, doc: Document, data: bytes, paper: PaperInfo) -> extr
     return await extractor.extract(
         agent,
         deps,
-        model=models.anthropic(info.extraction_model, api_key=run.api_key),
-        settings=models.cached(models.settings(info.effort), diagnostics=s.cache_diagnostics),
+        model=models.build(info.extraction_model, keys=run.keys, bedrock_region=s.bedrock_region),
+        settings=models.cached(
+            models.settings(info.extraction_model, info.effort),
+            info.extraction_model,
+            diagnostics=s.cache_diagnostics,
+        ),
         budget=extractor.Budget(max_turns=turns_left, max_cost_usd=remaining),
         resume=run.resume and bool(draft.records),
         guidance=_guidance(info),

@@ -4,6 +4,8 @@ The extraction agent sends the whole conversation on every turn. Anthropic's pro
 
 The code is `models.cached` in `sage/agents/models.py`. `02-agent-design.md` describes the loop it serves.
 
+**This page is about Anthropic.** Its breakpoint rules, lookback limits and prices are Anthropic's and don't carry to OpenAI or Google. SAGE asks for caching with pydantic-ai's unified `cache` setting, which each provider renders its own way, so an OpenAI or Google run is cached too, just not on the terms measured here.
+
 ## How the cache works
 
 - **It is a prefix match.** A request renders as `tools`, then `system`, then `messages`. A cache entry covers every byte up to a breakpoint. A change at any position invalidates every entry at or after it. ([prompt caching][pc])
@@ -44,19 +46,20 @@ Per million tokens, from the [pricing page][price]:
 
 ## How SAGE uses it
 
-`models.cached` sets three breakpoints through pydantic-ai:
+`models.cached` sets `cache=True`, pydantic-ai's unified setting, which on Anthropic becomes all three of
+`anthropic_cache_tool_definitions`, `anthropic_cache_instructions` and `anthropic_cache`:
 
-| Breakpoint | pydantic-ai setting | Covers | Lifetime |
-|---|---|---|---|
-| Last tool definition | `anthropic_cache_tool_definitions` | The tools, the same for every paper | 5 minutes |
-| Last instruction block | `anthropic_cache_instructions` | `guide.md` and the paper view | 5 minutes |
-| Automatic, on the last block | `anthropic_cache` | The conversation so far | 5 minutes |
+| Breakpoint | Covers | Lifetime |
+|---|---|---|
+| Last tool definition | The tools, the same for every paper | 5 minutes |
+| Last instruction block | `guide.md` and the paper view | 5 minutes |
+| Automatic, on the last block | The conversation so far | 5 minutes |
 
 - pydantic-ai trims breakpoints past 4 (`_limit_cache_points` in `pydantic_ai/models/anthropic.py`).
 - Every breakpoint lasts 5 minutes. Across the saved Haiku runs, the longest gap between the starts of two turns was 189 seconds, so each turn reads the last one's entries well inside it. A resumed run, or a new run of the same paper with the same model and effort, sends identical tools and instructions, so it reads them too when it starts within 5 minutes.
 - SAGE doesn't use the 1-hour lifetime. On a 1-hour entry, each write costs 0.75 times the input price more. It pays off only when a run reuses the prefix after a gap of 5 to 60 minutes. On Haiku 5.5 that saves about $0.004 per reuse and costs $0.0027 on every run. A turn longer than 5 minutes, which a long Sonnet or Opus turn can be, makes the next turn write the conversation again. If those turns become common, measure the gaps before choosing 1 hour. ([extended thinking][think])
-- The table pass (`models.cached_instructions`) has one breakpoint, on its instructions, for 5 minutes. It covers its output tool as well, 784 tokens in all. Each call sends a different table image after that prefix, so an automatic breakpoint would only pay to write an image no other call reads. The first `max_concurrency` calls all write the prefix, because they start together. Later calls, and the next paper's table pass within 5 minutes, read it. The table pass transcribes each table once and keeps it in `document.json`, so the saving is small. On cropsci 2004's 10 tables, 4 calls wrote the prefix and 6 read it, and the pass cost $0.00317 instead of $0.00351.
-- `cache_diagnostics` (off by default) has the API compare each request with the previous one. It names where the prompt first differed. SAGE logs the answer as `cache_miss` on the turn's `usage` event, and `sage logs` prints it. It is free, but Anthropic rejects it for HIPAA-enabled organizations. ([cache diagnostics][diag])
+- The table pass (`models.cached_instructions`, which is `cache={"messages": False}`) has one breakpoint, on its instructions, for 5 minutes. It covers its output tool as well, 784 tokens in all. Each call sends a different table image after that prefix, so an automatic breakpoint would only pay to write an image no other call reads. The first `max_concurrency` calls all write the prefix, because they start together. Later calls, and the next paper's table pass within 5 minutes, read it. The table pass transcribes each table once and keeps it in `document.json`, so the saving is small. On cropsci 2004's 10 tables, 4 calls wrote the prefix and 6 read it, and the pass cost $0.00317 instead of $0.00351.
+- `cache_diagnostics` (off by default) has the API compare each request with the previous one. It names where the prompt first differed. Anthropic alone offers it, so `models.cached` sets it only on an Anthropic run; asking another provider for it is a 400. SAGE logs the answer as `cache_miss` on the turn's `usage` event, and `sage logs` prints it. It is free, but Anthropic rejects it for HIPAA-enabled organizations. ([cache diagnostics][diag])
 
 ## Rules
 

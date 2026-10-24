@@ -10,16 +10,25 @@ Effort = Literal["low", "medium", "high", "xhigh", "max"]
 """Defined here because settings, store and agents may all import this module."""
 
 
-def _anthropic_model(value: str) -> str:
-    provider, _, name = value.partition(":")
-    if provider != "anthropic" or not name:
-        raise PydanticCustomError("model_id", "must be an Anthropic model id like 'anthropic:claude-haiku-5-5'")
+PROVIDERS = ("anthropic", "openai", "google", "bedrock")
+"""The providers SAGE ships an extra and an API key field for. Here for the same reason as `Effort`."""
+
+
+def _model_id(value: str) -> str:
+    if not value.strip():
+        raise PydanticCustomError("model_id", "must name a model")
+    provider, sep, name = value.partition(":")
+    if sep and (provider not in PROVIDERS or not name):
+        raise PydanticCustomError(
+            "model_id", f"must be '<provider>:<name>' with provider one of {', '.join(PROVIDERS)}"
+        )
     return value
 
 
-ModelId = Annotated[str, AfterValidator(_anthropic_model)]
-"""The only check that a model id names an Anthropic model: settings, a run's `--model` and run.json all parse it,
-so the agent layer takes it as given. Here for the same reason as `Effort`."""
+ModelId = Annotated[str, AfterValidator(_model_id)]
+"""A bare model name like 'claude-haiku-5-5', or 'provider:name'. This checks the shape alone; whether the name
+exists, and which provider a bare one belongs to, is settled by `sage.agents.models.resolve`, the only layer that
+may ask pydantic-ai. Settings, a run's `--model` and run.json all parse this, so the agent layer takes it as given."""
 
 
 def now() -> datetime:

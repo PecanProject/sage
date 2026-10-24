@@ -14,7 +14,7 @@ import {
 import { Textarea } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { capital, endedAlert, isResumable, MODEL_NAMES, modelName, money, type RunInfo } from "@/lib/format"
+import { capital, endedAlert, isResumable, modelHint, modelName, money, type RunInfo } from "@/lib/format"
 import { useContinueRun, useResumeRun, useStartRun, useStopRun } from "@/lib/paper-state"
 import { fieldsFromSchema } from "@/lib/settings-schema"
 
@@ -60,7 +60,7 @@ function ModelSelect({
         {models.map((id) => (
           <SelectItem key={id} value={id}>
             {modelName(id)}
-            <span className="text-caption text-muted-ink">{MODEL_NAMES[id]?.hint}</span>
+            <span className="text-caption text-muted-ink">{modelHint(id)}</span>
           </SelectItem>
         ))}
       </SelectContent>

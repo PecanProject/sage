@@ -17,6 +17,11 @@ class Home:
         """Held while a new paper is checked against the library and written, so one file is never added twice."""
         return self.root / "add.lock"
 
+    @property
+    def batch_log(self) -> Path:
+        """Where a detached batch supervisor writes its progress, since it has no run of its own."""
+        return self.root / "batch.log"
+
     def paper(self, paper_id: str) -> Path:
         return self.papers / paper_id
 

@@ -21,10 +21,19 @@ CONFIG_ENV = "SAGE_CONFIG"
 DEFAULT_CONFIG = Path("~/.config/sage/config.toml").expanduser()
 
 MODEL_CHOICES = [
-    "anthropic:claude-haiku-5-5",
-    "anthropic:claude-sonnet-5-5",
-    "anthropic:claude-opus-5-5",
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5",
+    "claude-opus-5-5",
+    "gpt-5.1",
+    "gemini-3.5-flash",
+    "bedrock:us.anthropic.claude-haiku-4-5-20251001-v1:0",
 ]
+"""Suggestions, not a closed list: any model name pydantic-ai knows works, and so does any `provider:name`."""
+
+
+def key_field(provider: str) -> str:
+    """The field a provider's key lives in. Every provider in `PROVIDERS` has one, by this name."""
+    return f"{provider}_api_key"
 
 
 def config_path() -> Path:
@@ -32,7 +41,7 @@ def config_path() -> Path:
 
 
 GROUPS: dict[str, JsonValue] = {
-    "Model": "Which Claude models read the paper and its tables, and how hard they think.",
+    "Model": "Which models read the paper and its tables, how hard they think, and the keys they need.",
     "Budget": "Limits that stop an extraction before it costs too much.",
     "Agent": "How the extraction agent handles repeated mistakes.",
     "Prompt cache": "How to see where a turn missed the prompt cache.",
@@ -64,17 +73,47 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = Field(
         default=None,
         title="Anthropic API key",
-        description="Used for every model call. Stored in config.toml with mode 0600.",
+        description="Used for a Claude model. Stored in config.toml with mode 0600.",
         json_schema_extra=_group("Model", secret=True, env=_json_list(["SAGE_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY"])),
     )
+    openai_api_key: SecretStr | None = Field(
+        default=None,
+        title="OpenAI API key",
+        description="Used for a GPT or o-series model. Stored in config.toml with mode 0600.",
+        json_schema_extra=_group("Model", secret=True, env=_json_list(["SAGE_OPENAI_API_KEY", "OPENAI_API_KEY"])),
+    )
+    google_api_key: SecretStr | None = Field(
+        default=None,
+        title="Google API key",
+        description="Used for a Gemini model. Stored in config.toml with mode 0600.",
+        json_schema_extra=_group("Model", secret=True, env=_json_list(["SAGE_GOOGLE_API_KEY", "GOOGLE_API_KEY"])),
+    )
+    bedrock_api_key: SecretStr | None = Field(
+        default=None,
+        title="Bedrock API key",
+        description=(
+            "Used for a `bedrock:` model. An Amazon Bedrock API key (a bearer token from the AWS console), not an"
+            " access key pair. Stored in config.toml with mode 0600."
+        ),
+        json_schema_extra=_group(
+            "Model", secret=True, env=_json_list(["SAGE_BEDROCK_API_KEY", "AWS_BEARER_TOKEN_BEDROCK"])
+        ),
+    )
+    bedrock_region: str = Field(
+        default="us-east-1",
+        min_length=1,
+        title="Bedrock region",
+        description="The AWS region a `bedrock:` model is called in. The model has to be enabled in it.",
+        json_schema_extra=_group("Model", env=_json_list(["SAGE_BEDROCK_REGION", "AWS_REGION", "AWS_DEFAULT_REGION"])),
+    )
     extraction_model: ModelId = Field(
-        default="anthropic:claude-haiku-5-5",
+        default="claude-haiku-5-5",
         title="Extraction model",
         description="The model that reads the paper and writes records.",
         json_schema_extra=_group("Model", choices=_json_list(MODEL_CHOICES)),
     )
     table_model: ModelId = Field(
-        default="anthropic:claude-haiku-5-5",
+        default="claude-haiku-5-5",
         title="Table model",
         description="The model that transcribes table images into cell grids.",
         json_schema_extra=_group("Model", choices=_json_list(MODEL_CHOICES)),
@@ -113,6 +152,14 @@ class Settings(BaseSettings):
         le=32,
         title="Max concurrency",
         description="Parallel model calls in the table pass.",
+        json_schema_extra=_group("Budget"),
+    )
+    batch_jobs: int = Field(
+        default=2,
+        ge=1,
+        le=16,
+        title="Batch jobs",
+        description="Papers `sage run-all` extracts at once. Each one is a separate worker with its own budget.",
         json_schema_extra=_group("Budget"),
     )
     same_error_limit: int = Field(
@@ -194,6 +241,20 @@ class Settings(BaseSettings):
     @property
     def home_dir(self) -> Path:
         return self.home.expanduser().resolve()
+
+    def key(self, provider: str) -> str | None:
+        """A provider's API key, if one is set. One entry per name in `PROVIDERS`, spelled out so a provider added
+        there without a field here reads as missing rather than raising."""
+        fields = {
+            "anthropic": self.anthropic_api_key,
+            "openai": self.openai_api_key,
+            "google": self.google_api_key,
+            "bedrock": self.bedrock_api_key,
+        }
+        secret = fields.get(provider)
+        if secret is None or not secret.get_secret_value().strip():
+            return None
+        return secret.get_secret_value()
 
 
 class StoredSettings(Settings):

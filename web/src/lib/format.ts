@@ -142,11 +142,23 @@ export const TYPE_PLURAL: Record<string, string> = {
 
 export const TYPE_ORDER = Object.keys(TYPE_PLURAL)
 
-/** Names only. The list of models comes from Settings. */
-export const MODEL_NAMES: Record<string, { name: string; hint: string }> = {
-  "anthropic:claude-haiku-5-5": { name: "Haiku 5.5", hint: "fastest, cheapest" },
-  "anthropic:claude-sonnet-5-5": { name: "Sonnet 5.5", hint: "balanced" },
-  "anthropic:claude-opus-5-5": { name: "Opus 5.5", hint: "most careful" },
+/** Names only; the list of models comes from Settings. Keyed by the bare name, since an id reaches us both ways. */
+const MODEL_NAMES: Record<string, { name: string; hint: string }> = {
+  "claude-haiku-5-5": { name: "Haiku 5.5", hint: "fastest, cheapest" },
+  "claude-sonnet-5-5": { name: "Sonnet 5.5", hint: "balanced" },
+  "claude-opus-5-5": { name: "Opus 5.5", hint: "most careful" },
+  "gpt-5.1": { name: "GPT-5.1", hint: "OpenAI" },
+  "gemini-3.5-flash": { name: "Gemini 3.5 Flash", hint: "Google" },
+  "us.anthropic.claude-haiku-4-5-20251001-v1:0": { name: "Haiku 4.5", hint: "Amazon Bedrock" },
+}
+
+/** Settings may hold a bare model name; run.json always holds `provider:name`. */
+function bare(id: string): string {
+  return id.replace(/^[a-z]+:/, "")
+}
+
+export function modelHint(id: string): string | undefined {
+  return MODEL_NAMES[bare(id)]?.hint
 }
 
 /** Only the first clause. The details drawer shows the whole error. */
@@ -213,7 +225,7 @@ export function stamp(iso: string | null | undefined): string {
 }
 
 export function modelName(id: string): string {
-  return MODEL_NAMES[id]?.name ?? id.replace(/^anthropic:/, "")
+  return MODEL_NAMES[bare(id)]?.name ?? bare(id)
 }
 
 export function capital(text: string): string {

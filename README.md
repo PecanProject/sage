@@ -27,13 +27,17 @@ cd web && pnpm install && pnpm build && cd ..
 
 To work on SAGE, also install [gitleaks](https://github.com/gitleaks/gitleaks) (`brew install gitleaks`). `scripts/check` runs every static check, including a secret scan, React Doctor and knip, and it fails if gitleaks is missing.
 
-## Add your Anthropic API key
+## Add your API key
 
-SAGE calls Claude through the Anthropic API. The default model is Claude Haiku 5.5, with a $1.00 cost limit per paper. Set the key in one of three ways:
+SAGE calls Anthropic, OpenAI, Google or Amazon Bedrock. The default model is Claude Haiku 5.5, with a $1.00 cost limit per paper, so the Anthropic key is the one most people need. Set it in one of three ways:
 
 - Open **Settings** (the gear in the top bar of `uv run sage ui`), paste the key, and click **Test** to check it.
 - Run `uv run sage config set anthropic_api_key <key>`, then `uv run sage config test-key`.
 - Export `SAGE_ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY`. A value set in the environment shows as read-only in Settings.
+
+To use another provider, set `extraction_model` to one of its models and give it the matching key: `openai_api_key` for a `gpt` or `o`-series model, `google_api_key` for a `gemini` one. A model is named plainly (`gpt-5.1`), or with its provider when the name alone is new to SAGE (`openai:gpt-5.2`). Settings shows the key the chosen model needs; the others sit under Advanced.
+
+For Amazon Bedrock, write the model with its `bedrock:` prefix, since Bedrock's own ids contain a `:` — `bedrock:us.anthropic.claude-haiku-4-5-20251001-v1:0`. It needs `bedrock_api_key` (a Bedrock API key from the AWS console, or `AWS_BEARER_TOKEN_BEDROCK`) and `bedrock_region`, which defaults to `us-east-1`. The model has to be enabled in that region on your account. An access key pair, an SSO profile or an instance role is not read.
 
 Settings and `sage config` write `~/.config/sage/config.toml` with mode 0600. `sage ui` starts without a key. Only starting an extraction needs one.
 
@@ -98,6 +102,7 @@ Every command takes `--json` for machine-readable output. Under `--json` an erro
 | `sage run PAPER_ID [--model M] [--effort E]` | Starts an extraction and follows its log. `--no-follow` returns at once. `--effort` is `low`, `medium`, `high`, `xhigh` or `max`. |
 | `sage run --resume RUN_ID [--guidance TEXT]` | Continues an unfinished extraction from its saved draft, under what is left of its budget. One that used it all is refused. |
 | `sage run --continue RUN_ID [--guidance TEXT]` | Starts a new extraction from an ended one's records, with a budget of its own, told what to add or fix. Guidance is required unless the earlier one ran out of budget. Your edits, rejections and review notes go too, unless `--no-review-notes`. |
+| `sage run-all [PAPER_ID...] [--jobs N] [--model M] [--effort E]` | Extracts many papers in one background batch, `--jobs` at a time (default: the `batch_jobs` setting). With no ids it takes every paper that has no records yet. Watch it with `sage runs`. |
 | `sage stop RUN_ID` | Stops a running extraction. It keeps what it found, and `--resume` carries it on. |
 | `sage runs [PAPER_ID]` | Lists extractions, newest first. |
 | `sage show RUN_ID` | Shows an extraction's records, each one's status, and why anything isn't verified. |
@@ -108,7 +113,7 @@ Every command takes `--json` for machine-readable output. Under `--json` an erro
 | `sage config list` | Shows every setting, its value, and whether it comes from the environment, the config file or the default. |
 | `sage config get KEY` | Prints one setting's value as JSON. |
 | `sage config set KEY VALUE` | Changes a setting in `config.toml`. An empty value restores the default. |
-| `sage config test-key` | Asks Anthropic whether the saved API key works. It costs nothing. |
+| `sage config test-key` | Asks the extraction model's provider whether the saved API key works. It costs nothing. Only Anthropic has a free call to check with, so an OpenAI, Google or Bedrock key is reported as saved but unchecked. |
 | `sage ui [--host H] [--port P]` | Serves the UI and the API on 127.0.0.1:8765 by default. |
 | `sage openapi` | Prints the API's OpenAPI schema. |
 
@@ -123,6 +128,10 @@ Every command takes `--json` for machine-readable output. Under `--json` an erro
 | `SAGE_HOME` | `~/sage-data` | Where papers, extractions and reviews live |
 | `SAGE_CONFIG` | `~/.config/sage/config.toml` | The config file the Settings dialog and `sage config` write |
 | `SAGE_ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY` | unset | The Anthropic API key |
+| `SAGE_OPENAI_API_KEY` or `OPENAI_API_KEY` | unset | The OpenAI API key |
+| `SAGE_GOOGLE_API_KEY` or `GOOGLE_API_KEY` | unset | The Google API key |
+| `SAGE_BEDROCK_API_KEY` or `AWS_BEARER_TOKEN_BEDROCK` | unset | The Amazon Bedrock API key |
+| `SAGE_BEDROCK_REGION`, `AWS_REGION` or `AWS_DEFAULT_REGION` | `us-east-1` | The region a `bedrock:` model is called in |
 
 ## Where the data lives
 

@@ -100,7 +100,7 @@ def config_set(key: str, value: str, as_json: JsonOpt = False) -> None:
 
 @config_app.command("test-key")
 def config_test_key(as_json: JsonOpt = False) -> None:
-    """Ask Anthropic whether the saved API key works. Costs nothing."""
+    """Ask the extraction model's provider whether the saved API key works. Costs nothing."""
     check = core.test_api_key()
     if as_json:
         emit(check)
@@ -158,7 +158,9 @@ def run_cmd(
     paper_id: Annotated[
         str | None, typer.Argument(help="The paper to extract. Omit it with --resume or --continue.")
     ] = None,
-    model: Annotated[str | None, typer.Option(help="Extraction model id, e.g. anthropic:claude-sonnet-5-5.")] = None,
+    model: Annotated[
+        str | None, typer.Option(help="Extraction model, e.g. claude-sonnet-5-5 or openai:gpt-5.1.")
+    ] = None,
     effort: Annotated[str | None, typer.Option(help="low, medium, high, xhigh or max.")] = None,
     resume: Annotated[str | None, typer.Option(help="Continue this unfinished run from its saved draft.")] = None,
     continue_from: Annotated[
@@ -214,6 +216,45 @@ def worker(run_id: str, resume: bool = False) -> None:
     """The detached process behind a run. It reads stdin to the end first: the parent closes it once run.json is
     written."""
     core.work(run_id, resume=resume)
+
+
+@app.command("run-all")
+def run_all(
+    paper_ids: Annotated[
+        list[str] | None, typer.Argument(help="Papers to extract. Omit for every paper with no records yet.")
+    ] = None,
+    jobs: Annotated[
+        int | None, typer.Option(help="Papers to extract at once. Default: the batch_jobs setting.")
+    ] = None,
+    model: Annotated[
+        str | None, typer.Option(help="Extraction model, e.g. claude-sonnet-5-5 or openai:gpt-5.1.")
+    ] = None,
+    effort: Annotated[str | None, typer.Option(help="low, medium, high, xhigh or max.")] = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Extract many papers in one batch. It runs in the background, a few papers at a time; watch it with `sage
+    runs`, and stop a paper with `sage stop`."""
+    batch = core.start_batch(paper_ids or None, jobs=jobs, model=model, effort=effort)
+    if as_json:
+        emit(batch)
+        return
+    out.print(Text.assemble("batch started on ", (str(len(batch.papers)), "bold"), " papers:"))
+    for paper_id in batch.papers:
+        out.print(f"  {paper_id}")
+    out.print(Text("watch it with `sage runs`", style="dim"))
+
+
+@app.command("batch", hidden=True)
+def batch(
+    paper_ids: list[str],
+    jobs: int = 2,
+    model: str | None = None,
+    effort: str | None = None,
+) -> None:
+    """The detached batch supervisor's body, whose stdout is the batch log."""
+    results = core.work_batch(paper_ids, jobs=jobs, model=model, effort=effort, say=out.print)
+    skipped = [r for r in results if r.error is not None]
+    out.print(f"batch done: {len(results) - len(skipped)} run, {len(skipped)} skipped")
 
 
 @app.command()

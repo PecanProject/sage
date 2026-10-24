@@ -159,6 +159,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Batch */
+        post: operations["start_batch_api_batches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs": {
         parameters: {
             query?: never;
@@ -421,6 +438,13 @@ export interface components {
                     number
                 ][];
             };
+        };
+        /** Batch */
+        Batch: {
+            /** Pid */
+            pid: number;
+            /** Papers */
+            papers: string[];
         };
         /** Block */
         Block: {
@@ -1497,6 +1521,8 @@ export interface components {
             };
             /** Config Path */
             config_path: string;
+            /** Key Field */
+            key_field: string;
         };
         /** Settled */
         Settled: {
@@ -1607,6 +1633,17 @@ export interface components {
             stage: "parse" | "tables" | "agent" | "settle";
             /** Detail */
             detail?: string | null;
+        };
+        /** StartBatch */
+        StartBatch: {
+            /** Paper Ids */
+            paper_ids?: string[] | null;
+            /** Jobs */
+            jobs?: number | null;
+            /** Model */
+            model?: string | null;
+            /** Effort */
+            effort?: string | null;
         };
         /** StartRun */
         StartRun: {
@@ -2738,6 +2775,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunInfo"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    start_batch_api_batches_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StartBatch"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Batch"];
                 };
             };
             /** @description Bad Request */

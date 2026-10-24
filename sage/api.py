@@ -101,6 +101,19 @@ def start_run(paper_id: str, body: StartRun) -> core.RunInfo:
     return core.start_run(paper_id, model=body.model, effort=body.effort)
 
 
+class StartBatch(BaseModel):
+    paper_ids: list[str] | None = None
+    jobs: int | None = None
+    model: str | None = None
+    effort: str | None = None
+
+
+@app.post("/api/batches", responses=_errors)
+def start_batch(body: StartBatch | None = None) -> core.Batch:
+    b = body or StartBatch()
+    return core.start_batch(b.paper_ids, jobs=b.jobs, model=b.model, effort=b.effort)
+
+
 @app.get("/api/runs", responses=_errors)
 def list_runs(paper_id: str | None = None) -> list[core.RunInfo]:
     return core.runs(paper_id)

@@ -28,7 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton, TextSkeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Tip } from "@/components/ui/tooltip"
-import { capital, MODEL_NAMES, modelName } from "@/lib/format"
+import { capital, modelHint, modelName } from "@/lib/format"
 import { useSettingsRoute } from "@/lib/settings-route"
 import { type FieldSpec, fieldsFromSchema } from "@/lib/settings-schema"
 import { cn } from "@/lib/utils"
@@ -37,9 +37,8 @@ type Value = string | number | boolean | null
 type View = Schemas["SettingsView"]
 type Errors = { byField: Record<string, string>; rest: string | null }
 
-const BASIC = new Set(["anthropic_api_key", "extraction_model", "max_cost_usd"])
+const BASIC = ["extraction_model", "max_cost_usd"]
 const TITLES: Record<string, string> = {
-  anthropic_api_key: "Anthropic API key",
   extraction_model: "Model",
   max_cost_usd: "Cost limit per paper",
 }
@@ -123,6 +122,8 @@ function SettingsForm({ view, onDone }: { view: View; onDone: () => void }) {
   const [errors, setErrors] = useState<Errors>({ byField: {}, rest: null })
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const fields = fieldsFromSchema(view.json_schema)
+  // The key the chosen model needs comes first; the other providers' keys stay with the rest, under Advanced.
+  const shownFirst = new Set([view.key_field, ...BASIC])
   const save = $api.useMutation("put", "/api/settings", {
     onSuccess: (saved) => {
       queryClient.setQueryData(["get", "/api/settings"], saved)
@@ -133,7 +134,7 @@ function SettingsForm({ view, onDone }: { view: View; onDone: () => void }) {
       const found = fieldErrors(errorMessage(e), new Set(fields.map((f) => f.name)))
       setErrors(found)
       // A failed Save never hides why: Advanced opens on an error in one of its fields, and stays open for the fix.
-      if (Object.keys(found.byField).some((name) => !BASIC.has(name))) setAdvancedOpen(true)
+      if (Object.keys(found.byField).some((name) => !shownFirst.has(name))) setAdvancedOpen(true)
     },
   })
   /** A secret never shows its saved value, which the server sends masked. */
@@ -169,8 +170,8 @@ function SettingsForm({ view, onDone }: { view: View; onDone: () => void }) {
     const f = byName.get(name)
     return f ? field(f, true) : null
   }
-  const keyField = byName.get("anthropic_api_key")
-  const advanced = fields.filter((f) => !BASIC.has(f.name))
+  const keyField = byName.get(view.key_field)
+  const advanced = fields.filter((f) => !shownFirst.has(f.name))
   return (
     // The server checks every value, so its message shows under the field instead of the browser's bubble.
     <form
@@ -187,9 +188,9 @@ function SettingsForm({ view, onDone }: { view: View; onDone: () => void }) {
           <ApiKey
             field={keyField}
             value={shown(keyField)}
-            saved={asValue(view.values.anthropic_api_key)}
-            env={view.locked.anthropic_api_key}
-            error={errors.byField.anthropic_api_key}
+            saved={asValue(view.values[view.key_field])}
+            env={view.locked[view.key_field]}
+            error={errors.byField[view.key_field]}
             onChange={change(keyField)}
           />
         ) : null}
@@ -430,7 +431,7 @@ function SecretInput({
         type="password"
         autoComplete="off"
         autoFocus={masked !== null}
-        placeholder="sk-ant-…"
+        placeholder="Paste the key"
         value={typeof value === "string" ? value : ""}
         onChange={(e) => onChange(e.target.value.trim() || undefined)}
         data-testid={`secret-input-${field.name}`}
@@ -505,7 +506,7 @@ function ModelChoice({ value, choices, ...props }: ControlProps & { choices: str
     <Choice
       {...props}
       value={value}
-      options={all.map((c) => ({ value: c, label: modelName(c), hint: MODEL_NAMES[c]?.hint }))}
+      options={all.map((c) => ({ value: c, label: modelName(c), hint: modelHint(c) }))}
     />
   )
 }
@@ -563,13 +564,13 @@ function ApiKey({
   return (
     <div className="grid gap-1.5">
       <div className="flex items-center gap-1.5">
-        <label htmlFor="setting-anthropic_api_key" className="text-label">
-          {TITLES[field.name]}
+        <label htmlFor={`setting-${field.name}`} className="text-label">
+          {field.title}
         </label>
         {env ? <span className="text-caption text-muted-ink">Set by {env}</span> : null}
       </div>
       <SecretInput
-        id="setting-anthropic_api_key"
+        id={`setting-${field.name}`}
         field={field}
         value={value}
         saved={saved}
@@ -605,7 +606,7 @@ function KeyResult({ ok, message }: { ok: boolean; message: string }) {
       data-ok={ok}
     >
       {ok ? <CheckIcon weight="bold" className="size-4" /> : <XCircleIcon weight="fill" className="size-4" />}
-      {ok ? "Works" : message}
+      {message}
     </span>
   )
 }

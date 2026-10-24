@@ -21,7 +21,7 @@ export function TopBar({
 }) {
   const settings = useSettingsRoute()
   const { data } = $api.useQuery("get", "/api/settings")
-  const missingKey = data?.values.anthropic_api_key === null
+  const missingKey = data ? data.values[data.key_field] === null : false
   return (
     <header className="sticky top-0 z-30 bg-canvas">
       <title>{title ? `${title} · sage` : "sage"}</title>
@@ -59,7 +59,7 @@ export function TopBar({
           className="flex h-9 items-center justify-center gap-3 border-y border-line bg-surface-2 text-caption text-ink"
           data-testid="key-strip"
         >
-          Add your Anthropic API key to start extracting.
+          Add your API key to start extracting.
           <Button variant="text" onClick={() => void settings.open()} className="text-caption">
             Open settings
           </Button>
