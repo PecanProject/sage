@@ -231,9 +231,15 @@ class Management(Model):
     @model_validator(mode="after")
     def _date_and_amount_never_inferred(self) -> Self:
         if self.date.basis == "inferred":
-            raise ValueError("Management.date is never inferred: cite the stated date or set value null with a note")
+            raise ValueError(
+                "Management.date is never inferred: cite the anchor that states it, [date, anchor], or write "
+                "[null, note: what was looked for]"
+            )
         if self.amount is not None and self.amount.basis == "inferred":
-            raise ValueError("Management.amount is never inferred: cite the stated amount or set value null")
+            raise ValueError(
+                "Management.amount is never inferred: cite the anchor that states it, [amount, anchor], or write "
+                "[null, note: what was looked for]"
+            )
         return self
 
 
@@ -270,20 +276,19 @@ class Observation(Model):
         agg = self.aggregated_over_factors
         if scope == "treatment_mean" and agg is not None and agg.value is not None and agg.value != []:
             raise ValueError(
-                f"aggregated_over_factors is {agg.value}, but a treatment_mean is averaged over no factor: leave "
-                "aggregated_over_factors out (code sets it to [] from reported_effect_scope), or use aggregated_mean "
-                "if the paper says the values are averaged over those factors"
+                f"over (aggregated_over_factors) is {agg.value}, but a treatment_mean is averaged over no factor: "
+                "remove over (code sets it to [] from scope), or set scope: aggregated_mean if the paper says the "
+                "values are averaged over those factors"
             )
         if scope == "aggregated_mean":
             if agg is None:
-                raise ValueError(
-                    "reported_effect_scope=aggregated_mean needs aggregated_over_factors: the factor names, or "
-                    "value null with a note"
-                )
+                raise ValueError("scope: aggregated_mean needs over: [the factors the values are averaged over]")
             if agg.value is not None and not agg.value:
-                raise ValueError("reported_effect_scope=aggregated_mean needs a non-empty aggregated_over_factors")
+                raise ValueError("scope: aggregated_mean needs a non-empty over: [the factors]")
             if agg.value is None and agg.note is None:
-                raise ValueError("aggregated_over_factors is null, so say why in its note")
+                raise ValueError(
+                    "over (aggregated_over_factors) is null with no note; list the factors the values are averaged over"
+                )
         return self
 
 

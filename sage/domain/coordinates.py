@@ -91,10 +91,18 @@ def coordinate_problem(text: str, axis: Axis) -> str | None:
 def recompute_coordinate(q: QuantityValue, axis: Axis) -> QuantityValue:
     """Derive the decimal from `reported_text`, overwriting whatever the model computed. A conversion is recorded
     only when the decimal is not the number written (sexagesimal text, or a hemisphere letter carrying the sign).
-    When the text is not one coordinate, any decimal the model worked out is dropped; `coordinate_problem` says why."""
+    When the text is not one coordinate, any number the model worked out is dropped; `coordinate_problem` says why."""
     coordinate = _parse(q.reported_text)
     if coordinate is None or _axis_problem(coordinate, axis) is not None:
-        dropped = dict.fromkeys(("converted_value", "converted_units", "conversion_formula", "conversion_rationale"))
+        dropped = dict.fromkeys(
+            (
+                "reported_numeric_value",
+                "converted_value",
+                "converted_units",
+                "conversion_formula",
+                "conversion_rationale",
+            )
+        )
         return QuantityValue.model_validate(q.model_dump() | dropped)
     converted = coordinate.sexagesimal or coordinate.decimal != coordinate.written
     return QuantityValue.model_validate(

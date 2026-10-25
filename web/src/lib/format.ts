@@ -21,29 +21,36 @@ export type LiveStep = { word: string; share: number }
 /** A live run's stage as Home and the status line word it, and how far along the progress bar it puts the run. */
 const LIVE_STEP: Record<Stage, LiveStep> = {
   parse: { word: "Reading the paper", share: 14 },
-  tables: { word: "Reading tables", share: 34 },
   agent: { word: "Extracting", share: 62 },
   settle: { word: "Checking", share: 90 },
 }
 
-/** A run that hasn't begun a stage is starting. */
-export function liveStep(stage: Stage | null | undefined): LiveStep {
-  return stage ? LIVE_STEP[stage] : { word: "Starting", share: 4 }
+/** The word for an agent waiting on the person, in a tooltip and on Home. */
+export const NEEDS_OK = "Needs your OK"
+
+/** A queued run waits for one of the `parallel_runs` places; a running one that hasn't begun a stage is starting. An
+ * agent's run, SAGE's or a terminal's, has no stages: it extracts until done. */
+export function liveStep(run: RunInfo, stage: Stage | null | undefined): LiveStep {
+  if (run.status === "queued") return { word: "Queued", share: 0 }
+  if (stage) return LIVE_STEP[stage]
+  return run.driver === "sage" ? { word: "Starting", share: 4 } : LIVE_STEP.agent
 }
 
 export function isLive(run: RunInfo): boolean {
   return run.status === "queued" || run.status === "running"
 }
 
-/** A run that failed or was stopped picks up where it was. One that ran out of budget is continued instead, since a
- * resume shares the budget it used up. */
+/** A run SAGE drove that failed or was stopped picks up where it was. One that ran out of budget is continued instead,
+ * since a resume shares the budget it used up, and so is an agent's, which starts a new session on the same folder. */
 export function isResumable(run: RunInfo): boolean {
-  return run.status === "failed" || run.status === "interrupted"
+  return run.driver === "sage" && (run.status === "failed" || run.status === "interrupted")
 }
 
 /** A run that ended with nothing found and can't be resumed has nothing to build on, so carrying on is a new
- * extraction. */
+ * extraction. An agent's run that failed or stopped carries on even with nothing kept, since its folder holds its
+ * work. */
 export function startsOver(run: RunInfo): boolean {
+  if (run.driver !== "sage" && (run.status === "failed" || run.status === "interrupted")) return false
   return !isResumable(run) && !run.counts?.records
 }
 
@@ -52,10 +59,6 @@ export function carryOnLabel(run: RunInfo, withGuidance: string): string {
   if (startsOver(run)) return "Extract again…"
   return run.status === "budget_exhausted" ? "Continue" : withGuidance
 }
-
-/** How often to ask the server again. Idle screens keep asking too, so a run started from the CLI or another tab
- * shows up without a reload. */
-export const pollMs = (live: boolean) => (live ? 1500 : 5000)
 
 export const STATUS_LABEL: Record<Status, string> = {
   verified: "Looks good",
@@ -108,7 +111,7 @@ export function problemWords(cause: string | null, reason: string | null): strin
 }
 
 const RUN_STATUS_LABEL: Record<Exclude<RunInfo["status"], "budget_exhausted">, string> = {
-  queued: "Starting",
+  queued: "Queued",
   running: "Extracting",
   finished: "Finished",
   failed: "Failed",
@@ -141,25 +144,6 @@ export const TYPE_PLURAL: Record<string, string> = {
 }
 
 export const TYPE_ORDER = Object.keys(TYPE_PLURAL)
-
-/** Names only; the list of models comes from Settings. Keyed by the bare name, since an id reaches us both ways. */
-const MODEL_NAMES: Record<string, { name: string; hint: string }> = {
-  "claude-haiku-5-5": { name: "Haiku 5.5", hint: "fastest, cheapest" },
-  "claude-sonnet-5-5": { name: "Sonnet 5.5", hint: "balanced" },
-  "claude-opus-5-5": { name: "Opus 5.5", hint: "most careful" },
-  "gpt-5.1": { name: "GPT-5.1", hint: "OpenAI" },
-  "gemini-3.5-flash": { name: "Gemini 3.5 Flash", hint: "Google" },
-  "us.anthropic.claude-haiku-4-5-20251001-v1:0": { name: "Haiku 4.5", hint: "Amazon Bedrock" },
-}
-
-/** Settings may hold a bare model name; run.json always holds `provider:name`. */
-function bare(id: string): string {
-  return id.replace(/^[a-z]+:/, "")
-}
-
-export function modelHint(id: string): string | undefined {
-  return MODEL_NAMES[bare(id)]?.hint
-}
 
 /** Only the first clause. The details drawer shows the whole error. */
 function shortError(error: string | null | undefined): string {
@@ -195,6 +179,7 @@ export function endedWord(run: RunInfo): string {
 
 /** Which limit a run that ran out of budget hit. */
 export function limitTitle(run: RunInfo): string {
+  if (run.limit === "time") return "Stopped at the time limit"
   return run.limit === "turns" ? "Stopped at the turn limit" : "Stopped at the cost limit"
 }
 
@@ -224,10 +209,6 @@ export function stamp(iso: string | null | undefined): string {
   })
 }
 
-export function modelName(id: string): string {
-  return MODEL_NAMES[bare(id)]?.name ?? bare(id)
-}
-
 export function capital(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
@@ -235,10 +216,6 @@ export function capital(text: string): string {
 export function money(usd: number): string {
   if (usd === 0) return "$0"
   return usd < 0.01 ? `$${usd.toFixed(4)}` : `$${usd.toFixed(2)}`
-}
-
-export function totalCost(run: RunInfo): number {
-  return (run.usage?.cost_usd ?? 0) + (run.table_usage?.cost_usd ?? 0)
 }
 
 export function duration(

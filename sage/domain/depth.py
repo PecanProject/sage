@@ -72,7 +72,8 @@ def depth_problem(d: DepthRange) -> str | None:
     if parse_depth(d.reported_text) is not None:
         return None
     return (
-        f"code can't read one depth from '{d.reported_text}'; put one depth or layer with its unit in reported_text, "
-        "e.g. '0-15 cm' or '30 cm' (a column header's unit goes after the cell's numbers). If the paper gives only "
-        "one end of the layer ('below 30 cm'), set the value null with a note"
+        f"code can't read one depth from '{d.reported_text}'; write one depth or layer with its unit, e.g. "
+        "[0-15 cm, p3.b4] or [30 cm, p3.b4]. A cell with only numbers takes its header's unit: [0-15 cm, <cell>, "
+        "<header>, note: unit from the header]. If the paper gives only one end of the layer ('below 30 cm'), write "
+        "[null, note: why]"
     )

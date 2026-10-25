@@ -1,13 +1,7 @@
-import {
-  createRootRoute,
-  createRoute,
-  createRouter,
-  notFound,
-  Outlet,
-  redirect,
-} from "@tanstack/react-router"
-import { $api, fetchClient, queryClient } from "@/api/client"
-import { SettingsDialog } from "@/components/settings-dialog"
+import { createRootRoute, createRoute, createRouter, Outlet } from "@tanstack/react-router"
+import { useLibraryChanges } from "@/api/changes"
+import { $api, queryClient } from "@/api/client"
+import { FeedbackToolbar } from "@/components/feedback-toolbar"
 import { SmallScreen } from "@/components/small-screen"
 import { TopBar } from "@/components/top-bar"
 import { Button } from "@/components/ui/button"
@@ -16,15 +10,18 @@ import { loadPaper } from "@/lib/paper-view"
 import { loadPdfViewer } from "@/lib/pdf-chunk"
 import { zoomFrom } from "@/lib/pdf-zoom"
 import { HomePage } from "@/pages/home"
+import { ManagePage } from "@/pages/manage"
 import { NotFound, PaperPage } from "@/pages/paper"
+import { SettingsPage } from "@/pages/settings"
 
 function Root() {
+  useLibraryChanges()
   const fits = useMedia(fitsApp)
   if (!fits) return <SmallScreen />
   return (
     <>
       <Outlet />
-      <SettingsDialog />
+      <FeedbackToolbar />
     </>
   )
 }
@@ -56,19 +53,56 @@ const rootRoute = createRootRoute({
   loader: loadSettings,
 })
 
+const one = (v: unknown): 1 | undefined =>
+  v === 1 || v === "1" || v === true || v === "true" ? 1 : undefined
+const text = (v: unknown): string | undefined => (typeof v === "string" && v ? v : undefined)
+
 const loadPapers = () => void queryClient.prefetchQuery($api.queryOptions("get", "/api/papers"))
+
+export type HomeSearch = {
+  extract?: 1
+  stop?: 1
+  /** The line to say to an agent in a terminal, once the skill is installed from the first screen. */
+  setup?: "terminal"
+}
+
+const homeSearch = (s: Record<string, unknown>): HomeSearch => ({
+  extract: one(s.extract),
+  stop: one(s.stop),
+  setup: s.setup === "terminal" ? "terminal" : undefined,
+})
 
 const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   component: HomePage,
   loader: loadPapers,
+  validateSearch: homeSearch,
 })
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/settings",
-  component: HomePage,
-  loader: loadPapers,
+  component: SettingsPage,
+})
+
+export type ManageSearch = {
+  /** The Add a provider dialog. */
+  add?: "provider"
+  /** The price dialog, for this model id. */
+  price?: string
+  /** The provider whose fields are open. */
+  provider?: string
+}
+
+const manageRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/manage",
+  component: ManagePage,
+  validateSearch: (s: Record<string, unknown>): ManageSearch => ({
+    add: s.add === "provider" ? "provider" : undefined,
+    price: text(s.price),
+    provider: text(s.provider),
+  }),
 })
 
 export type PaperSearch = {
@@ -83,14 +117,9 @@ export type PaperSearch = {
   extract?: 1
   continue?: string
   stop?: 1
-  settings?: 1
   /** The PDF's zoom, a multiple of Fit page. Undefined at Fit page. */
   zoom?: number
 }
-
-const one = (v: unknown): 1 | undefined =>
-  v === 1 || v === "1" || v === true || v === "true" ? 1 : undefined
-const text = (v: unknown): string | undefined => (typeof v === "string" && v ? v : undefined)
 
 export const paperRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -112,32 +141,12 @@ export const paperRoute = createRoute({
     continue: text(s.continue),
     stop: one(s.stop),
     zoom: zoomFrom(s.zoom),
-    settings: one(s.settings),
   }),
   // Another paper is a fresh screen: the viewer, zoom anchor and drafts all belong to the one before.
   remountDeps: ({ params }) => params.paperId,
 })
 
-/** Old links and CLI hand-offs: an extraction opens on its paper, with the details drawer. */
-const runRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/runs/$runId",
-  beforeLoad: async ({ params }) => {
-    const { data } = await fetchClient.GET("/api/runs/{run_id}", {
-      params: { path: { run_id: params.runId } },
-    })
-    if (!data) throw notFound()
-    throw redirect({
-      to: "/papers/$paperId",
-      params: { paperId: data.paper_id },
-      search: { run: data.id, details: 1 },
-      replace: true,
-    })
-  },
-  notFoundComponent: () => <NotFound message="There's no such extraction" />,
-})
-
-const routeTree = rootRoute.addChildren([homeRoute, settingsRoute, paperRoute, runRoute])
+const routeTree = rootRoute.addChildren([homeRoute, settingsRoute, manageRoute, paperRoute])
 
 export const router = createRouter({ routeTree, defaultPreload: "intent" })
 

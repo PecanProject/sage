@@ -134,8 +134,10 @@ export function Grid({
   active: string
   onActivate: (id: string) => void
 }) {
-  const rows = unit.table?.rows ?? []
-  const header = unit.table?.header_rows ?? 1
+  const table = unit.table
+  // A row's anchor is its table's plus its position, as the parser numbers it, so an empty row has one too.
+  const rows = (table?.rows ?? []).map((cells, r) => ({ anchor: `${table?.anchor}.r${r}`, cells }))
+  const header = table?.header_rows ?? 1
   const byAnchor = new Map(unit.items.flatMap((i) => (i.primary ? [[i.primary, i] as const] : [])))
   const pinned = unit.stub ? (unit.stub - 1) * KEY_WIDTH + LABEL_WIDTH : 0
   const box = useRef<HTMLDivElement>(null)
@@ -156,8 +158,8 @@ export function Grid({
       <table className="border-separate border-spacing-0 text-caption" data-testid="table-grid">
         <tbody>
           {rows.map((row, r) => (
-            <tr key={row[0]?.anchor ?? r}>
-              {row.map((cell, c) => {
+            <tr key={row.anchor}>
+              {row.cells.map((cell, c) => {
                 const item = byAnchor.get(cell.anchor)
                 const raw = cell.text.trim()
                 const text = raw || "–"

@@ -5,14 +5,16 @@ set -u
 root=$1 label=$2
 shift 2
 . "$root/instance.env"
-unset ANTHROPIC_API_KEY SAGE_ANTHROPIC_API_KEY
+unset ANTHROPIC_API_KEY SAGE_ANTHROPIC_API_KEY OPENAI_API_KEY SAGE_OPENAI_API_KEY GOOGLE_API_KEY GEMINI_API_KEY \
+  SAGE_GOOGLE_API_KEY AWS_BEARER_TOKEN_BEDROCK SAGE_BEDROCK_API_KEY SAGE_EXTRACT_WITH
 cd "$SAGE_VERIFY_REPO"
 n=$(find "$root/evidence/cli" -name '*.cmd' | wc -l | tr -d ' ')
 base="$root/evidence/cli/$(printf '%02d' "$n")-$label"
 shown="$*"
-# A secret set on the command line never reaches the evidence: `config set <...key> <value>` is saved redacted.
-if [ "${1:-}" = config ] && [ "${2:-}" = set ]; then
-  case "${3:-}" in *key*) shown="config set $3 <redacted>" ;; esac
+# A secret set on the command line never reaches the evidence: `providers set <id> <...key> <value>` is saved
+# redacted.
+if [ "${1:-}" = providers ] && [ "${2:-}" = set ]; then
+  case "${4:-}" in *key*) shown="providers set $3 $4 <redacted>" ;; esac
 fi
 printf 'sage %s\n' "$shown" >"$base.cmd"
 uv run --quiet sage "$@" >"$base.out" 2>"$base.err"

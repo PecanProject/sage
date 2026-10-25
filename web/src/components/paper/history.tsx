@@ -5,7 +5,8 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu"
-import { modelName, type RunInfo, runStatusLabel, stamp } from "@/lib/format"
+import { TERMINAL, useDriverOf } from "@/lib/agents"
+import { type RunInfo, runStatusLabel, stamp } from "@/lib/format"
 
 /** History, as a submenu of the Runs menu: the paper's extractions, newest first. */
 export function HistoryMenu({
@@ -17,6 +18,7 @@ export function HistoryMenu({
   shown: string | null
   onPick: (run: RunInfo) => void
 }) {
+  const driver = useDriverOf()
   return (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger disabled={!runs.length} data-testid="menu-history">
@@ -40,7 +42,7 @@ export function HistoryMenu({
               <span className="min-w-0">
                 <span className="block text-ink">{stamp(r.created_at)}</span>
                 <span className="block truncate text-caption text-muted-ink">
-                  {modelName(r.extraction_model)} · {runStatusLabel(r)}
+                  {driver(r)?.title ?? TERMINAL} · {runStatusLabel(r)}
                 </span>
                 {r.guidance ? (
                   <span className="block truncate text-caption text-muted-ink" title={r.guidance}>

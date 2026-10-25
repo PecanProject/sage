@@ -11,7 +11,7 @@ This folder is the maintained source for verifying what a SAGE user can do. Read
 
 ## Key-dependent state
 
-Records and checking need a run made with a real Anthropic key (`up --key-from ~/.config/sage/config.toml`). Without one, a run fails at the first model call, which still proves the failure paths. A feature that needs records reports "needs a real key" rather than passing on a fake one.
+Records and checking need a run made with a real Anthropic key (`up --key-from ~/.config/sage/config.toml`, which reads `[providers.anthropic] api_key` and saves it with `sage providers set anthropic api_key`). Without one, a run fails at the first model call, which still proves the failure paths. A feature that needs records reports "needs a real key" rather than passing on a fake one.
 
 ## Driving conventions
 
@@ -35,6 +35,7 @@ Each feature file has an H1, a paragraph on the user-visible behaviour, then fou
 
 - [Papers library](./papers-library.md) covers upload by picker, drag and drop and CLI, duplicates, and non-PDF files.
 - [Extract and watch a run](./extract-and-watch.md) covers starting a run from the Paper page with a chosen model, from the CLI, and watching it live.
+- [Drivers](./drivers.md) covers the paper folder, `sage extract check|done|start|stop|answer`, SAGE's own loop, ACP agents with their permissions, terminal agents with the skill, and continuing a run.
 - [Check](./check.md) covers the margin cards, the PDF following the active item, table clusters, the keys and the zoom, Accept N good, Data mode's side sheet, and reviews.jsonl.
-- [Settings](./settings.md) covers the Settings dialog, the API key and its test, env locks, and the CLI config commands.
-- [Navigation](./navigation.md) covers the top bar, the mode switch, the Runs menu, the Settings route, the ? shortcut sheet, old `/runs/` links and the Not found pages.
+- [Settings](./settings.md) covers the Settings page (cost limit, appearance, a section per group, the save bar), env locks, the Manage page (agents, your models and their prices, the skill), the providers (their fields, a free check, adding your own) and the price dialog, and the `sage config`, `sage providers` and `sage models` commands.
+- [Navigation](./navigation.md) covers the top bar with its Manage and Settings buttons, the mode switch, the Runs menu, the Manage page and Settings routes, the ? shortcut sheet, old `/runs/` links and the Not found pages.

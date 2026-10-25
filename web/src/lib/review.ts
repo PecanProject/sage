@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { $api, errorMessage, type Schemas } from "@/api/client"
+import { itemCount } from "@/lib/format"
 import type { Item, QueueItem } from "@/lib/items"
 import type { Summary } from "@/lib/paper-state"
 
@@ -53,7 +54,7 @@ export function useReview(runId: string) {
   const good = $api.useMutation("post", "/api/runs/{run_id}/accept-looks-good", {
     onSuccess: async (accepted) => {
       await refresh()
-      toast.success(`${accepted.length} accepted`)
+      toast(`Accepted ${itemCount(accepted.length)}`)
     },
     onError: (e) => toast.error(errorMessage(e)),
   })

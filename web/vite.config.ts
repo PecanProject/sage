@@ -37,7 +37,25 @@ export default defineConfig({
     // Vite rejects unknown Host headers; allow the tailnet name when serving beyond localhost.
     allowedHosts: [".ts.net"],
     proxy: {
-      "/api": { target: `http://127.0.0.1:${process.env.SAGE_API_PORT ?? "8765"}`, changeOrigin: true },
+      "/api": {
+        target: `http://127.0.0.1:${process.env.SAGE_API_PORT ?? "8765"}`,
+        changeOrigin: true,
+        // A stream the API drops as it reloads is dropped here too, so the page's EventSource connects again.
+        configure: (proxy) =>
+          proxy.on("proxyRes", (upstream, _req, res) =>
+            upstream.on("close", () => {
+              if (!upstream.complete) res.destroy()
+            }),
+          ),
+      },
+      // The Agentation toolbar's server (agentation-mcp, which scripts/dev starts). Going through here keeps it on
+      // loopback when the page is opened over the tailnet; dropping the Origin skips its check for a ts.net origin.
+      "/agentation": {
+        target: "http://127.0.0.1:4747",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/agentation/, ""),
+        configure: (proxy) => proxy.on("proxyReq", (req) => req.removeHeader("origin")),
+      },
     },
   },
 })

@@ -3,7 +3,7 @@ region, in reading order, and the matched characters give the cell its box and i
 
 A value cell grounds on its own characters, once. A header or a row label may also be composed from page text that
 governs it: a spanning header printed once over several columns, or a stub label printed once beside several rows,
-which the table pass repeats in every cell it covers."""
+which the CSV repeats in every cell it covers."""
 
 import re
 from dataclasses import dataclass, replace
@@ -30,11 +30,6 @@ class Grid:
     rows: list[list[str]]
     header_rows: int
     notes: str | None
-
-    @classmethod
-    def of(cls, table: Table) -> "Grid":
-        return cls(rows=[[c.transcribed for c in row] for row in table.rows], header_rows=table.header_rows,
-                   notes=table.notes)  # fmt: skip
 
 
 @dataclass
@@ -125,7 +120,6 @@ def _ground(
             "notes": grid.notes,
             "status": status,
             "grounded_share": round(share, 3),
-            "grounder_version": GROUNDER_VERSION,
         }
     )
 

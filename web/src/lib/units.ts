@@ -1,8 +1,5 @@
-import type { Schemas } from "@/api/client"
 import type { Doc, DocTable } from "@/lib/format"
 import { type Box, type Item, needsLook } from "@/lib/items"
-
-type TableDecision = Schemas["TableDecision"]
 
 /** One card in the Check margin: a single item, the items on one table, or every item the paper can't place. */
 export type Unit = {
@@ -25,8 +22,14 @@ const tableOf = (anchor: string | null) => (anchor ? (TABLE_OF.exec(anchor)?.[1]
 /** At most a row key and a label stay pinned, so the values keep room. */
 const MAX_STUB = 2
 
-function stubOf(decision: TableDecision | undefined): number {
-  const values = (decision?.roles?.columns ?? []).filter((c) => c.role === "value").map((c) => c.col)
+const COLUMN = /\.c(\d+)$/
+
+/** The columns left of the first one holding a value name the row. */
+function stubOf(items: Item[]): number {
+  const values = items.flatMap((i) => {
+    const m = COLUMN.exec(i.primary ?? "")
+    return m ? [Number(m[1])] : []
+  })
   return Math.min(values.length ? Math.min(...values) : 1, MAX_STUB)
 }
 
@@ -45,14 +48,8 @@ function cellOrder(table: DocTable, items: Item[]): Item[] {
   return items.toSorted((a, b) => rank(a) - rank(b))
 }
 
-export function buildUnits(
-  items: Item[],
-  doc: Doc | undefined,
-  boxes: Record<string, Box>,
-  decisions: TableDecision[],
-): Unit[] {
+export function buildUnits(items: Item[], doc: Doc | undefined, boxes: Record<string, Box>): Unit[] {
   const tables = new Map((doc?.tables ?? []).map((t) => [t.anchor, t]))
-  const decided = new Map(decisions.map((d) => [d.table_id, d]))
   const unlocated: Item[] = []
   const byTable = new Map<string, Item[]>()
   const placed: { item: Item; box: Box }[] = []
@@ -79,7 +76,7 @@ export function buildUnits(
       kind: "table",
       items: cellOrder(table, list),
       table,
-      stub: stubOf(decided.get(anchor)),
+      stub: stubOf(list),
       at: { page: table.page, y: y0, x: x0 },
     })
   }

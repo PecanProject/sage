@@ -5,7 +5,7 @@ from typing import Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict
 
-from sage.domain.normalize import norm
+from sage.domain.normalize import NUMBER, norm, read_number
 
 Qualifier = Literal["<", ">", "≤", "≥"]
 
@@ -23,9 +23,8 @@ class CellValue(BaseModel):
     missing: bool = False
 
 
-_NUM = r"[-+]?(?:[1-9]\d{0,2}(?:,\d{3})+(?:\.\d+)?|\d+(?:[.,]\d+)?|[.,]\d+)(?![eE][-+]?\d)"
+_NUM = rf"(?:{NUMBER})(?![eE][-+]?\d)"
 """A number as printed. One in exponent notation ("1.2e3") is not read, rather than read as its mantissa."""
-_THOUSANDS = re.compile(r"[-+]?[1-9]\d{0,2}(?:,\d{3})+(?:\.\d+)?")
 _CELL = re.compile(
     rf"(?P<qual><=|>=|[<>≤≥])?\s*(?P<num>{_NUM})"
     rf"\s*(?:(?:±|\+/-|\+-)\s*(?P<pm>{_NUM}))?"
@@ -53,10 +52,11 @@ _UNIT_TAIL = re.compile(rf"{_UNIT_PART}(?:\s*/?\s*{_UNIT_PART})*")
 
 
 def _number(token: str) -> float:
-    """A numeric token as `_NUM` matches it: thousands commas ("1,234") dropped, a decimal comma ("12,5") read."""
-    if _THOUSANDS.fullmatch(token):
-        return float(token.replace(",", ""))
-    return float(token.replace(",", "."))
+    """A numeric token as `_NUM` matches it, which always reads."""
+    read = read_number(token)
+    if read is None:
+        raise ValueError(f"{token!r} is not a number")
+    return read[0]
 
 
 def _clean(text: str) -> str:

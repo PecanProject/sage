@@ -125,7 +125,7 @@ class _Book:
         self.review = {rid: _review_text(rid, latest[rid], reviews) for rid in latest}
         self.kept = [r for r in settled.records if r.record.id not in self.rejected]
         self.by_id: dict[str, Entity] = {r.record.id: r.record for r in settled.records}
-        self.citation = next((r for r in self.of(Citation)), None)
+        self.citation = next(iter(self.of(Citation)), None)
         key = citation_key(self.citation) if self.citation is not None else None
         self.dataset_id = key or settled.paper_id
         self.checks: list[str] = []

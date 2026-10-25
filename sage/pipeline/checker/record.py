@@ -29,21 +29,30 @@ def check_record(record: Entity) -> list[Issue]:
     match record:
         case Observation():
             if record.value.value is None:
-                issues.append(blocking("record", f"{rid}.value", "an Observation needs a value; drop it if none"))
+                issues.append(
+                    blocking(
+                        "record",
+                        f"{rid}.value",
+                        "an Observation needs a value; remove it, or skip its cell, if there is none",
+                    )
+                )
             if record.variable_id is None:
                 issues.append(
-                    blocking("record", f"{rid}.variable_id", "link variable_id to the Variable this measures")
+                    blocking("record", f"{rid}.variable_id", "set variable to the id of the Variable this measures")
                 )
             if record.method_id is None:
-                issues.append(blocking("record", f"{rid}.method_id", "link method_id to the Method that measured this"))
+                issues.append(
+                    blocking("record", f"{rid}.method_id", "set method to the id of the Method that measured this")
+                )
             stat = record.statistical_encoding
             if stat is not None and stat.value is not None and record.n is None:
                 issues.append(
                     blocking(
                         "record",
                         f"{rid}.n",
-                        "a value with a statistic needs n, the replicates it summarises: cite where the methods or "
-                        "the table give it ('four replicates', 'n = 4'), or set it null with a note",
+                        "a value with a statistic needs n, the replicates it summarises: write n: [4, anchor] citing "
+                        "where the methods or the table give it ('four replicates', 'n = 4'), or n: [null, note: what "
+                        "was looked for]",
                     )
                 )
         case Site():
@@ -51,16 +60,20 @@ def check_record(record: Entity) -> list[Issue]:
                 issues.append(blocking("record", f"{rid}.name", "a Site needs a name, e.g. the farm or station"))
         case Management():
             if record.event_type.value is None:
-                issues.append(blocking("record", f"{rid}.event_type", "say what happened, e.g. 'planting'"))
+                issues.append(
+                    blocking("record", f"{rid}.event_type", "write what happened, e.g. event_type: [planting, p3.b4]")
+                )
         case Citation():
             issues += [
-                warning("record", f"{rid}.{name}", "the citation is incomplete")
+                warning("record", f"{rid}.{name}", "the citation is incomplete; cite the anchor that gives this")
                 for name, f in (("author", record.author), ("year", record.year), ("title", record.title))
                 if f.value is None
             ]
     fields = fields_of(record)
     if fields and all(f.value is None for f in fields.values()):
-        issues.append(blocking("record", rid, "every field is null; write the values the paper gives, or delete it"))
+        issues.append(
+            blocking("record", rid, "every field is null; write the values the paper gives, or delete the record")
+        )
     for name, f in fields.items():
         if (problem := _derivation_problem(record, name, f)) is not None:
             issues.append(blocking("record", f"{rid}.{name}", problem))
@@ -99,7 +112,7 @@ def _derivation_problem(record: Entity, name: str, f: Field[object]) -> str | No
             return conversion_problem(value)
         problem = coordinate_problem(value.reported_text, axis)
         if problem is not None:
-            return f"{problem}; put just this coordinate in reported_text, as the paper writes it, so code derives it"
+            return f"{problem}; write just this coordinate as the value, as the paper prints it, so code derives it"
     elif isinstance(value, DateRange):
         return date_problem(value, [e.quote for e in f.evidence])
     elif isinstance(value, DepthRange):
@@ -169,7 +182,6 @@ def recompute[R: Entity](record: R) -> tuple[R, list[Overwrite]]:
     """Recompute derived values by code: coordinates, dates, unit conversions, and what an Observation or a Management
     says of itself. Model arithmetic never survives: what code can't derive is dropped, and the record level says
     why."""
-    rid = record.id
     judged: dict[str, object] = {}
     overwrites: list[Overwrite] = []
     if isinstance(record, Observation):
@@ -205,7 +217,7 @@ def recompute[R: Entity](record: R) -> tuple[R, list[Overwrite]]:
                 why = "code could not derive this from the reported text, so the model's value was dropped"
             overwrites.append(
                 Overwrite(
-                    record_id=rid,
+                    record_id=record.id,
                     field=name,
                     before=value.model_dump(mode="json"),
                     after=new.model_dump(mode="json"),

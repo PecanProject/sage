@@ -1,8 +1,8 @@
-import { CircleNotchIcon, WarningIcon, XIcon } from "@phosphor-icons/react"
+import { HandPalmIcon, WarningIcon, XIcon } from "@phosphor-icons/react"
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { useDismissed } from "@/lib/dismissed"
-import { endedAlert, type LiveStep, lastAttempt, type RunInfo, stamp } from "@/lib/format"
+import { endedAlert, lastAttempt, NEEDS_OK, type RunInfo, stamp } from "@/lib/format"
 import type { PaperState } from "@/lib/paper-state"
 
 function TextButton({
@@ -30,31 +30,31 @@ function Details({ onDetails }: { onDetails: (() => void) | null }) {
   )
 }
 
-function Live({
-  step,
-  onDetails,
-  onStop,
-}: {
-  step: LiveStep
-  onDetails: (() => void) | null
-  onStop: () => void
-}) {
+/** A live run's progress, a thin line along the top edge of the paper. */
+function Progress({ share }: { share: number }) {
+  return (
+    <div
+      className="relative h-0.5 shrink-0 overflow-hidden bg-line"
+      aria-hidden
+      data-testid="status-progress"
+    >
+      <div
+        className="h-full origin-left bg-sage transition-transform duration-700 ease-out"
+        style={{ transform: `scaleX(${share / 100})` }}
+      />
+    </div>
+  )
+}
+
+/** An agent waiting for the person's OK, which the run's details ask. Shown only while those details are closed. */
+function Waiting({ onDetails }: { onDetails: () => void }) {
   return (
     <>
-      <div className="absolute inset-x-0 top-0 h-0.5 overflow-hidden bg-line" aria-hidden>
-        <div
-          className="h-full origin-left bg-sage transition-transform duration-700 ease-out"
-          style={{ transform: `scaleX(${step.share / 100})` }}
-        />
-      </div>
-      <span className="flex items-center gap-2" data-testid="status-live">
-        <CircleNotchIcon className="size-4 animate-spin text-muted-ink" aria-hidden />
-        <span className="text-ink">{step.word}…</span>
+      <span className="flex items-center gap-2" data-testid="status-live" data-waiting>
+        <HandPalmIcon weight="fill" className="size-4 text-check" aria-hidden />
+        <span className="text-ink">{NEEDS_OK}</span>
       </span>
       <Details onDetails={onDetails} />
-      <TextButton onClick={onStop} testid="status-stop">
-        Stop
-      </TextButton>
     </>
   )
 }
@@ -103,13 +103,36 @@ function RunAlert({
   )
 }
 
+/** An older extraction is on screen, with the way back to the one that stands for the paper. */
+function ViewingOlder({
+  older,
+  standing,
+  onLatest,
+}: {
+  older: RunInfo
+  standing: RunInfo | null
+  onLatest: () => void
+}) {
+  const back =
+    standing && (standing.created_at ?? "") < (older.created_at ?? "")
+      ? `Back to ${stamp(standing.created_at)}`
+      : "Back to latest"
+  return (
+    <span className="flex items-center gap-3" data-testid="viewing-older">
+      <span className="text-ink">{stamp(older.created_at)}</span>
+      <TextButton onClick={onLatest} testid="back-to-latest">
+        {back}
+      </TextButton>
+    </span>
+  )
+}
+
 export function StatusLine({
   state,
   older,
   standing,
   onDetails,
   onRetry,
-  onStop,
   onLatest,
 }: {
   state: PaperState | null
@@ -119,39 +142,35 @@ export function StatusLine({
   /** Null while the run is docked beside the paper, which already shows its details. */
   onDetails: (() => void) | null
   onRetry: (run: RunInfo) => void
-  onStop: () => void
   onLatest: () => void
 }) {
-  const live = state?.kind === "live" ? state.step : null
+  const live = state?.kind === "live" ? state : null
   const dismissed = useDismissed()
   const found = alertRun(state, older)
   const alerted = found && !dismissed.has(found.id) ? found : null
-  if (!older && live === null && !alerted) return null
+  // A live run shows only its progress; Stop and its details are in the run's panel at the right.
+  const waiting = live?.run.waiting && onDetails ? onDetails : null
+  const progress = live ? <Progress share={live.step.share} /> : null
+  if (!older && !waiting && !alerted) return progress
   return (
-    <div
-      className="relative flex h-10 shrink-0 items-center gap-4 border-b border-line bg-surface-2 px-inset text-caption text-muted-ink tabular-nums"
-      data-testid="status-line"
-      data-state={state?.kind ?? "loading"}
-    >
-      {older ? (
-        <span className="flex items-center gap-3" data-testid="viewing-older">
-          <span className="text-ink">{stamp(older.created_at)}</span>
-          <TextButton onClick={onLatest} testid="back-to-latest">
-            {standing && (standing.created_at ?? "") < (older.created_at ?? "")
-              ? `Back to ${stamp(standing.created_at)}`
-              : "Back to latest"}
-          </TextButton>
-        </span>
-      ) : null}
-      {live !== null ? <Live step={live} onDetails={onDetails} onStop={onStop} /> : null}
-      {alerted ? (
-        <RunAlert
-          run={alerted}
-          onAction={onRetry}
-          onDetails={onDetails}
-          onDismiss={() => dismissed.dismiss(alerted.id)}
-        />
-      ) : null}
-    </div>
+    <>
+      {progress}
+      <div
+        className="relative flex h-10 shrink-0 items-center gap-4 border-b border-line bg-surface-2 px-inset text-caption text-muted-ink tabular-nums"
+        data-testid="status-line"
+        data-state={state?.kind ?? "loading"}
+      >
+        {older ? <ViewingOlder older={older} standing={standing} onLatest={onLatest} /> : null}
+        {waiting ? <Waiting onDetails={waiting} /> : null}
+        {alerted ? (
+          <RunAlert
+            run={alerted}
+            onAction={onRetry}
+            onDetails={onDetails}
+            onDismiss={() => dismissed.dismiss(alerted.id)}
+          />
+        ) : null}
+      </div>
+    </>
   )
 }

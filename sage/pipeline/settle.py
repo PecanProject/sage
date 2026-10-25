@@ -16,7 +16,7 @@ def settle(draft: Draft, doc: Document, *, run_id: str, outcome: Outcome) -> Set
     """A field with a blocking issue becomes unresolved with its last error, unless a mark stands on it. An agent's
     mark never stands on a value, so a value that fails a check is never verified, whatever the agent marked."""
     by_target: dict[str, list[Issue]] = defaultdict(list)
-    for i in check_all(draft, doc, cap=1_000_000):
+    for i in check_all(draft, doc):
         by_target[i.target].append(i)
     ctx = _Context(
         draft=draft,
@@ -61,13 +61,12 @@ class _Context:
 
     def field(self, target: str, f: Field[object]) -> FieldStatus:
         name = target.split(".", 1)[1]
-        found = self.by_target.get(target, [])
         unsettled = self.attribute(target)
         if unsettled is not None:
             return unsettled
         if f.value is None:
             return FieldStatus(field=name, status="unresolved", cause="absent", reason=f.note)
-        reasons = [i.message for i in found]
+        reasons = [i.message for i in self.by_target.get(target, [])]
         if f.basis == "inferred":
             reasons.append(f"inferred: {f.note}")
         for ev in f.evidence:

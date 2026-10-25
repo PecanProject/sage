@@ -4,7 +4,11 @@
 set -u
 root=$1
 . "$root/instance.env"
-for pid in "$SAGE_VERIFY_LISTENER" "$SAGE_VERIFY_PID"; do
+# The runner is detached and would linger until idle, so it goes too; SIGTERM stops its runs the way Stop does.
+# runner.pid can outlive its process, so the pid has to still be a sage runner before it is killed.
+runner=$(cat "$SAGE_HOME/runner.pid" 2>/dev/null || true)
+[ -n "$runner" ] && ps -p "$runner" -o command= 2>/dev/null | grep -q 'sage runner' || runner=""
+for pid in "$SAGE_VERIFY_LISTENER" "$SAGE_VERIFY_PID" "$runner"; do
   [ -n "$pid" ] && kill "$pid" 2>/dev/null
 done
 sleep 0.5

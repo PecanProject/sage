@@ -20,6 +20,7 @@ pdfs/
 !.claude/skills/
 .claude/skills/*
 !.claude/skills/deslop-sage/
+!.claude/skills/ui-feedback/
 !.claude/skills/verify-sage/
 
 skills-lock.json

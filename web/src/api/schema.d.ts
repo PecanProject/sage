@@ -22,7 +22,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/settings/test-key": {
+    "/api/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Models */
+        get: operations["list_models_api_models_get"];
+        put?: never;
+        /** Add Model */
+        post: operations["add_model_api_models_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/models/remove": {
         parameters: {
             query?: never;
             header?: never;
@@ -31,8 +49,111 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Test Api Key */
-        post: operations["test_api_key_api_settings_test_key_post"];
+        /** Remove Models */
+        post: operations["remove_models_api_models_remove_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/models/effort": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Model Effort */
+        post: operations["set_model_effort_api_models_effort_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/models/describe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Describe Model */
+        get: operations["describe_model_api_models_describe_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/provider-kinds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Provider Kinds */
+        get: operations["provider_kinds_api_provider_kinds_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Providers */
+        get: operations["list_providers_api_providers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/providers/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Provider */
+        put: operations["save_provider_api_providers__provider__put"];
+        post?: never;
+        /** Remove Provider */
+        delete: operations["remove_provider_api_providers__provider__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/providers/{provider}/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Available Models */
+        get: operations["available_models_api_providers__provider__models_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -142,7 +263,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/papers/{paper_id}/runs": {
+    "/api/papers/{paper_id}/extract/start": {
         parameters: {
             query?: never;
             header?: never;
@@ -151,15 +272,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Start Run */
-        post: operations["start_run_api_papers__paper_id__runs_post"];
+        /** Extract Start */
+        post: operations["extract_start_api_papers__paper_id__extract_start_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/batches": {
+    "/api/papers/{paper_id}/extract/check": {
         parameters: {
             query?: never;
             header?: never;
@@ -168,8 +289,161 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Start Batch */
-        post: operations["start_batch_api_batches_post"];
+        /** Extract Check */
+        post: operations["extract_check_api_papers__paper_id__extract_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/papers/{paper_id}/extract/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Extract Done */
+        post: operations["extract_done_api_papers__paper_id__extract_done_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/extract/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Extract Stop */
+        post: operations["extract_stop_api_extract_stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/extract/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Extract Status */
+        get: operations["extract_status_api_extract_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Agents */
+        get: operations["list_agents_api_agents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents/{agent_id}/offer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Agent Offer */
+        get: operations["agent_offer_api_agents__agent_id__offer_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents/{agent_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Agent */
+        put: operations["set_agent_api_agents__agent_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/papers/{paper_id}/extract/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer Agent */
+        post: operations["answer_agent_api_papers__paper_id__extract_answer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/skill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Skill Status */
+        get: operations["skill_status_api_skill_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/skill/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Install Skill */
+        post: operations["install_skill_api_skill_install_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -186,7 +460,25 @@ export interface paths {
         /** List Runs */
         get: operations["list_runs_api_runs_get"];
         put?: never;
-        post?: never;
+        /** Start Runs */
+        post: operations["start_runs_api_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop Runs */
+        post: operations["stop_runs_api_runs_stop_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -244,23 +536,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/runs/{run_id}/stop": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Stop Run */
-        post: operations["stop_run_api_runs__run_id__stop_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/runs/{run_id}/events": {
         parameters: {
             query?: never;
@@ -299,6 +574,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Changes
+         * @description Each batch of changes in the library as Server-Sent Events, for an open screen to fetch again what shows them.
+         *     A quiet stream carries a keep-alive comment, so a proxy doesn't close it.
+         */
+        get: operations["changes_api_changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs/{run_id}/records": {
         parameters: {
             query?: never;
@@ -325,23 +621,6 @@ export interface paths {
         };
         /** Run Queue */
         get: operations["run_queue_api_runs__run_id__queue_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/review": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Review Inbox */
-        get: operations["review_inbox_api_review_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -405,6 +684,21 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AddModel */
+        AddModel: {
+            /** Id */
+            id: string;
+            /** Title */
+            title?: string | null;
+            /** Input Usd */
+            input_usd?: number | null;
+            /** Output Usd */
+            output_usd?: number | null;
+            /** Cache Read Usd */
+            cache_read_usd?: number | null;
+            /** Cache Write Usd */
+            cache_write_usd?: number | null;
+        };
         /** Added */
         Added: {
             /** Filename */
@@ -412,6 +706,103 @@ export interface components {
             paper: components["schemas"]["PaperInfo"];
             /** New */
             new: boolean;
+        };
+        /** AgentAnswered */
+        AgentAnswered: {
+            /**
+             * Ts
+             * Format: date-time
+             */
+            ts?: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "agent.answered";
+            /** Allowed */
+            allowed: boolean;
+            /**
+             * By
+             * @enum {string}
+             */
+            by: "you" | "rule";
+        };
+        /**
+         * AgentAsked
+         * @description An agent SAGE started asks to do something outside what SAGE allows on its own, and waits for your answer.
+         */
+        AgentAsked: {
+            /**
+             * Ts
+             * Format: date-time
+             */
+            ts?: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "agent.asked";
+            /** Title */
+            title: string;
+            /** Kind */
+            kind?: string | null;
+            /** Command */
+            command?: string | null;
+            /** Paths */
+            paths?: string[];
+        };
+        /** AgentChange */
+        AgentChange: {
+            /** Model */
+            model?: string | null;
+            /** Effort */
+            effort?: string | null;
+        };
+        /**
+         * AgentOffer
+         * @description What an agent offers once started: the models it can use, its modes, and the thought levels of the model it is
+         *     on.
+         */
+        AgentOffer: {
+            /** Id */
+            id: string;
+            /** Models */
+            models: string[];
+            /** Model */
+            model: string | null;
+            /** Modes */
+            modes: string[];
+            /** Mode */
+            mode: string | null;
+            /** Efforts */
+            efforts: string[];
+            /** Effort */
+            effort: string | null;
+        };
+        /** AgentStatus */
+        AgentStatus: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "not_installed" | "not_signed_in" | "ready";
+            /** Detail */
+            detail?: string | null;
+            /** Fix */
+            fix?: string | null;
+            /** Model */
+            model?: string | null;
+            /** Effort */
+            effort?: string | null;
+            /**
+             * Running
+             * @default 0
+             */
+            running: number;
         };
         /** AnchorBox */
         AnchorBox: {
@@ -439,12 +830,24 @@ export interface components {
                 ][];
             };
         };
-        /** Batch */
-        Batch: {
-            /** Pid */
-            pid: number;
-            /** Papers */
-            papers: string[];
+        /** Answer */
+        Answer: {
+            /** Allow */
+            allow: boolean;
+        };
+        /**
+         * Available
+         * @description What a provider said when asked which models it lets these credentials use, which is also their test.
+         */
+        Available: {
+            /** Provider */
+            provider: string;
+            /** Ok */
+            ok: boolean;
+            /** Message */
+            message: string;
+            /** Models */
+            models: components["schemas"]["Candidate"][];
         };
         /** Block */
         Block: {
@@ -495,6 +898,24 @@ export interface components {
             /** Missed Tokens */
             missed_tokens?: number | null;
         };
+        /**
+         * Candidate
+         * @description A model a provider offers, as SAGE sees it before it is added.
+         */
+        Candidate: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Input Usd */
+            input_usd: number | null;
+            /** Output Usd */
+            output_usd: number | null;
+            /** Tools */
+            tools: boolean;
+            /** Yours */
+            yours: boolean;
+        };
         /** Cell */
         Cell: {
             /** Anchor */
@@ -520,8 +941,23 @@ export interface components {
              */
             match: "exact" | "fuzzy" | "none";
         };
-        /** CheckFailed */
-        CheckFailed: {
+        /** Change */
+        Change: {
+            /** Paper Id */
+            paper_id: string;
+            /**
+             * What
+             * @enum {string}
+             */
+            what: "library" | "paper" | "files" | "reviews" | "run" | "log";
+            /** Run Id */
+            run_id?: string | null;
+        };
+        /**
+         * CheckRan
+         * @description One `sage extract check`, or the check `done` runs first. It is the timeline every driver shares.
+         */
+        CheckRan: {
             /**
              * Ts
              * Format: date-time
@@ -531,23 +967,51 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "check.failed";
-            /** Record Id */
-            record_id?: string | null;
-            /** Errors */
-            errors: string[];
-        };
-        /** CheckTally */
-        CheckTally: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            tool: "check";
+            type: "check.ran";
+            /** Records */
+            records: number;
             /** Blocking */
             blocking: number;
             /** Warnings */
             warnings: number;
+            /** Changed */
+            changed: boolean;
+            /** Snapshot */
+            snapshot?: number | null;
+            /** Marked */
+            marked?: string[];
+            /** Lines */
+            lines?: string[];
+        };
+        /** CheckReport */
+        CheckReport: {
+            /** Paper Id */
+            paper_id: string;
+            /** Run Id */
+            run_id: string | null;
+            /** Records */
+            records: number;
+            /** Blocking */
+            blocking: string[];
+            /** Warnings */
+            warnings: string[];
+            /** Blocking Total */
+            blocking_total: number;
+            /** Warning Total */
+            warning_total: number;
+            /**
+             * Unreadable
+             * @default false
+             */
+            unreadable: boolean;
+            /** Snapshot */
+            snapshot?: number | null;
+            /** Marked */
+            marked?: string[];
+            /** Guidance */
+            guidance?: string | null;
+            /** Reviews */
+            reviews?: string[];
         };
         /** Citation */
         Citation: {
@@ -563,59 +1027,12 @@ export interface components {
             title: components["schemas"]["Field_str_"];
             persistent_identifier: components["schemas"]["Field_str_"];
         };
-        /** Column */
-        Column: {
-            /** Col */
-            col: number;
-            /**
-             * Role
-             * @enum {string}
-             */
-            role: "treatment" | "factor" | "variable" | "time" | "depth" | "unit" | "n" | "value" | "ignore";
-            /**
-             * Factor
-             * @description role=factor: the factor this column's cells are levels of.
-             */
-            factor?: string | null;
-            /**
-             * Treatment Id
-             * @description role=value: the treatment every cell here belongs to.
-             */
-            treatment_id?: string | null;
-            /**
-             * Variable Id
-             * @description role=value: the variable every cell here measures.
-             */
-            variable_id?: string | null;
-            /**
-             * Time
-             * @description role=value: when every cell here was measured, e.g. "111 days after transplanting".
-             */
-            time?: string | null;
-            /**
-             * Depth
-             * @description role=value: the soil depth of every cell here, "0-15 cm".
-             */
-            depth?: string | null;
-            /**
-             * Factor Levels
-             * @description role=value: factor levels every cell here shares, e.g. {"location": "Arlington"} under an "Arlington" header. Added to the row's treatment or factor levels to find the Treatment.
-             */
-            factor_levels?: {
-                [key: string]: string;
-            };
-        };
         /** ContinueRun */
         ContinueRun: {
             /** Guidance */
             guidance?: string | null;
-            /**
-             * Review Notes
-             * @default true
-             */
-            review_notes: boolean;
-            /** Model */
-            model?: string | null;
+            /** Using */
+            using?: string | null;
             /** Effort */
             effort?: string | null;
         };
@@ -743,7 +1160,36 @@ export interface components {
             blocks: components["schemas"]["Block"][];
             /** Tables */
             tables?: components["schemas"]["Table"][];
-            table_pass?: components["schemas"]["TablePass"] | null;
+        };
+        /** DoneReport */
+        DoneReport: {
+            /** Paper Id */
+            paper_id: string;
+            /** Run Id */
+            run_id: string;
+            /** Accepted */
+            accepted: boolean;
+            check: components["schemas"]["CheckReport"];
+            /**
+             * Records
+             * @default 0
+             */
+            records: number;
+            /**
+             * Verified
+             * @default 0
+             */
+            verified: number;
+            /**
+             * Flagged
+             * @default 0
+             */
+            flagged: number;
+            /**
+             * Unresolved
+             * @default 0
+             */
+            unresolved: number;
         };
         /**
          * ErrorBody
@@ -761,7 +1207,7 @@ export interface components {
         /** EventPage */
         EventPage: {
             /** Events */
-            events: (components["schemas"]["RunStarted"] | components["schemas"]["StageStarted"] | components["schemas"]["StageFinished"] | components["schemas"]["LlmRequest"] | components["schemas"]["LlmThinking"] | components["schemas"]["LlmText"] | components["schemas"]["LlmToolCall"] | components["schemas"]["LlmToolResult"] | components["schemas"]["CheckFailed"] | components["schemas"]["RecordSettled"] | components["schemas"]["UsageEvent"] | components["schemas"]["Note"] | components["schemas"]["RunFinished"] | components["schemas"]["RunError"])[];
+            events: (components["schemas"]["RunStarted"] | components["schemas"]["StageStarted"] | components["schemas"]["StageFinished"] | components["schemas"]["LlmRequest"] | components["schemas"]["LlmThinking"] | components["schemas"]["LlmText"] | components["schemas"]["LlmToolCall"] | components["schemas"]["LlmToolResult"] | components["schemas"]["CheckRan"] | components["schemas"]["RecordSettled"] | components["schemas"]["UsageEvent"] | components["schemas"]["Note"] | components["schemas"]["AgentAsked"] | components["schemas"]["AgentAnswered"] | components["schemas"]["RunFinished"] | components["schemas"]["RunError"])[];
             /** Offset */
             offset: number;
             /** Done */
@@ -780,17 +1226,28 @@ export interface components {
              */
             quote: string;
         };
-        /** ExpandTally */
-        ExpandTally: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            tool: "expand_table";
-            /** Observations */
-            observations: number;
-            /** Failed */
-            failed: number;
+        /** ExtractDone */
+        ExtractDone: {
+            /** Summary */
+            summary: string;
+        };
+        /** ExtractStart */
+        ExtractStart: {
+            /** Guidance */
+            guidance?: string | null;
+        };
+        /** ExtractStatus */
+        ExtractStatus: {
+            /** Paper Id */
+            paper_id: string;
+            /** Folder */
+            folder: string;
+            run?: components["schemas"]["RunInfo"] | null;
+        };
+        /** ExtractStop */
+        ExtractStop: {
+            /** Paper Ids */
+            paper_ids?: string[] | null;
         };
         /** FieldStatus */
         FieldStatus: {
@@ -988,24 +1445,42 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
-        /** InboxEntry */
-        InboxEntry: {
-            paper: components["schemas"]["PaperInfo"];
-            run: components["schemas"]["RunInfo"];
-            /** To Check */
-            to_check: number;
-            /** Looks Good */
-            looks_good: number;
-            /** Total */
-            total: number;
-        };
         JsonValue: unknown;
-        /** KeyCheck */
-        KeyCheck: {
-            /** Ok */
-            ok: boolean;
-            /** Message */
-            message: string;
+        /** KindFieldInfo */
+        KindFieldInfo: {
+            /** Name */
+            name: string;
+            /** Title */
+            title: string;
+            /** Help */
+            help: string;
+            /** Secret */
+            secret: boolean;
+            /** Placeholder */
+            placeholder: string;
+            /** Default */
+            default: string | null;
+            /** Required */
+            required: boolean;
+            /** Instead */
+            instead: string[];
+        };
+        /**
+         * KindInfo
+         * @description A kind of provider someone can add, and the fields it takes.
+         */
+        KindInfo: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "anthropic" | "openai" | "azure" | "google" | "vertex" | "bedrock";
+            /** Title */
+            title: string;
+            /** Help */
+            help: string;
+            /** Fields */
+            fields: components["schemas"]["KindFieldInfo"][];
         };
         /** LlmRequest */
         LlmRequest: {
@@ -1019,8 +1494,6 @@ export interface components {
              * @enum {string}
              */
             type: "llm.request";
-            /** Role */
-            role: string;
             /** Turn */
             turn: number;
         };
@@ -1092,8 +1565,6 @@ export interface components {
             ok: boolean;
             /** Text */
             text: string;
-            /** Tally */
-            tally?: (components["schemas"]["WriteTally"] | components["schemas"]["ExpandTally"] | components["schemas"]["CheckTally"]) | null;
         };
         /** Management */
         Management: {
@@ -1133,6 +1604,39 @@ export interface components {
             citation_id: string;
             name: components["schemas"]["Field_str_"];
             description: components["schemas"]["Field_str_"];
+        };
+        /** ModelEffort */
+        ModelEffort: {
+            /** Id */
+            id: string;
+            /** Effort */
+            effort: string;
+        };
+        /**
+         * ModelOption
+         * @description One of your models, with what it costs and how hard it can think.
+         */
+        ModelOption: {
+            /** Id */
+            id: string;
+            /** Provider */
+            provider: string;
+            /** Title */
+            title: string;
+            /** Input Usd */
+            input_usd: number;
+            /** Output Usd */
+            output_usd: number;
+            /** Cache Read Usd */
+            cache_read_usd: number;
+            /** Cache Write Usd */
+            cache_write_usd: number;
+            /** Your Price */
+            your_price: boolean;
+            /** Efforts */
+            efforts: ("low" | "medium" | "high" | "xhigh" | "max")[];
+            /** Effort */
+            effort: ("low" | "medium" | "high" | "xhigh" | "max") | null;
         };
         /**
          * NotAdded
@@ -1256,7 +1760,31 @@ export interface components {
             /** Looks Good */
             looks_good?: number | null;
             /** Live Stage */
-            live_stage?: ("parse" | "tables" | "agent" | "settle") | null;
+            live_stage?: ("parse" | "agent" | "settle") | null;
+        };
+        /** ProviderInfo */
+        ProviderInfo: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "anthropic" | "openai" | "azure" | "google" | "vertex" | "bedrock";
+            /** Title */
+            title: string;
+            /** Builtin */
+            builtin: boolean;
+            /** Values */
+            values: {
+                [key: string]: string | null;
+            };
+            /** Locked */
+            locked: {
+                [key: string]: string;
+            };
+            /** Missing */
+            missing: string[];
         };
         /** QuantityValue */
         QuantityValue: {
@@ -1328,15 +1856,15 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /** RemoveModels */
+        RemoveModels: {
+            /** Ids */
+            ids: string[];
+        };
         /** ResumeRun */
         ResumeRun: {
             /** Guidance */
             guidance?: string | null;
-            /**
-             * Review Notes
-             * @default true
-             */
-            review_notes: boolean;
         };
         /** Review */
         Review: {
@@ -1392,7 +1920,7 @@ export interface components {
             /** Summary */
             summary?: string | null;
             /** Limit */
-            limit?: ("turns" | "cost") | null;
+            limit?: ("turns" | "cost" | "time") | null;
         };
         /** RunInfo */
         RunInfo: {
@@ -1406,18 +1934,34 @@ export interface components {
              * @enum {string}
              */
             status: "queued" | "running" | "finished" | "budget_exhausted" | "failed" | "interrupted";
-            /** Extraction Model */
-            extraction_model: string;
-            /** Table Model */
-            table_model: string;
             /**
-             * Effort
+             * Driver
+             * @default sage
              * @enum {string}
              */
-            effort: "low" | "medium" | "high" | "xhigh" | "max";
-            /** Max Turns */
+            driver: "sage" | "agent" | "here";
+            /** Agent */
+            agent?: string | null;
+            /** Agent Model */
+            agent_model?: string | null;
+            /** Extraction Model */
+            extraction_model?: string | null;
+            /** Effort */
+            effort?: string | null;
+            /**
+             * Effort Given
+             * @default false
+             */
+            effort_given: boolean;
+            /**
+             * Max Turns
+             * @default 0
+             */
             max_turns: number;
-            /** Max Cost Usd */
+            /**
+             * Max Cost Usd
+             * @default 0
+             */
             max_cost_usd: number;
             /**
              * Created At
@@ -1431,7 +1975,6 @@ export interface components {
             /** Pid */
             pid?: number | null;
             usage?: components["schemas"]["Usage"];
-            table_usage?: components["schemas"]["Usage"];
             /**
              * Turns
              * @default 0
@@ -1443,6 +1986,11 @@ export interface components {
             /** Error */
             error?: string | null;
             /**
+             * Refused
+             * @default false
+             */
+            refused: boolean;
+            /**
              * Resumes
              * @default 0
              */
@@ -1451,13 +1999,14 @@ export interface components {
             parent_id?: string | null;
             /** Guidance */
             guidance?: string | null;
-            /** Review Notes */
-            review_notes?: components["schemas"]["Review"][];
+            /** Waiting */
+            waiting?: string | null;
             /**
              * Limit
-             * @description Which budget a budget_exhausted run ran out of: turns once it used them all, else cost.
+             * @description Which budget a budget_exhausted run ran out of: time for an agent SAGE started, and for SAGE's own loop
+             *     turns once it used them all, else cost.
              */
-            readonly limit: ("turns" | "cost") | null;
+            readonly limit: ("turns" | "cost" | "time") | null;
         };
         /** RunStarted */
         RunStarted: {
@@ -1475,15 +2024,20 @@ export interface components {
             run_id: string;
             /** Paper Id */
             paper_id: string;
-            /** Extraction Model */
-            extraction_model: string;
-            /** Table Model */
-            table_model: string;
             /**
-             * Effort
+             * Driver
+             * @default sage
              * @enum {string}
              */
-            effort: "low" | "medium" | "high" | "xhigh" | "max";
+            driver: "sage" | "agent" | "here";
+            /** Agent */
+            agent?: string | null;
+            /** Agent Model */
+            agent_model?: string | null;
+            /** Extraction Model */
+            extraction_model?: string | null;
+            /** Effort */
+            effort?: string | null;
             /**
              * Resumed
              * @default false
@@ -1493,6 +2047,49 @@ export interface components {
             continued_from?: string | null;
             /** Guidance */
             guidance?: string | null;
+        };
+        /** SaveProvider */
+        SaveProvider: {
+            /** Kind */
+            kind?: string | null;
+            /**
+             * Values
+             * @default {}
+             */
+            values: {
+                [key: string]: string | null;
+            };
+        };
+        /**
+         * ServerSentEvent
+         * @description Represents a single Server-Sent Event.
+         *
+         *     When `yield`ed from a *path operation function* that uses
+         *     `response_class=EventSourceResponse`, each `ServerSentEvent` is encoded
+         *     into the [SSE wire format](https://html.spec.whatwg.org/multipage/server-sent-events.html#parsing-an-event-stream)
+         *     (`text/event-stream`).
+         *
+         *     If you yield a plain object (dict, Pydantic model, etc.) instead, it is
+         *     automatically JSON-encoded and sent as the `data:` field.
+         *
+         *     All `data` values **including plain strings** are JSON-serialized.
+         *
+         *     For example, `data="hello"` produces `data: "hello"` on the wire (with
+         *     quotes).
+         */
+        ServerSentEvent: {
+            /** Data */
+            data?: unknown;
+            /** Raw Data */
+            raw_data?: string | null;
+            /** Event */
+            event?: string | null;
+            /** Id */
+            id?: string | null;
+            /** Retry */
+            retry?: number | null;
+            /** Comment */
+            comment?: string | null;
         };
         /** SettingsUpdate */
         SettingsUpdate: {
@@ -1521,8 +2118,6 @@ export interface components {
             };
             /** Config Path */
             config_path: string;
-            /** Key Field */
-            key_field: string;
         };
         /** Settled */
         Settled: {
@@ -1579,6 +2174,21 @@ export interface components {
             soil_context?: components["schemas"]["Field_str_"] | null;
             description?: components["schemas"]["Field_str_"] | null;
         };
+        /** SkillPlace */
+        SkillPlace: {
+            /** Folder */
+            folder: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "missing" | "outdated" | "current";
+            /**
+             * Linked
+             * @default false
+             */
+            linked: boolean;
+        };
         /** Species */
         Species: {
             /**
@@ -1609,7 +2219,7 @@ export interface components {
              * Stage
              * @enum {string}
              */
-            stage: "parse" | "tables" | "agent" | "settle";
+            stage: "parse" | "agent" | "settle";
             /** Detail */
             detail?: string | null;
             counts?: components["schemas"]["Counts"] | null;
@@ -1630,25 +2240,16 @@ export interface components {
              * Stage
              * @enum {string}
              */
-            stage: "parse" | "tables" | "agent" | "settle";
+            stage: "parse" | "agent" | "settle";
             /** Detail */
             detail?: string | null;
         };
-        /** StartBatch */
-        StartBatch: {
+        /** StartRuns */
+        StartRuns: {
             /** Paper Ids */
             paper_ids?: string[] | null;
-            /** Jobs */
-            jobs?: number | null;
-            /** Model */
-            model?: string | null;
-            /** Effort */
-            effort?: string | null;
-        };
-        /** StartRun */
-        StartRun: {
-            /** Model */
-            model?: string | null;
+            /** Using */
+            using?: string | null;
             /** Effort */
             effort?: string | null;
         };
@@ -1661,6 +2262,11 @@ export interface components {
             statistic_name: string;
             /** Statistic Value */
             statistic_value: number | string;
+        };
+        /** StopRuns */
+        StopRuns: {
+            /** Run Ids */
+            run_ids?: string[] | null;
         };
         /** Study */
         Study: {
@@ -1704,7 +2310,7 @@ export interface components {
             rotation: number;
             /**
              * Notes
-             * @description The table's footnotes as the table pass transcribed them.
+             * @description The table's footnotes, from its CSV's `# notes:` lines.
              */
             notes?: string | null;
             /**
@@ -1730,11 +2336,6 @@ export interface components {
              * @default 0
              */
             grounded_share: number;
-            /**
-             * Grounder Version
-             * @description The grounding code that matched the cells. A table grounded by older code is grounded again from its stored transcription, with no new table pass.
-             */
-            grounder_version?: string | null;
         };
         /** TableDecision */
         TableDecision: {
@@ -1747,116 +2348,12 @@ export interface components {
             status: "expanded" | "irrelevant";
             /** Reason */
             reason?: string | null;
-            roles?: components["schemas"]["TableRoles"] | null;
             /** Observation Ids */
             observation_ids?: string[];
-        };
-        /** TablePass */
-        TablePass: {
-            /** Model */
-            model: string;
-            /**
-             * Cost Usd
-             * @default 0
-             */
-            cost_usd: number;
-        };
-        /**
-         * TableRoles
-         * @description What a table means. Code reads it and turns every value cell into an Observation.
-         */
-        TableRoles: {
-            /** Columns */
-            columns: components["schemas"]["Column"][];
-            /**
-             * Header Rows
-             * @description Header row count, if the transcription's is wrong.
-             */
-            header_rows?: number | null;
-            /**
-             * Skip Rows
-             * @description Data rows that hold no values (section labels).
-             */
-            skip_rows?: number[];
-            /** Citation Id */
-            citation_id: string;
-            /** Site Id */
-            site_id: string;
-            /**
-             * Method Id
-             * @description The method for every variable, unless method_by_variable.
-             */
-            method_id?: string | null;
-            /**
-             * Method By Variable
-             * @description variable_id -> method_id.
-             */
-            method_by_variable?: {
-                [key: string]: string;
-            };
-            /** Species Id */
-            species_id?: string | null;
-            /** Crop Id */
-            crop_id?: string | null;
-            /**
-             * Treatment By Label
-             * @description role=treatment cell text -> treatment_id, when names differ.
-             */
-            treatment_by_label?: {
-                [key: string]: string;
-            };
-            /**
-             * Variable By Label
-             * @description role=variable cell text -> variable_id, when names differ.
-             */
-            variable_by_label?: {
-                [key: string]: string;
-            };
-            /**
-             * Statistic
-             * @description What "±" or brackets in a cell mean, e.g. "SE", only when no header, caption or scope_evidence says. It is then marked inferred.
-             */
-            statistic?: string | null;
-            /**
-             * Letters
-             * @description What letters after a value mean, e.g. "Tukey HSD, P<0.05", only when no header, caption or scope_evidence says. It is then marked inferred.
-             */
-            letters?: string | null;
-            /**
-             * Time Meaning
-             * @description How to read role=time cells, e.g. "days after transplanting".
-             */
-            time_meaning?: string | null;
-            /**
-             * Default Time
-             * @description When the values were measured, if no column says.
-             */
-            default_time?: string | null;
-            /**
-             * Default Depth
-             * @description The soil depth of every value, e.g. "0-30 cm".
-             */
-            default_depth?: string | null;
-            /** @description The replicates each value summarises, with the evidence that states it (the methods' 'four replicates'), unless a column has role=n. Null with a note when the paper doesn't say. */
-            n?: components["schemas"]["Field_int_"] | null;
-            /**
-             * Effect Scope
-             * @default treatment_mean
-             * @enum {string}
-             */
-            effect_scope: "treatment_mean" | "aggregated_mean";
-            /** Aggregated Over Factors */
-            aggregated_over_factors?: string[];
-            /**
-             * Scope Evidence
-             * @description Where the paper says what the values are means of, e.g. the table note. Without it the scope is null.
-             */
-            scope_evidence?: components["schemas"]["Evidence"][];
-            /**
-             * Is Raw Replicate Level
-             * @default false
-             */
-            is_raw_replicate_level: boolean;
+            /** Rows */
+            rows?: number[];
+            /** Skipped */
+            skipped?: string[];
         };
         /** Treatment */
         Treatment: {
@@ -1970,8 +2467,6 @@ export interface components {
              * @enum {string}
              */
             type: "usage";
-            /** Role */
-            role: string;
             /** Turn */
             turn: number;
             request: components["schemas"]["Usage"];
@@ -2004,16 +2499,6 @@ export interface components {
             description?: components["schemas"]["Field_str_"] | null;
             units?: components["schemas"]["Field_str_"] | null;
             notes?: components["schemas"]["Field_str_"] | null;
-        };
-        /** WriteTally */
-        WriteTally: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            tool: "write";
-            /** Rejected */
-            rejected: number;
         };
     };
     responses: never;
@@ -2167,7 +2652,7 @@ export interface operations {
             };
         };
     };
-    test_api_key_api_settings_test_key_post: {
+    list_models_api_models_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -2182,7 +2667,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["KeyCheck"];
+                    "application/json": components["schemas"]["ModelOption"][];
                 };
             };
             /** @description Bad Request */
@@ -2219,6 +2704,678 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    add_model_api_models_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddModel"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelOption"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    remove_models_api_models_remove_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RemoveModels"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelOption"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    set_model_effort_api_models_effort_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelEffort"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelOption"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    describe_model_api_models_describe_get: {
+        parameters: {
+            query: {
+                id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Candidate"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    provider_kinds_api_provider_kinds_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KindInfo"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_providers_api_providers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderInfo"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    save_provider_api_providers__provider__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveProvider"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderInfo"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    remove_provider_api_providers__provider__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderInfo"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    available_models_api_providers__provider__models_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Available"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Internal Server Error */
@@ -2753,7 +3910,165 @@ export interface operations {
             };
         };
     };
-    start_run_api_papers__paper_id__runs_post: {
+    extract_start_api_papers__paper_id__extract_start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ExtractStart"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtractStatus"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    extract_check_api_papers__paper_id__extract_check_post: {
+        parameters: {
+            query?: {
+                every?: boolean;
+            };
+            header?: never;
+            path: {
+                paper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckReport"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    extract_done_api_papers__paper_id__extract_done_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -2764,7 +4079,464 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["StartRun"];
+                "application/json": components["schemas"]["ExtractDone"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DoneReport"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    extract_stop_api_extract_stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtractStop"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunInfo"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    extract_status_api_extract_status_get: {
+        parameters: {
+            query?: {
+                paper_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtractStatus"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_agents_api_agents_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentStatus"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    agent_offer_api_agents__agent_id__offer_get: {
+        parameters: {
+            query?: {
+                model?: string | null;
+            };
+            header?: never;
+            path: {
+                agent_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentOffer"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    set_agent_api_agents__agent_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agent_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentStatus"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    answer_agent_api_papers__paper_id__extract_answer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Answer"];
             };
         };
         responses: {
@@ -2833,18 +4605,14 @@ export interface operations {
             };
         };
     };
-    start_batch_api_batches_post: {
+    skill_status_api_skill_get: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["StartBatch"] | null;
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -2852,7 +4620,139 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Batch"];
+                    "application/json": components["schemas"]["SkillPlace"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    install_skill_api_skill_install_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillPlace"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_runs_api_runs_get: {
+        parameters: {
+            query?: {
+                paper_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunInfo"][];
                 };
             };
             /** @description Bad Request */
@@ -2911,16 +4811,96 @@ export interface operations {
             };
         };
     };
-    list_runs_api_runs_get: {
+    start_runs_api_runs_post: {
         parameters: {
-            query?: {
-                paper_id?: string | null;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartRuns"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunInfo"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    stop_runs_api_runs_stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StopRuns"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -3223,82 +5203,6 @@ export interface operations {
             };
         };
     };
-    stop_run_api_runs__run_id__stop_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RunInfo"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Precondition Failed */
-            412: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-        };
-    };
     run_events_api_runs__run_id__events_get: {
         parameters: {
             query?: {
@@ -3457,6 +5361,26 @@ export interface operations {
             };
         };
     };
+    changes_api_changes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": unknown;
+                };
+            };
+        };
+    };
     run_records_api_runs__run_id__records_get: {
         parameters: {
             query?: never;
@@ -3596,71 +5520,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-        };
-    };
-    review_inbox_api_review_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InboxEntry"][];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Precondition Failed */
-            412: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
             /** @description Internal Server Error */

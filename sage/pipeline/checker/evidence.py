@@ -1,9 +1,9 @@
-"""Evidence level: anchors exist, quotes are verbatim, and the stated value (its number, unit, statistic, date or words)
-is in the quotes."""
+"""Evidence level: anchors exist, pinned quotes are verbatim, and the stated value (its number, unit, statistic, date or
+words) is in the cited text."""
 
 from difflib import SequenceMatcher
 
-from sage.domain.normalize import contains, contains_loose, count_in, norm, number_in, numbers_in, squash
+from sage.domain.normalize import contains, contains_loose, count_in, norm, number_in, numbers_in, read_number, squash
 from sage.domain.stats import replicate_level, scope_reason, scope_statement
 from sage.domain.units import normalize_unit, number_text
 from sage.ir.schema import (
@@ -34,23 +34,30 @@ def check_evidence(record: Entity, doc: Document) -> list[Issue]:
             resolved = doc.resolve(ev.anchor)
             if resolved is None:
                 hint = (
-                    "that anchor doesn't exist in this paper; copy one from the paper view"
+                    "copy one from paper.md"
                     if ANCHOR.match(ev.anchor)
                     else "anchors look like p3.b4 (block) or p7.t1.r2.c3 (table cell)"
                 )
-                issues.append(blocking("evidence", target, f"anchor '{ev.anchor}' not found; {hint}"))
+                issues.append(blocking("evidence", target, f"there is no anchor '{ev.anchor}' in this paper; {hint}"))
                 continue
             if not ev.quote.strip():
-                issues.append(blocking("evidence", target, f"the quote for {ev.anchor} is empty; copy the words there"))
+                issues.append(
+                    blocking(
+                        "evidence",
+                        target,
+                        f"the pinned quote for {ev.anchor} is empty; pin the exact words, "
+                        f'{{{ev.anchor}: "the words"}}, or cite plain {ev.anchor}',
+                    )
+                )
                 continue
             if not contains(resolved.text, ev.quote):
                 issues.append(
                     blocking(
                         "evidence",
                         target,
-                        f"quote '{_short(ev.quote)}' not found in {ev.anchor}; the text there is "
-                        f"'{_closest(resolved.text, ev.quote)}'. Copy the quote from it, or cite the anchor that "
-                        "holds the words",
+                        f"the pinned quote '{_short(ev.quote)}' isn't in {ev.anchor}; the text there is "
+                        f"'{_closest(resolved.text, ev.quote)}'. Pin words from it, or cite the anchor that holds "
+                        "the words",
                     )
                 )
                 continue
@@ -76,8 +83,8 @@ def _observation_scope(o: Observation) -> list[Issue]:
             blocking(
                 "evidence",
                 f"{o.id}.reported_effect_scope",
-                f"no quote says these are {scope.value} values: {reason}. Cite the text that says what they are means "
-                "of, or use basis inferred and say why in note",
+                f"nothing cited says these are {scope.value} values: {reason}. Add the anchor that says what they are "
+                "means of to scope_at on the group",
             )
         )
         if scope.value == "treatment_mean" and agg is not None:
@@ -85,7 +92,7 @@ def _observation_scope(o: Observation) -> list[Issue]:
                 blocking(
                     "evidence",
                     f"{o.id}.aggregated_over_factors",
-                    "[] follows from reported_effect_scope, which no quote supports; fix that field",
+                    "[] follows from scope (reported_effect_scope), which nothing cited supports; fix scope first",
                 )
             )
     pooled = factors if agg is not None and agg.basis != "inferred" and agg.evidence else []
@@ -95,8 +102,8 @@ def _observation_scope(o: Observation) -> list[Issue]:
             blocking(
                 "evidence",
                 f"{o.id}.aggregated_over_factors",
-                f"no quote says the values are averaged over {', '.join(pooled)}: {reason}. Cite that text, or use "
-                "basis inferred",
+                f"nothing cited says the values are averaged over {', '.join(pooled)}: {reason}. Add the anchor that "
+                "says it to scope_at on the group",
             )
         )
     level = o.is_raw_replicate_level
@@ -110,8 +117,8 @@ def _observation_scope(o: Observation) -> list[Issue]:
                     "evidence",
                     f"{o.id}.is_raw_replicate_level",
                     f"nothing cited says these are {kind}: code looks for a ± or letters in the value, 'individual "
-                    "plot' or 'replicate' wording, 'mean' or 'average', or a P value in the value's quote. Cite that "
-                    "text, or use basis inferred and say why in note",
+                    "plot' or 'replicate' wording, 'mean' or 'average', or a P value in the cited text. Add the anchor "
+                    "that says it to scope_at on the group",
                 )
             )
     return issues
@@ -126,12 +133,21 @@ def _holds_words(record: Entity, name: str, f: Field[object]) -> bool:
 def _field_shape(target: str, f: Field[object]) -> list[Issue]:
     if f.value is None:
         if f.note is None or not f.note.strip():
-            return [blocking("evidence", target, "value is null; say in note why the paper doesn't give it")]
+            return [
+                blocking("evidence", target, "the value is null with no note; write [null, note: what was looked for]")
+            ]
         return []
     if f.basis in ("stated", "derived") and not f.evidence:
-        return [blocking("evidence", target, f"basis is {f.basis} but there is no evidence; cite anchor + quote")]
+        return [
+            blocking(
+                "evidence",
+                target,
+                f"this {f.basis} value cites no anchor; write [value, anchor] citing the text that holds it, or "
+                "[value, note: why] if it is your judgement",
+            )
+        ]
     if f.basis == "inferred" and (f.note is None or not f.note.strip()):
-        return [blocking("evidence", target, "basis is inferred; say in note what it is inferred from")]
+        return [blocking("evidence", target, "the note is empty; write [value, note: what it is inferred from]")]
     return []
 
 
@@ -146,9 +162,10 @@ def _stated_content(target: str, value: object, quotes: list[str], *, words: boo
                 blocking(
                     "evidence",
                     target,
-                    f"'{_short(value)}' isn't in any quote of this field. If it is your own wording (a summary, a "
-                    "name or a note), keep it and set basis derived, citing the sentences it sums up; don't swap in a "
-                    "shorter span that says less. If the paper prints it, quote the words as printed",
+                    f"'{_short(value)}' isn't in the cited text. If it is your own wording (a summary or a name), "
+                    "keep it and add a note, [value, anchor, note: how], citing the sentences it sums up; don't swap "
+                    "in a shorter span that says less. If the paper prints it, write it as printed and cite the anchor "
+                    "that holds it",
                 )
             )
         return issues
@@ -159,15 +176,15 @@ def _stated_content(target: str, value: object, quotes: list[str], *, words: boo
         if not number_in(joined, value):
             issues.append(_missing_number(target, value))
     elif isinstance(value, QuantityValue):
-        issues.extend(_missing_number(target, n) for n in _claimed_numbers(value) if not number_in(joined, n))
+        issues.extend(_missing_number(target, n) for n in _claimed_numbers(value) if not _written(joined, n))
         unit = value.reported_units.strip()
         if unit.lower() not in UNITLESS and not _unit_in(joined, unit):
             issues.append(
                 blocking(
                     "evidence",
                     target,
-                    f"the unit '{unit}' isn't in any quote; also cite the anchor that states it "
-                    "(a column header, the variable label or the methods sentence)",
+                    f"the unit '{unit}' isn't in the cited text; also cite the anchor that states it (a column "
+                    "header, the variable label or the methods sentence), or give the group units: [unit, anchor]",
                 )
             )
     elif isinstance(value, DateRange | DepthRange):
@@ -177,8 +194,8 @@ def _stated_content(target: str, value: object, quotes: list[str], *, words: boo
                 blocking(
                     "evidence",
                     target,
-                    f"the {what} '{_short(value.reported_text)}' isn't in any quote of this field; put it in "
-                    "reported_text exactly as printed and quote the text that holds it",
+                    f"the {what} '{_short(value.reported_text)}' isn't in the cited text; write it exactly as the "
+                    "paper prints it and cite the anchor that holds it",
                 )
             )
     elif isinstance(value, StatisticalSummary):
@@ -187,30 +204,31 @@ def _stated_content(target: str, value: object, quotes: list[str], *, words: boo
         name = value.statistic_name.split("(")[0].strip()
         if name and not contains_loose(joined, name):
             issues.append(
-                warning("evidence", target, f"'{name}' isn't in the quotes; cite where the paper names the statistic")
+                warning(
+                    "evidence", target, f"'{name}' isn't in the cited text; cite the anchor where the paper names it"
+                )
             )
     return issues
 
 
-def _claimed_numbers(q: QuantityValue) -> list[float]:
+def _claimed_numbers(q: QuantityValue) -> list[float | str]:
     """The numbers a quantity states: its one number, or, when it has none ("<0.5", "250 to 300"), every number its
-    text writes outside the unit."""
+    text writes outside the unit. A token that is no single number, such as a date ("15.05.1999"), is kept as
+    written."""
     if q.reported_numeric_value is not None:
         return [q.reported_numeric_value]
-    out: list[float] = []
-    for token in numbers_in(number_text(q)):
-        try:
-            out.append(float(token.replace(",", ".")))
-        except ValueError:
-            continue
-    return out
+    tokens = numbers_in(number_text(q))
+    return [read[0] if (read := read_number(token)) is not None else token for token in tokens]
 
 
-def _missing_number(target: str, value: float) -> Issue:
-    shown = int(value) if float(value).is_integer() else value
-    return blocking(
-        "evidence", target, f"the number {shown} isn't in any quote of this field; quote the text that states it"
-    )
+def _written(text: str, claimed: float | str) -> bool:
+    """A number at the precision `text` prints it, or a token that is no single number as printed."""
+    return number_in(text, claimed) if isinstance(claimed, float) else claimed in numbers_in(text)
+
+
+def _missing_number(target: str, value: float | str) -> Issue:
+    shown = int(value) if isinstance(value, float) and value.is_integer() else value
+    return blocking("evidence", target, f"the number {shown} isn't in the cited text; cite the anchor that states it")
 
 
 def _unit_in(text: str, unit: str) -> bool:
@@ -226,7 +244,7 @@ def _short(text: str, limit: int = 80) -> str:
 
 
 def _closest(text: str, quote: str, width: int = 120) -> str:
-    """The stretch of `text` most like `quote`, so the model can copy the right words."""
+    """The stretch of `text` most like `quote`, so the agent can pin the right words."""
     text = norm(text)
     if len(text) <= width:
         return text

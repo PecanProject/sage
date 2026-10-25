@@ -1,4 +1,5 @@
-"""The paper as the agent reads it: anchored text, with tables shown as their grounded grids."""
+"""The paper as the agent reads it, `paper.md` in the paper's folder: anchored text, with tables shown as their
+grounded grids and the files to write for what the text layer lacks."""
 
 import re
 
@@ -8,33 +9,40 @@ DOI = re.compile(r"\bdoi\b|10\.\d{4,9}/", re.IGNORECASE)
 
 
 def full_view(doc: Document, *, title: str | None) -> str:
-    return _header(doc, title) + "\n".join(_lines(doc))
-
-
-def _header(doc: Document, title: str | None) -> str:
-    return (
+    header = (
         f"# {title or doc.paper_id}\n"
         f"{len(doc.pages)} pages, {len(doc.tables)} tables. "
-        "Anchors: [p3.b4] text block; [p7.t1] table, cell p7.t1.r2.c1.\n\n"
+        "Anchors: [p3.b4] text block; [p7.t1] table, cell p7.t1.r2.c1. "
+        "Images: pages/p3.png, tables/p7.t1.png, figures/.\n\n"
     )
+    return header + "\n".join(_lines(doc))
 
 
 def _lines(doc: Document) -> list[str]:
     captions = {t.caption_anchor: t for t in doc.tables}
-    out: list[str] = []
-    page = 0
+    by_page: dict[int, list[Block]] = {}
     for b in doc.blocks:
-        if not _shown(b):
+        if _shown(b):
+            by_page.setdefault(b.page, []).append(b)
+    out: list[str] = []
+    for page in doc.pages:
+        blocks = by_page.get(page.number, [])
+        if not page.has_text and not blocks:
+            out.append(f"\n--- page {page.number} (no text layer) ---")
+            out.append(
+                f"  read pages/p{page.number}.png and transcribe what you cite into pages/p{page.number}.md "
+                f"as [p{page.number}.b1] …"
+            )
             continue
-        if b.page != page:
-            page = b.page
-            out.append(f"\n--- page {page} ---")
-        table = captions.get(b.anchor)
-        if table is not None:
-            out += _table_lines(table)
-        else:
-            prefix = "(page header) " if b.kind == "furniture" else ""
-            out.append(f"[{b.anchor}] {prefix}{b.text}")
+        if blocks:
+            out.append(f"\n--- page {page.number} ---")
+        for b in blocks:
+            table = captions.get(b.anchor)
+            if table is not None:
+                out += _table_lines(table)
+            else:
+                prefix = "(page header) " if b.kind == "furniture" else ""
+                out.append(f"[{b.anchor}] {prefix}{b.text}")
     return out
 
 
@@ -47,7 +55,7 @@ def _shown(b: Block) -> bool:
 def _table_lines(t: Table) -> list[str]:
     head = f"[{t.anchor}] {t.label} ({_status(t)}). Caption [{t.caption_anchor}]: {t.caption}"
     if not t.rows:
-        return [head, f"  not transcribed: its text blocks follow; call view({t.page}, {list(t.region)}) to see it"]
+        return [head, f"  not transcribed: read tables/{t.anchor}.png and write tables/{t.anchor}.csv"]
     width = max(len(r) for r in t.rows)
     lines = [head, f"  {t.header_rows} header row(s), {len(t.rows) - t.header_rows} data rows, {width} columns"]
     for i, row in enumerate(t.rows):
@@ -57,17 +65,25 @@ def _table_lines(t: Table) -> list[str]:
             cells = " | ".join(c.text for c in row)
         lines.append(f"  r{i}: {cells}")
     if t.notes is not None and t.notes:
-        lines.append(f"  notes (from the transcription): {t.notes}")
+        lines.append(f"  notes (from tables/{t.anchor}.csv): {t.notes}")
     return lines
 
 
 def _status(t: Table) -> str:
+    """How much of the grid the PDF text layer backs, so the agent knows how far to trust it."""
+    cells = [c for row in t.rows for c in row if c.text.strip()]
+    if t.status == "pending" or not cells:
+        return "not transcribed"
+    exact = sum(c.match == "exact" for c in cells)
+    fuzzy = sum(c.match == "fuzzy" for c in cells)
+    counts = (
+        f"{exact} of {len(cells)} cells match the PDF text exactly, {fuzzy} approximately, "
+        f"{len(cells) - exact - fuzzy} not at all"
+    )
     match t.status:
         case "grounded":
-            return "every cell matched to the PDF text"
+            return f"grounded: {counts}" + ("" if exact == len(cells) else "; a value from an inexact cell is flagged")
         case "partial":
-            return f"{round(t.grounded_share * 100)}% of cells matched to the PDF text; check the rest with view"
-        case "failed":
-            return "transcription did not match the PDF text; use view"
+            return f"partly grounded: {counts}; check the unmatched cells against tables/{t.anchor}.png"
         case _:
-            return "not transcribed"
+            return f"not grounded: {counts}; check tables/{t.anchor}.csv against tables/{t.anchor}.png"

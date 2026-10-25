@@ -50,20 +50,26 @@ const LINK = /_ids?(_\d+)?$/
 function fieldRows(rec: SettledRecord): FieldRow[] {
   const statuses = new Map((rec.fields ?? []).map((f) => [f.field, f]))
   const out: FieldRow[] = []
-  const plain = (name: string, value: unknown): FieldRow => ({
-    name,
-    value,
-    basis: null,
-    quotes: [],
-    status: "verified",
-    cause: null,
-    reason: null,
-  })
+  // Settle gives a plain value a status only when a mark or a blocking check stands on it.
+  const plain = (name: string, value: unknown): FieldRow => {
+    const s = statuses.get(name)
+    return {
+      name,
+      value,
+      basis: null,
+      quotes: [],
+      status: s?.status ?? "verified",
+      cause: s?.cause ?? null,
+      reason: s?.reason ?? null,
+    }
+  }
   for (const [name, v] of Object.entries(rec.record)) {
     if (HIDDEN.has(name) || LINK.test(name)) continue
     const s = statuses.get(name)
-    const status = s?.status ?? "verified"
     if (isField(v)) {
+      // Settle gives every field a status, so none means records.json predates per-field statuses: nothing checked
+      // it, and it can't read as good.
+      const status = s?.status ?? (v.value === null ? "unresolved" : "flagged")
       out.push({
         name,
         value: v.value,

@@ -1,6 +1,5 @@
 import { CheckIcon, LinkIcon } from "@phosphor-icons/react"
-import { useState } from "react"
-import { toast } from "sonner"
+import { useCopy } from "@/components/copy"
 import { Logo } from "@/components/logo"
 import { Button } from "@/components/ui/button"
 
@@ -20,17 +19,9 @@ export function SmallScreen() {
 }
 
 function CopyLink() {
-  const [copied, setCopied] = useState(false)
-  const copy = () =>
-    navigator.clipboard.writeText(window.location.href).then(
-      () => {
-        setCopied(true)
-        setTimeout(() => setCopied(false), 1500)
-      },
-      () => toast.error("Couldn't copy the link"),
-    )
+  const { copied, copy } = useCopy(window.location.href, "Couldn't copy the link")
   return (
-    <Button variant="outline" onClick={() => void copy()} data-testid="copy-link">
+    <Button variant="outline" onClick={copy} data-testid="copy-link">
       {copied ? <CheckIcon className="text-good" /> : <LinkIcon />}
       {copied ? "Copied" : "Copy link"}
     </Button>

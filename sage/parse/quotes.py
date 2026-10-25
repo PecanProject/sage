@@ -13,7 +13,6 @@ from sage.domain.normalize import needles, norm
 from sage.parse import pdf
 from sage.parse.document import Box, Document, union
 from sage.parse.layout import Rotation, center_in, from_upright, same_line, to_upright
-from sage.parse.pdf import Char
 
 LOCATOR_VERSION = "1"
 """Bump when the boxes a quote gets change, so cached quote boxes are worked out again."""
@@ -73,7 +72,7 @@ def locate(data: bytes, doc: Document, cites: Iterable[tuple[str, str]]) -> Quot
     return out
 
 
-def _lines(chars: list[Char], rotation: Rotation, width: float, height: float) -> list[list[_Glyph]]:
+def _lines(chars: list[pdf.Char], rotation: Rotation, width: float, height: float) -> list[list[_Glyph]]:
     """The block's characters by line, top to bottom, in the upright frame.
 
     Lines are banded from characters of body height. A smaller one (a superscript, a subscript) then joins the line
@@ -86,7 +85,7 @@ def _lines(chars: list[Char], rotation: Rotation, width: float, height: float) -
     body = median(_height(b) for _, _, b in up)
     lines: list[list[_Glyph]] = []
     bands: list[Box] = []
-    odd: list[tuple[int, Char, Box]] = []
+    odd: list[tuple[int, pdf.Char, Box]] = []
     for i, c, b in up:
         if not SMALL * body <= _height(b) <= TALL * body:
             odd.append((i, c, b))
@@ -105,7 +104,7 @@ def _lines(chars: list[Char], rotation: Rotation, width: float, height: float) -
     return lines
 
 
-def _glyph(order: int, c: Char, box: Box, line: int) -> _Glyph:
+def _glyph(order: int, c: pdf.Char, box: Box, line: int) -> _Glyph:
     return _Glyph(text="".join(norm(c.text).split()), box=box, line=line, order=order, space=c.space)
 
 

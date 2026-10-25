@@ -56,7 +56,7 @@ class Table(BaseModel):
     caption: str
     region: Box
     rotation: int = 0
-    notes: str | None = Field(default=None, description="The table's footnotes as the table pass transcribed them.")
+    notes: str | None = Field(default=None, description="The table's footnotes, from its CSV's `# notes:` lines.")
     notes_anchors: list[str] = Field(
         default_factory=list,
         description="The text blocks under the table that hold those footnotes, so they can be cited as evidence.",
@@ -65,21 +65,11 @@ class Table(BaseModel):
     header_rows: int = 1
     status: TableStatus = "pending"
     grounded_share: float = 0.0
-    grounder_version: str | None = Field(
-        default=None,
-        description="The grounding code that matched the cells. A table grounded by older code is grounded again from "
-        "its stored transcription, with no new table pass.",
-    )
 
     @property
     def bbox(self) -> Box:
         boxes = [c.bbox for row in self.rows for c in row if c.bbox is not None]
         return union(boxes) if boxes else self.region
-
-
-class TablePass(BaseModel):
-    model: str
-    cost_usd: float = 0.0
 
 
 class Resolved(BaseModel):
@@ -96,7 +86,6 @@ class Document(BaseModel):
     pages: list[Page]
     blocks: list[Block]
     tables: list[Table] = Field(default_factory=list)
-    table_pass: TablePass | None = None
     _index: dict[str, Resolved] | None = PrivateAttr(default=None)
 
     def table(self, anchor: str) -> Table | None:
@@ -107,7 +96,7 @@ class Document(BaseModel):
             self._index = _build_index(self)
         return self._index.get(anchor)
 
-    def with_tables(self, tables: list[Table], table_pass: TablePass | None) -> "Document":
+    def with_tables(self, tables: list[Table]) -> "Document":
         """A new Document rather than `model_copy`, which would carry over an anchor index built from the old tables."""
         return Document(
             paper_id=self.paper_id,
@@ -116,32 +105,7 @@ class Document(BaseModel):
             pages=self.pages,
             blocks=self.blocks,
             tables=tables,
-            table_pass=table_pass,
         )
-
-
-def carry_tables(old: Document, new: Document) -> Document:
-    """The new parse with each table's transcription from the old one, so a reparse makes no table call and every cell
-    keeps its anchor. Clearing `grounder_version` grounds a carried table again on the new text layer."""
-    before = {t.anchor: t for t in old.tables}
-    tables: list[Table] = []
-    for t in new.tables:
-        prev = before.get(t.anchor)
-        if prev is None or prev.status == "pending" or prev.label != t.label or _overlap(prev.region, t.region) < 0.5:
-            tables.append(t)
-            continue
-        transcribed = {"rows": prev.rows, "header_rows": prev.header_rows, "notes": prev.notes}
-        result = {"status": prev.status, "grounded_share": prev.grounded_share, "grounder_version": None}
-        tables.append(t.model_copy(update=transcribed | result))
-    return new.with_tables(tables, old.table_pass)
-
-
-def _overlap(a: Box, b: Box) -> float:
-    """The share of the smaller box that the two have in common."""
-    w = min(a[2], b[2]) - max(a[0], b[0])
-    h = min(a[3], b[3]) - max(a[1], b[1])
-    smaller = min((a[2] - a[0]) * (a[3] - a[1]), (b[2] - b[0]) * (b[3] - b[1]))
-    return max(0.0, w) * max(0.0, h) / smaller if smaller > 0 else 0.0
 
 
 ANCHOR = re.compile(r"^p(\d+)\.(?:b\d+|t\d+(?:\.r\d+(?:\.c\d+)?)?)$")

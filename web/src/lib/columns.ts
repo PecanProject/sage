@@ -9,7 +9,8 @@ export type Column = {
 
 function fieldCell(item: Item, name: string): { text: string | null; status: Status } {
   const row = item.rows.find((r) => r.name === name)
-  if (!row || row.value === null) return { text: null, status: row?.status ?? "verified" }
+  // A field the record doesn't have is as missing as one left empty.
+  if (!row || row.value === null) return { text: null, status: row?.status ?? "unresolved" }
   return { text: friendlyValue(name, row.value), status: row.status }
 }
 

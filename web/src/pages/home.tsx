@@ -4,14 +4,18 @@ import {
   CircleNotchIcon,
   DotsThreeIcon,
   DownloadSimpleIcon,
+  FileTextIcon,
+  HandPalmIcon,
   MagnifyingGlassIcon,
   PlusIcon,
   WarningIcon,
 } from "@phosphor-icons/react"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { type DragEvent, type ReactNode, useRef, useState } from "react"
 import { $api, errorMessage } from "@/api/client"
+import { ExtractAll } from "@/components/extract-all"
 import { Logo } from "@/components/logo"
+import { Onboarding, TerminalHint } from "@/components/onboarding"
 import { TopBar } from "@/components/top-bar"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,12 +28,14 @@ import {
 import { Input } from "@/components/ui/input"
 import { TextSkeleton } from "@/components/ui/skeleton"
 import { Tip } from "@/components/ui/tooltip"
+import { useCanExtract } from "@/lib/blockers"
 import { useDismissed } from "@/lib/dismissed"
-import { endedWord, isLive, lastAttempt, pollMs, when } from "@/lib/format"
+import { endedWord, isLive, lastAttempt, NEEDS_OK, when } from "@/lib/format"
 import { useKeys } from "@/lib/keys"
-import { type PaperState, paperState, type Summary, useStartRun } from "@/lib/paper-state"
+import { type PaperState, paperState, type Summary, useStartRuns } from "@/lib/paper-state"
 import { type Adding, pdfsOf, useUpload } from "@/lib/upload"
 import { cn } from "@/lib/utils"
+import type { HomeSearch } from "@/router"
 
 const STATUS = "flex items-center gap-2 text-caption text-muted-ink"
 
@@ -96,7 +102,12 @@ function RowStatus({ s, onExtract, busy }: { s: Summary; onExtract: () => void; 
   const state = paperState(s)
   switch (state.kind) {
     case "live":
-      return (
+      return state.run.waiting ? (
+        <span className={cn(STATUS, "text-ink")} data-testid="paper-status" data-state="waiting">
+          <HandPalmIcon weight="fill" className="size-4 text-check" aria-hidden />
+          {NEEDS_OK}
+        </span>
+      ) : (
         <span className={STATUS} data-testid="paper-status" data-state="live">
           <CircleNotchIcon className="size-4 animate-spin text-muted-ink" />
           {state.step.word}…
@@ -157,7 +168,9 @@ function RowMenu({
         <DotsThreeIcon weight="bold" />
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <DropdownMenuItem onClick={onOpen}>Open</DropdownMenuItem>
+        <DropdownMenuItem onClick={onOpen}>
+          <FileTextIcon /> Open
+        </DropdownMenuItem>
         <DropdownMenuItem disabled={live || busy} onClick={onExtract}>
           <ArrowClockwiseIcon /> {s.run_count ? "Extract again" : "Extract"}
         </DropdownMenuItem>
@@ -175,8 +188,8 @@ function RowMenu({
 function PaperRow({ s, cursor, onHover }: { s: Summary; cursor: boolean; onHover: () => void }) {
   const navigate = useNavigate()
   const open = () => void navigate({ to: "/papers/$paperId", params: { paperId: s.paper.id } })
-  const start = useStartRun(open)
-  const extract = () => start.mutate({ params: { path: { paper_id: s.paper.id } }, body: {} })
+  const start = useStartRuns(open)
+  const extract = () => start.mutate({ body: { paper_ids: [s.paper.id] } })
   return (
     <li
       className={cn(
@@ -192,7 +205,7 @@ function PaperRow({ s, cursor, onHover }: { s: Summary; cursor: boolean; onHover
         <Link
           to="/papers/$paperId"
           params={{ paperId: s.paper.id }}
-          className="block truncate text-body font-semibold outline-none after:absolute after:inset-0 after:rounded-control focus-visible:after:outline-2 focus-visible:after:outline-sage"
+          className="block truncate text-name outline-none after:absolute after:inset-0 after:rounded-control focus-visible:after:outline-2 focus-visible:after:outline-sage"
         >
           {s.paper.title ?? s.paper.filename}
         </Link>
@@ -363,32 +376,71 @@ function useDrop(onFiles: (files: File[]) => void) {
   }
 }
 
+/** The first screen and the terminal's hint, from the data and the URL. Nothing is stored about the first screen:
+ * it shows while nothing can extract and the library is empty, and goes once something can. */
+function useFirstRun(empty: boolean) {
+  const navigate = useNavigate()
+  const search = useSearch({ strict: false }) as HomeSearch
+  const extract = useCanExtract()
+  return {
+    known: extract.known,
+    onboarding: empty && extract.known && !extract.can,
+    terminal: search.setup === "terminal",
+    setSetup: (setup: HomeSearch["setup"]) =>
+      void navigate({ to: ".", search: (s: HomeSearch) => ({ ...s, setup }) }),
+  }
+}
+
+type FirstRun = ReturnType<typeof useFirstRun>
+
+function Library({
+  first,
+  empty,
+  papers,
+  adding,
+  query,
+  onPick,
+}: {
+  first: FirstRun
+  empty: boolean
+  papers: Summary[]
+  adding: Adding[]
+  query: string
+  onPick: () => void
+}) {
+  if (first.onboarding) return <Onboarding onTerminal={() => first.setSetup("terminal")} />
+  return (
+    <>
+      {first.terminal ? <TerminalHint onClose={() => first.setSetup(undefined)} /> : null}
+      {/* The drop zone waits for what can extract, so the first screen never replaces it under the pointer. */}
+      {!empty ? (
+        <PaperList papers={papers} adding={adding} query={query} />
+      ) : first.known ? (
+        <EmptyDrop onPick={onPick} />
+      ) : null}
+    </>
+  )
+}
+
 export function HomePage() {
   const { adding, upload } = useUpload()
   const input = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState("")
   const drop = useDrop((files) => void upload(files))
-  const { data, isLoading, error } = $api.useQuery(
-    "get",
-    "/api/papers",
-    {},
-    {
-      refetchInterval: (q) =>
-        pollMs(q.state.data?.some((p) => p.latest_run && isLive(p.latest_run)) ?? false),
-    },
-  )
+  const { data, isLoading, error } = $api.useQuery("get", "/api/papers")
   const all = data ?? []
   const q = query.trim().toLowerCase()
   const papers = q
     ? all.filter((s) => `${s.paper.title ?? ""} ${s.paper.filename}`.toLowerCase().includes(q))
     : all
   const pick = () => input.current?.click()
-  // A failed poll keeps the list it already has; the error shows only when there is nothing to show.
+  // A failed refetch keeps the list it already has; the error shows only when there is nothing to show.
   const failed = error && !data ? error : null
   const empty = !isLoading && !failed && all.length === 0 && adding.length === 0
+  const first = useFirstRun(empty)
 
   return (
-    <div className="relative min-h-svh" data-testid="home" {...drop.handlers}>
+    <div className="relative min-h-svh" data-testid="home" data-scroll="document" {...drop.handlers}>
       <input
         ref={input}
         type="file"
@@ -401,24 +453,33 @@ export function HomePage() {
           e.target.value = ""
         }}
       />
-      <TopBar center={empty ? null : <Search value={query} onChange={setQuery} />} />
+      <TopBar
+        center={empty ? null : <Search value={query} onChange={setQuery} />}
+        setup={!first.onboarding}
+      />
       <main className="mx-auto w-full max-w-[960px] px-gutter pt-10 pb-16">
-        <div className="mb-6 flex h-10 items-center justify-between px-inset">
+        <div
+          className={cn(
+            "mb-6 flex h-10 items-center justify-between px-inset",
+            first.onboarding && "sr-only",
+          )}
+        >
           <h1 className="text-display">Papers</h1>
           {empty ? null : (
-            <Button onClick={pick} data-testid="add-papers">
-              <PlusIcon weight="bold" /> Add papers
-            </Button>
+            <div className="flex items-center gap-3">
+              <ExtractAll papers={all} />
+              <Button onClick={pick} data-testid="add-papers">
+                <PlusIcon weight="bold" /> Add papers
+              </Button>
+            </div>
           )}
         </div>
         {failed ? (
           <p className="px-inset text-body text-danger">Couldn't load papers: {errorMessage(failed)}</p>
         ) : isLoading ? (
           <PaperListSkeleton />
-        ) : empty ? (
-          <EmptyDrop onPick={pick} />
         ) : (
-          <PaperList papers={papers} adding={adding} query={query} />
+          <Library first={first} empty={empty} papers={papers} adding={adding} query={query} onPick={pick} />
         )}
       </main>
       {drop.dragging ? <DropOverlay /> : null}

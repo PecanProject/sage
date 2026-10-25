@@ -1,7 +1,8 @@
 """The HTTP surface. Thin: every route calls one function in core."""
 
 import asyncio
-from collections.abc import AsyncIterable
+from collections.abc import AsyncGenerator, AsyncIterable
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
 
@@ -11,13 +12,20 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, JsonValue
+from pydantic import BaseModel, JsonValue, model_validator
 
 from sage import core
 
 WEB_DIST = (Path(__file__).parent / "web_dist").resolve()
 
-app = FastAPI(title="SAGE", version="2.0.0")
+
+@asynccontextmanager
+async def _lifespan(_: FastAPI) -> AsyncGenerator[None]:
+    core.fresh_prices()
+    yield
+
+
+app = FastAPI(title="SAGE", version="2.0.0", lifespan=_lifespan)
 
 _STATUS = {"not_found": 404, "invalid": 400, "conflict": 409, "missing_key": 412, "corrupt": 500}
 
@@ -51,9 +59,98 @@ def put_settings(body: SettingsUpdate) -> core.SettingsView:
     return core.update_settings(body.values)
 
 
-@app.post("/api/settings/test-key", responses=_errors)
-def test_api_key() -> core.KeyCheck:
-    return core.test_api_key()
+@app.get("/api/models", responses=_errors)
+def list_models() -> list[core.ModelOption]:
+    return core.models()
+
+
+class AddModel(BaseModel):
+    id: str
+    title: str | None = None
+    """The provider's name for it, kept for a model genai-prices doesn't name."""
+    input_usd: float | None = None
+    output_usd: float | None = None
+    """Your price per million tokens, in and out. Both, or neither to keep the one it has."""
+    cache_read_usd: float | None = None
+    cache_write_usd: float | None = None
+    """Your price per million tokens read from and written to the prompt cache. Both or neither; neither uses
+    genai-prices' discount for the model, else the input price."""
+
+    @model_validator(mode="after")
+    def _pairs(self) -> "AddModel":
+        if (self.input_usd is None) != (self.output_usd is None):
+            raise ValueError("give both the input and the output price, or neither")
+        if (self.cache_read_usd is None) != (self.cache_write_usd is None):
+            raise ValueError("give both the cache read and the cache write price, or neither")
+        return self
+
+
+@app.post("/api/models", responses=_errors)
+def add_model(body: AddModel) -> list[core.ModelOption]:
+    price = None if body.input_usd is None or body.output_usd is None else (body.input_usd, body.output_usd)
+    cache = (
+        None
+        if body.cache_read_usd is None or body.cache_write_usd is None
+        else (body.cache_read_usd, body.cache_write_usd)
+    )
+    return core.add_model(body.id, title=body.title, price=price, cache_price=cache)
+
+
+class RemoveModels(BaseModel):
+    ids: list[str]
+
+
+@app.post("/api/models/remove", responses=_errors)
+def remove_models(body: RemoveModels) -> list[core.ModelOption]:
+    return core.remove_models(body.ids)
+
+
+class ModelEffort(BaseModel):
+    id: str
+    effort: str
+    """One of the levels the model has, as `ModelOption.efforts` lists them."""
+
+
+@app.post("/api/models/effort", responses=_errors)
+def set_model_effort(body: ModelEffort) -> list[core.ModelOption]:
+    return core.set_model_effort(body.id, body.effort)
+
+
+@app.get("/api/models/describe", responses=_errors)
+def describe_model(id: str) -> core.Candidate:  # noqa: A002 - the query parameter's name
+    return core.describe_model(id)
+
+
+@app.get("/api/provider-kinds", responses=_errors)
+def provider_kinds() -> list[core.KindInfo]:
+    return core.provider_kinds()
+
+
+@app.get("/api/providers", responses=_errors)
+def list_providers() -> list[core.ProviderInfo]:
+    return core.providers()
+
+
+class SaveProvider(BaseModel):
+    kind: str | None = None
+    """Needed for a new provider; a built-in one keeps its own."""
+    values: dict[str, str | None] = {}
+    """Fields to set. A masked key is left as it is, and an empty value clears its field."""
+
+
+@app.put("/api/providers/{provider}", responses=_errors)
+def save_provider(provider: str, body: SaveProvider) -> core.ProviderInfo:
+    return core.save_provider(provider, body.values, kind=body.kind)
+
+
+@app.delete("/api/providers/{provider}", responses=_errors)
+def remove_provider(provider: str) -> list[core.ProviderInfo]:
+    return core.remove_provider(provider)
+
+
+@app.get("/api/providers/{provider}/models", responses=_errors)
+def available_models(provider: str) -> core.Available:
+    return core.available_models(provider)
 
 
 @app.get("/api/papers", responses=_errors)
@@ -91,27 +188,105 @@ def paper_reviews(paper_id: str) -> list[core.Review]:
     return core.reviews(paper_id)
 
 
-class StartRun(BaseModel):
-    model: str | None = None
-    effort: str | None = None
+class ExtractStart(BaseModel):
+    guidance: str | None = None
 
 
-@app.post("/api/papers/{paper_id}/runs", responses=_errors)
-def start_run(paper_id: str, body: StartRun) -> core.RunInfo:
-    return core.start_run(paper_id, model=body.model, effort=body.effort)
+class ExtractDone(BaseModel):
+    summary: str
 
 
-class StartBatch(BaseModel):
+class ExtractStop(BaseModel):
     paper_ids: list[str] | None = None
-    jobs: int | None = None
+    """Omit for every open run."""
+
+
+@app.post("/api/papers/{paper_id}/extract/start", responses=_errors)
+def extract_start(paper_id: str, body: ExtractStart | None = None) -> core.ExtractStatus:
+    return core.extract_start(paper_id, guidance=(body or ExtractStart()).guidance)
+
+
+@app.post("/api/papers/{paper_id}/extract/check", responses=_errors)
+def extract_check(paper_id: str, every: bool = False) -> core.CheckReport:
+    return core.extract_check(paper_id, every=every)
+
+
+@app.post("/api/papers/{paper_id}/extract/done", responses=_errors)
+def extract_done(paper_id: str, body: ExtractDone) -> core.DoneReport:
+    return core.extract_done(paper_id, body.summary)
+
+
+@app.post("/api/extract/stop", responses=_errors)
+def extract_stop(body: ExtractStop) -> list[core.RunInfo]:
+    return core.extract_stop(body.paper_ids)
+
+
+@app.get("/api/extract/status", responses=_errors)
+def extract_status(paper_id: str | None = None) -> list[core.ExtractStatus]:
+    return core.extract_status(paper_id)
+
+
+@app.get("/api/agents", responses=_errors)
+def list_agents() -> list[core.AgentStatus]:
+    return core.agents()
+
+
+@app.get("/api/agents/{agent_id}/offer", responses=_errors)
+def agent_offer(agent_id: str, model: str | None = None) -> core.AgentOffer:
+    return core.agent_offer(agent_id, model)
+
+
+class AgentChange(BaseModel):
     model: str | None = None
+    effort: str | None = None
+    """In the agent's own words. Leave one out to keep it, and send an empty string for the agent's default."""
+
+
+@app.put("/api/agents/{agent_id}", responses=_errors)
+def set_agent(agent_id: str, body: AgentChange) -> core.AgentStatus:
+    return core.set_agent(agent_id, model=body.model, effort=body.effort)
+
+
+class Answer(BaseModel):
+    allow: bool
+
+
+@app.post("/api/papers/{paper_id}/extract/answer", responses=_errors)
+def answer_agent(paper_id: str, body: Answer) -> core.RunInfo:
+    return core.answer_agent(paper_id, allow=body.allow)
+
+
+@app.get("/api/skill", responses=_errors)
+def skill_status() -> list[core.SkillPlace]:
+    return core.skill_status()
+
+
+@app.post("/api/skill/install", responses=_errors)
+def install_skill() -> list[core.SkillPlace]:
+    return core.install_skill()
+
+
+class StartRuns(BaseModel):
+    paper_ids: list[str] | None = None
+    """Omit for every paper with no data and nothing live on it."""
+    using: str | None = None
+    """An agent's id (`claude`, `claude:sonnet`) or a model. Omit for the `extract_with` setting."""
     effort: str | None = None
 
 
-@app.post("/api/batches", responses=_errors)
-def start_batch(body: StartBatch | None = None) -> core.Batch:
-    b = body or StartBatch()
-    return core.start_batch(b.paper_ids, jobs=b.jobs, model=b.model, effort=b.effort)
+@app.post("/api/runs", responses=_errors)
+def start_runs(body: StartRuns) -> list[core.RunInfo]:
+    return core.start_runs(body.paper_ids, using=body.using, effort=body.effort)
+
+
+class StopRuns(BaseModel):
+    run_ids: list[str] | None = None
+    """Omit for every live run."""
+
+
+@app.post("/api/runs/stop", responses=_errors)
+def stop_runs(body: StopRuns) -> list[core.RunInfo]:
+    return core.stop_runs(body.run_ids)
 
 
 @app.get("/api/runs", responses=_errors)
@@ -126,32 +301,23 @@ def get_run(run_id: str) -> core.RunInfo:
 
 class ResumeRun(BaseModel):
     guidance: str | None = None
-    review_notes: bool = True
 
 
 class ContinueRun(BaseModel):
     guidance: str | None = None
-    review_notes: bool = True
-    model: str | None = None
+    using: str | None = None
+    """An agent or a model; omit for the one the earlier run used."""
     effort: str | None = None
 
 
 @app.post("/api/runs/{run_id}/resume", responses=_errors)
 def resume_run(run_id: str, body: ResumeRun | None = None) -> core.RunInfo:
-    b = body or ResumeRun()
-    return core.resume_run(run_id, guidance=b.guidance, review_notes=b.review_notes)
+    return core.resume_run(run_id, guidance=(body or ResumeRun()).guidance)
 
 
 @app.post("/api/runs/{run_id}/continue", responses=_errors)
 def continue_run(run_id: str, body: ContinueRun) -> core.RunInfo:
-    return core.continue_run(
-        run_id, body.guidance, review_notes=body.review_notes, model=body.model, effort=body.effort
-    )
-
-
-@app.post("/api/runs/{run_id}/stop", responses=_errors)
-def stop_run(run_id: str) -> core.RunInfo:
-    return core.stop_run(run_id)
+    return core.continue_run(run_id, body.guidance, using=body.using, effort=body.effort)
 
 
 @app.get("/api/runs/{run_id}/events", responses=_errors)
@@ -185,6 +351,15 @@ async def run_stream(
         await asyncio.sleep(0.4)
 
 
+@app.get("/api/changes", response_class=EventSourceResponse)
+async def changes() -> AsyncIterable[list[core.Change] | ServerSentEvent]:
+    """Each batch of changes in the library as Server-Sent Events, for an open screen to fetch again what shows them.
+    A quiet stream carries a keep-alive comment, so a proxy doesn't close it."""
+    yield ServerSentEvent(comment="following")  # sends the headers now, so the EventSource opens at once
+    async for batch in core.changes():
+        yield batch
+
+
 @app.get("/api/runs/{run_id}/records", responses=_errors)
 def run_records(run_id: str) -> core.RecordsView:
     return core.records(run_id)
@@ -193,11 +368,6 @@ def run_records(run_id: str) -> core.RecordsView:
 @app.get("/api/runs/{run_id}/queue", responses=_errors)
 def run_queue(run_id: str) -> list[core.QueueItem]:
     return core.review_queue(run_id)
-
-
-@app.get("/api/review", responses=_errors)
-def review_inbox() -> list[core.InboxEntry]:
-    return core.review_inbox()
 
 
 @app.post("/api/reviews", responses=_errors)

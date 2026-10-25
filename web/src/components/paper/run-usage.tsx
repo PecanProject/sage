@@ -3,7 +3,8 @@ import { CaretRightIcon } from "@phosphor-icons/react"
 import type { ReactNode } from "react"
 import type { RunEvent } from "@/api/events"
 import { Tip } from "@/components/ui/tooltip"
-import { modelName, money, type RunInfo, runStatusLabel, stamp } from "@/lib/format"
+import { TERMINAL } from "@/lib/agents"
+import { money, type RunInfo, runStatusLabel, stamp } from "@/lib/format"
 import {
   compact,
   dollars,
@@ -11,7 +12,6 @@ import {
   MISS_REASON,
   percent,
   split,
-  sum,
   type TurnUsage,
   turnUsage,
   type Usage,
@@ -21,45 +21,52 @@ import {
 import { cn } from "@/lib/utils"
 
 export function RunUsage({ run, events }: { run: RunInfo; events: RunEvent[] }) {
-  const total = sum(used(run.usage), used(run.table_usage))
-  const all = split(total)
+  const total = used(run.usage)
   const turns = turnUsage(events)
+  // Only SAGE's own agent has a turn and cost budget. An agent reports what its provider bills, if anything, and a
+  // terminal's run reports nothing, so each shows only the numbers it has.
+  const tokens = total.requests > 0 || total.input_tokens > 0
   return (
     <div className="space-y-10" data-testid="run-usage">
-      <Section title="Budget">
-        <Meter label="Cost" value={total.cost_usd} max={run.max_cost_usd} testid="meter-cost">
-          {money(total.cost_usd)} <span className="text-muted-ink">of {money(run.max_cost_usd)}</span>
-        </Meter>
-        <Meter label="Turns" value={run.turns} max={run.max_turns} testid="meter-turns">
-          {run.turns} <span className="text-muted-ink">of {run.max_turns}</span>
-        </Meter>
-      </Section>
+      {run.driver === "sage" ? (
+        <Section title="Budget">
+          <Meter label="Cost" value={total.cost_usd} max={run.max_cost_usd} testid="meter-cost">
+            {money(total.cost_usd)} <span className="text-muted-ink">of {money(run.max_cost_usd)}</span>
+          </Meter>
+          <Meter label="Turns" value={run.turns} max={run.max_turns} testid="meter-turns">
+            {run.turns} <span className="text-muted-ink">of {run.max_turns}</span>
+          </Meter>
+        </Section>
+      ) : null}
 
-      <Section title="Tokens">
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-5" data-testid="run-tokens">
-          <Tile label="Input" value={compact(total.input_tokens)} />
-          <Tile label="Output" value={compact(total.output_tokens)} />
-          <Tile label="Read from the cache" value={percent(all.read, all.input)} />
-          <Tile label="Requests" value={whole(total.requests)} />
-        </dl>
-        <InputBar split={all} />
-        <Legend split={all} />
-        {turns.length ? (
-          <>
-            <TurnChart turns={turns} />
-            <TurnTable turns={turns} />
-          </>
-        ) : null}
-      </Section>
-
-      <Section title="By pass">
-        <PassTable run={run} />
-      </Section>
+      {tokens ? <Tokens total={total} turns={turns} /> : null}
 
       <Section title="Run">
         <RunFacts run={run} />
       </Section>
     </div>
+  )
+}
+
+function Tokens({ total, turns }: { total: Usage; turns: TurnUsage[] }) {
+  const all = split(total)
+  return (
+    <Section title="Tokens">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-5" data-testid="run-tokens">
+        <Tile label="Input" value={compact(total.input_tokens)} />
+        <Tile label="Output" value={compact(total.output_tokens)} />
+        <Tile label="Read from the cache" value={percent(all.read, all.input)} />
+        <Tile label="Requests" value={whole(total.requests)} />
+      </dl>
+      <InputBar split={all} />
+      <Legend split={all} />
+      {turns.length ? (
+        <>
+          <TurnChart turns={turns} />
+          <TurnTable turns={turns} />
+        </>
+      ) : null}
+    </Section>
   )
 }
 
@@ -139,7 +146,8 @@ function InputBar({ split: s }: { split: InputSplit }) {
 function Legend({ split: s }: { split: InputSplit }) {
   return (
     <ul className="space-y-2">
-      {PARTS.map((p) => (
+      {/* Only Anthropic's models report cache writes; elsewhere the row would always read 0. */}
+      {PARTS.filter((p) => p.key !== "write" || s.write > 0).map((p) => (
         <li key={p.key} className="flex items-center gap-2.5 text-control">
           <span className={cn("size-2.5 shrink-0 rounded-mark", p.fill)} />
           <span className="flex-1 text-ink">{p.label}</span>
@@ -259,41 +267,10 @@ function TurnTable({ turns }: { turns: TurnUsage[] }) {
   )
 }
 
-const PASS_ROWS: { label: string; value: (u: Usage) => string }[] = [
-  { label: "Requests", value: (u) => whole(u.requests) },
-  { label: "Input", value: (u) => whole(u.input_tokens) },
-  { label: "Cache read", value: (u) => whole(u.cache_read_tokens) },
-  { label: "Cache write", value: (u) => whole(u.cache_write_tokens) },
-  { label: "Output", value: (u) => whole(u.output_tokens) },
-  { label: "Cost", value: (u) => dollars(u.cost_usd) },
-]
-
-function PassTable({ run }: { run: RunInfo }) {
-  return (
-    <table className="w-full text-control tabular-nums" data-testid="pass-table">
-      <thead>
-        <tr className="border-b border-line text-caption text-muted-ink">
-          <th className="pb-2 text-left font-normal" />
-          <th className="pb-2 text-right font-normal">Extraction</th>
-          <th className="pb-2 text-right font-normal">Tables</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr className="border-b border-line/60">
-          <td className="py-2 text-muted-ink">Model</td>
-          <td className="py-2 text-right">{modelName(run.extraction_model)}</td>
-          <td className="py-2 text-right">{modelName(run.table_model)}</td>
-        </tr>
-        {PASS_ROWS.map((r) => (
-          <tr key={r.label} className="border-b border-line/60 last:border-0">
-            <td className="py-2 text-muted-ink">{r.label}</td>
-            <td className="py-2 text-right">{r.value(used(run.usage))}</td>
-            <td className="py-2 text-right">{r.value(used(run.table_usage))}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
+const DRIVEN_BY: Record<RunInfo["driver"], string> = {
+  sage: "SAGE's agent",
+  agent: "An agent SAGE started",
+  here: TERMINAL,
 }
 
 function RunFacts({ run }: { run: RunInfo }) {
@@ -307,13 +284,18 @@ function RunFacts({ run }: { run: RunInfo }) {
         <Mono>{run.paper_id}</Mono>
       </Fact>
       <Fact label="Status">{runStatusLabel(run)}</Fact>
-      <Fact label="Effort">{run.effort}</Fact>
-      <Fact label="Extraction model">
-        <Mono>{run.extraction_model}</Mono>
-      </Fact>
-      <Fact label="Table model">
-        <Mono>{run.table_model}</Mono>
-      </Fact>
+      <Fact label="Driven by">{DRIVEN_BY[run.driver]}</Fact>
+      {run.agent ? (
+        <Fact label="Agent">
+          <Mono>{run.agent_model ? `${run.agent}:${run.agent_model}` : run.agent}</Mono>
+        </Fact>
+      ) : null}
+      {run.effort ? <Fact label="Effort">{run.effort}</Fact> : null}
+      {run.extraction_model ? (
+        <Fact label="Extraction model">
+          <Mono>{run.extraction_model}</Mono>
+        </Fact>
+      ) : null}
       <Fact label="Created">{stamp(run.created_at)}</Fact>
       <Fact label="Started">{stamp(run.started_at) || "–"}</Fact>
       <Fact label="Finished">{stamp(run.finished_at) || "–"}</Fact>

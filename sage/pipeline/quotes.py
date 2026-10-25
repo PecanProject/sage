@@ -21,11 +21,7 @@ class QuoteBoxes(BaseModel):
 
 
 def cites(settled: Settled) -> set[tuple[str, str]]:
-    out = {(ev.anchor, ev.quote) for r in settled.records for f in fields_of(r.record).values() for ev in f.evidence}
-    for t in settled.tables:
-        if t.roles is not None:
-            out |= {(ev.anchor, ev.quote) for ev in t.roles.scope_evidence}
-    return out
+    return {(ev.anchor, ev.quote) for r in settled.records for f in fields_of(r.record).values() for ev in f.evidence}
 
 
 def quote_lines(home: Home, paper_id: str, run_id: str, settled: Settled, doc: Document) -> QuoteLines:

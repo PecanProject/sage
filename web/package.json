@@ -9,11 +9,13 @@
     "lint": "biome check .",
     "gen:api": "mkdir -p node_modules/.tmp && uv run --project .. sage openapi > node_modules/.tmp/openapi.json && openapi-typescript node_modules/.tmp/openapi.json -o src/api/schema.d.ts",
     "doctor": "react-doctor . --blocking warning --no-telemetry --no-supply-chain",
-    "knip": "knip"
+    "knip": "knip",
+    "feedback-server": "agentation-mcp server --host 127.0.0.1"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
     "@fontsource-variable/inter": "5.2.8",
+    "@lobehub/icons-static-svg": "1.98.0",
     "@phosphor-icons/react": "^2.1.10",
     "@tailwindcss/vite": "^4",
     "@tanstack/react-query": "^5.104.3",
@@ -44,6 +46,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6",
+    "agentation": "3.1.2",
+    "agentation-mcp": "1.3.2",
     "babel-plugin-react-compiler": "1.0.0",
     "knip": "6.41.0",
     "openapi-typescript": "^7.13.0",
@@ -51,5 +55,10 @@
     "typescript": "~6.0.2",
     "vite": "^8",
     "vite-plugin-static-copy": "^4.1.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ]
   }
 }

@@ -6,7 +6,7 @@ import { extendTailwindMerge } from "tailwind-merge"
 const twMerge = extendTailwindMerge({
   extend: {
     theme: {
-      text: ["wordmark", "display", "title", "value", "body", "label", "control", "caption"],
+      text: ["wordmark", "display", "title", "value", "name", "body", "label", "control", "caption"],
       spacing: ["inset", "gutter", "control", "control-sm", "icon"],
       radius: ["control", "card", "page", "inline", "bar", "mark", "highlight"],
       shadow: ["card", "page", "float", "focus", "cursor"],
@@ -16,4 +16,9 @@ const twMerge = extendTailwindMerge({
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+/** A JSON object's fields, or none for anything that isn't one. */
+export function obj(v: unknown): Record<string, unknown> {
+  return v !== null && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
 }

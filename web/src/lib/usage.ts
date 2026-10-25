@@ -24,17 +24,6 @@ const ZERO: Usage = {
 
 export const used = (u: Usage | undefined): Usage => u ?? ZERO
 
-export function sum(a: Usage, b: Usage): Usage {
-  return {
-    requests: a.requests + b.requests,
-    input_tokens: a.input_tokens + b.input_tokens,
-    output_tokens: a.output_tokens + b.output_tokens,
-    cache_read_tokens: a.cache_read_tokens + b.cache_read_tokens,
-    cache_write_tokens: a.cache_write_tokens + b.cache_write_tokens,
-    cost_usd: a.cost_usd + b.cost_usd,
-  }
-}
-
 export type TurnUsage = { key: string; turn: number; usage: Usage; miss: CacheMiss | null }
 
 export function turnUsage(events: RunEvent[]): TurnUsage[] {

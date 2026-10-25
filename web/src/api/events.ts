@@ -15,17 +15,19 @@ const EVENT_TYPES = Object.keys({
   "llm.text": true,
   "llm.tool_call": true,
   "llm.tool_result": true,
-  "check.failed": true,
+  "check.ran": true,
   "record.settled": true,
   usage: true,
   note: true,
+  "agent.asked": true,
+  "agent.answered": true,
   "run.finished": true,
   "run.error": true,
 } satisfies Record<RunEvent["type"], true>)
 
 /** A run's events over SSE, replayed from the start. After a dropped connection EventSource reconnects on its own
  * and the server resumes from the last batch it marked with an id. A new `attempt` reopens the stream: a resume, or
- * the first start of a run whose worker died while it was queued. */
+ * the first start of a run resumed before it began. */
 export function useRunEvents(runId: string, attempt: string): RunEvent[] {
   const queryClient = useQueryClient()
   const stream = `${runId}:${attempt}`

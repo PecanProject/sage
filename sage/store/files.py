@@ -6,7 +6,6 @@ import tempfile
 import tomllib
 from collections.abc import Generator, Iterator
 from contextlib import contextmanager
-from importlib import resources
 from pathlib import Path
 
 import tomli_w
@@ -62,11 +61,6 @@ def read_model_or_none[M: BaseModel](path: Path, cls: type[M]) -> M | None:
         raise UnreadableError(path, e.strerror or type(e).__name__) from e
 
 
-def read_resource(package: str, name: str) -> str:
-    """A text file shipped inside the sage package, such as the agent's guide."""
-    return resources.files(package).joinpath(name).read_text(encoding="utf-8")
-
-
 def read_bytes(path: Path) -> bytes:
     return path.read_bytes()
 
@@ -79,11 +73,14 @@ def append_jsonl(path: Path, model: BaseModel) -> None:
 
 def read_jsonl[T](path: Path, adapter: TypeAdapter[T], *, offset: int = 0) -> tuple[list[T], int]:
     """Complete lines from `offset` on, and the offset after the last complete line."""
-    if not path.exists():
+    try:
+        with path.open("rb") as fh:
+            fh.seek(offset)
+            data = fh.read()
+    except FileNotFoundError:
         return [], offset
-    with path.open("rb") as fh:
-        fh.seek(offset)
-        data = fh.read()
+    except OSError as e:
+        raise UnreadableError(path, e.strerror or type(e).__name__) from e
     end = data.rfind(b"\n") + 1
     items: list[T] = []
     for n, line in enumerate(data[:end].splitlines(), start=1):
@@ -97,13 +94,72 @@ def read_jsonl[T](path: Path, adapter: TypeAdapter[T], *, offset: int = 0) -> tu
     return items, offset + end
 
 
+def read_text(path: Path) -> str:
+    """A UTF-8 text file. One that isn't UTF-8 raises UnreadableError."""
+    data = path.read_bytes()
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise UnreadableError(path, f"not UTF-8 text at byte {e.start}") from e
+
+
+def write_text_if_changed(path: Path, text: str) -> bool:
+    """Rewrite the file only when its text would change, so a reader watching it sees no write for nothing. True when
+    it wrote."""
+    try:
+        if path.read_bytes() == text.encode():
+            return False
+    except FileNotFoundError:
+        pass
+    write_text(path, text)
+    return True
+
+
 def child_dirs(path: Path) -> Iterator[Path]:
     if path.is_dir():
         yield from sorted(p for p in path.iterdir() if p.is_dir() and not p.name.startswith("."))
 
 
+def child_files(path: Path, suffix: str | None = None) -> list[Path]:
+    """The folder's files by name, without hidden ones (an atomic write's temporary file is hidden), and only those
+    ending in `suffix` when given. A missing folder has none."""
+    if not path.is_dir():
+        return []
+    return sorted(
+        p
+        for p in path.iterdir()
+        if p.is_file() and not p.name.startswith(".") and (suffix is None or p.name.endswith(suffix))
+    )
+
+
+def move(src: Path, dst: Path) -> bool:
+    """Rename a file or folder to `dst`, never over something already there. False, with nothing moved, when `src` is
+    missing or `dst` exists. Within one filesystem the rename is atomic, so a crash leaves it in one place or the
+    other."""
+    if not src.exists() or dst.exists():
+        return False
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    src.rename(dst)
+    return True
+
+
+def remove_empty_dir(path: Path) -> bool:
+    """Remove the folder when it is empty. True when it went."""
+    try:
+        path.rmdir()
+    except OSError:
+        return False
+    return True
+
+
 def exists(path: Path) -> bool:
     return path.exists()
+
+
+def make_dirs(*paths: Path) -> None:
+    """Create each folder that isn't there yet."""
+    for path in paths:
+        path.mkdir(parents=True, exist_ok=True)
 
 
 def make_new_dir(path: Path) -> bool:
@@ -116,6 +172,13 @@ def make_new_dir(path: Path) -> bool:
 
 
 @contextmanager
+def scratch_dir() -> Generator[Path]:
+    """An empty folder that is removed afterwards, with all it holds."""
+    with tempfile.TemporaryDirectory(prefix="sage-") as d:
+        yield Path(d)
+
+
+@contextmanager
 def exclusive(path: Path) -> Generator[None]:
     """Hold an exclusive lock on `path` across processes. The OS drops it when the holder exits, so it never goes
     stale."""
@@ -123,6 +186,32 @@ def exclusive(path: Path) -> Generator[None]:
     with path.open("a") as fh:
         fcntl.flock(fh, fcntl.LOCK_EX)
         yield
+
+
+def lock(path: Path) -> int | None:
+    """Take an exclusive lock on `path` without waiting, and return the open descriptor that holds it, or None when
+    someone else holds it. The lock lasts until the descriptor closes, in this process or in a child it passed to."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        os.close(fd)
+        return None
+    return fd
+
+
+def unlock(fd: int) -> None:
+    os.close(fd)
+
+
+def touch(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.touch()
+
+
+def remove(path: Path) -> None:
+    path.unlink(missing_ok=True)
 
 
 def read_toml(path: Path) -> dict[str, object]:

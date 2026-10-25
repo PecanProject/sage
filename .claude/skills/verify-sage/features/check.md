@@ -12,8 +12,8 @@ Check mode works like Google Docs suggestions. The PDF is on the left and a 380p
 - `check-hover` links a card and its highlights: hovering either marks the other.
 - `check-pdf` scrolls to the source, outlines a table, and fades the other highlights. It never changes the zoom. The reader zooms with `+`, `-`, Ctrl or ⌘ with the wheel, or a pinch, and `0` or "Fit page" (top right of the PDF pane while zoomed) goes back to Fit page.
 - `check-keys` binds j/k to move in document order (the highlight and its open card land centred together), a to accept, e to edit, r to "Not in the paper", c to change a reviewed item, Shift+A to accept a whole cluster, / to flip the filter, `+`, `-` and `0` to zoom, and ? for help. The key hint at the bottom of the margin hides after ten key presses.
-- `check-good` accepts every unreviewed "looks good" item in one call, with a toast "N accepted".
-- `check-write` appends each decision to `$SAGE_HOME/papers/<paperId>/reviews.jsonl`.
+- `check-good` accepts every unreviewed "looks good" item in one call, with a toast "Accepted N items".
+- `check-write` appends each decision to `$SAGE_HOME/papers/<paperId>/.sage/reviews.jsonl`.
 - `data-mode` makes the row the only click target. A row click, Enter or `item=` in the URL opens the 440px sheet with one collapsible section per field of the item. The open row scrolls into view beside the sheet, however it was picked. j/k move between rows.
 - `check-cli` records a decision with `sage review <run> <record> accept|edit|reject`, or `sage review <run> --accept-looks-good`.
 
@@ -40,12 +40,12 @@ Preconditions:
 - **Pinned columns.** The stub cells carry `data-pinned` and compute to `position: sticky` (left `0px`, then `40px`). Set `[data-testid=table-grid-scroll]`'s `scrollLeft`: the pinned cells keep their `getBoundingClientRect().left` while the first value cell moves under them. Felipe's Table 1 fits the 380px margin, so either use a paper with a wider table or narrow the scroll box from the test (`style.width = "240px"`) and say so.
 - **Quoted words.** With a prose item active, its `[data-testid=highlight][data-active]` carries `data-precise` and holds `[data-testid=quote-line]` spans, one per line its quotes cover. `GET /api/runs/<runId>/records` has those boxes under `boxes[<anchor>].quotes[<quote>]`, and the run folder has `quotes.json`. Felipe's `obs-hue-fallow` marks "Fruit were redder … P <0.05" on page 6, not the whole paragraph.
 - **Filter.** `browser_press_key /`. The URL gains `filter=all`, and reviewed items appear with `data-reviewed`.
-- **Accept good.** `browser_click [data-testid=accept-looks-good]`. A toast reads "N accepted".
+- **Accept good.** `browser_click [data-testid=accept-looks-good]`. A toast reads "Accepted N items".
 - **Not located.** A run whose evidence cites anchors the paper doesn't have shows `[data-testid=card][data-kind=unlocated]` first in the margin. Opening one of its items scrolls the pane to the top.
 - **Done.** Once nothing needs a look, `[data-testid=all-checked]` shows in the header with `[data-testid=done-export]`.
 - **Data mode.** `browser_click [data-testid=mode-data]`, pick a tab with many rows (`[data-testid=data-tab-Variable]`), then a `[data-testid=data-row]`. `[data-testid=item-sheet]` opens with one `[data-testid=sheet-field]` per entry in that record's `fields` (records.json), and the row has `data-selected`. Open a late row by URL (`?mode=data&item=<an observation near the end>`): the row is inside its scroll box and left of the sheet. `[data-testid=sheet-page]` (inside an expanded section; click a section header first when all are collapsed) returns to Check on that item. Narrow the window until the tabs don't fit (`browser_resize`, no narrower than 768px, where the app stops). The tab row then scrolls sideways inside itself, and `document.scrollingElement.scrollWidth` equals `clientWidth`, so the page never scrolls sideways. If they fit even at 768px, say so.
 - **Reload.** After the key actions, reload. The URL's `item=` stays, `review-progress` reads the same, and with `filter=all` each reviewed item carries `data-reviewed` (`accept`, `edit`, `reject`) from the server.
-- **On disk.** `tail -3 $SAGE_HOME/papers/<paperId>/reviews.jsonl` shows the accept, edit (with `field` and `value`) and reject (with `note`) lines, each with the run and record ids.
+- **On disk.** `tail -3 $SAGE_HOME/papers/<paperId>/.sage/reviews.jsonl` shows the accept, edit (with `field` and `value`) and reject (with `note`) lines, each with the run and record ids.
 - **CLI.** `$S/cli "$root" review review <runId> <recordId> accept --json` exits 0. `$S/cli "$root" good review <runId> --accept-looks-good --json` returns one accept per unreviewed "looks good" item. A second call returns `[]`.
 - **Proof.** `evidence/ui/check-item-{light,dark}.png` with an item open, `evidence/ui/check-table-{light,dark}.png` with the table cluster open, `evidence/ui/data-sheet-{light,dark}.png` with a late row open, and the `reviews.jsonl` tail.
 

@@ -1,23 +1,22 @@
+import { obj } from "@/lib/utils"
+
 type FieldKind =
-  | { kind: "secret" }
   | { kind: "enum"; options: string[] }
   | { kind: "integer"; min?: number; max?: number }
   | { kind: "number"; min?: number; max?: number }
   | { kind: "boolean" }
-  | { kind: "text"; choices: string[] }
+  | { kind: "text" }
 
 export type FieldSpec = {
   name: string
   title: string
   description: string
   group: string
+  /** "manage" for a field the Manage page edits rather than Settings: providers, the model list and the defaults. */
+  page: string | null
   kind: FieldKind
   /** The schema default; a value equal to it needs no reset. */
   default: unknown
-}
-
-function obj(v: unknown): Record<string, unknown> {
-  return v !== null && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
 }
 
 function str(v: unknown): string | undefined {
@@ -33,7 +32,6 @@ function strings(v: unknown): string[] {
 }
 
 function kindOf(prop: Record<string, unknown>, defs: Record<string, unknown>): FieldKind {
-  if (prop.secret === true) return { kind: "secret" }
   const variants = Array.isArray(prop.anyOf) ? prop.anyOf.map(obj).filter((v) => v.type !== "null") : [prop]
   let base = variants[0] ?? prop
   const ref = str(base.$ref)
@@ -45,7 +43,7 @@ function kindOf(prop: Record<string, unknown>, defs: Record<string, unknown>): F
   if (base.type === "integer") return { kind: "integer", min, max }
   if (base.type === "number") return { kind: "number", min, max }
   if (base.type === "boolean") return { kind: "boolean" }
-  return { kind: "text", choices: strings(prop.choices) }
+  return { kind: "text" }
 }
 
 export function fieldsFromSchema(schema: unknown): FieldSpec[] {
@@ -59,8 +57,18 @@ export function fieldsFromSchema(schema: unknown): FieldSpec[] {
       title: str(prop.title) ?? name,
       description: str(prop.description) ?? "",
       group: str(prop.group) ?? "Other",
+      page: str(prop.page) ?? null,
       kind: kindOf(prop, defs),
       default: prop.default ?? null,
     }
   })
+}
+
+/** Each settings group's description, from the schema's `groups`. */
+export function groupsFromSchema(schema: unknown): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(obj(obj(schema).groups)).flatMap(([name, text]) =>
+      typeof text === "string" ? [[name, text]] : [],
+    ),
+  )
 }

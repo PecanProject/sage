@@ -4,7 +4,7 @@ import { useState } from "react"
 import { errorMessage } from "@/api/client"
 import { PaperCanvas } from "@/components/paper/canvas"
 import { DataMode, DataModeSkeleton } from "@/components/paper/data-mode"
-import { ContinueDialog, ExtractDialog, StartCard, StopDialog } from "@/components/paper/extract"
+import { ContinueDialog, EndedCard, ExtractDialog, NewCard, StopDialog } from "@/components/paper/extract"
 import { HistoryMenu } from "@/components/paper/history"
 import type { Filter, ReviewActions } from "@/components/paper/margin"
 import { DetailsDrawer, RunDock } from "@/components/paper/run-details"
@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Segmented } from "@/components/ui/segmented"
 import { useDismissed } from "@/lib/dismissed"
-import { carryOnLabel, type RunInfo, startsOver } from "@/lib/format"
+import { carryOnLabel, endedAlert, type RunInfo, startsOver } from "@/lib/format"
 import { type Item, nextOpen } from "@/lib/items"
 import { type KeyHint, useKeyHint } from "@/lib/key-hint"
 import { useKeys } from "@/lib/keys"
@@ -117,7 +117,7 @@ function useSelection(view: View, search: PaperSearch) {
   const itemsComing = view.loading && view.viewId !== null
   const mode: Mode = search.mode ?? (hasData || itemsComing ? "check" : "read")
   const filter: Filter = search.filter ?? "check"
-  const units = buildUnits(view.items, view.doc, view.boxes, view.tables)
+  const units = buildUnits(view.items, view.doc, view.boxes)
   const picked = view.items.find((i) => i.id === search.item) ?? null
   const visible = visibleUnits(units, filter, picked?.id ?? null)
   const order = visible.flatMap((u) => u.items)
@@ -187,7 +187,6 @@ export function PaperPage() {
         standing={view.dataRun}
         onDetails={dock ? null : () => setSearch({ details: 1 })}
         onRetry={carryOn}
-        onStop={() => setSearch({ stop: 1 })}
         onLatest={() => setSearch({ run: undefined, item: undefined })}
       />
       <PaperBody
@@ -206,9 +205,9 @@ export function PaperPage() {
       <DetailsDrawer
         run={view.drawerRun}
         open={search.details === 1 && !dock}
-        doc={view.doc}
         onClose={() => setSearch({ details: undefined })}
         onContinue={carryOn}
+        onStop={() => setSearch({ stop: 1 })}
       />
       <RunDialogs view={view} search={search} paperId={paperId} onSearch={setSearch} />
       <Shortcuts open={shortcuts} onClose={() => setShortcuts(false)} />
@@ -343,7 +342,7 @@ function PaperBody({
           onHighlight={(id) => onSearch({ mode: "check", item: id })}
         />
       </div>
-      {dock ? <RunDock run={dock} doc={view.doc} /> : null}
+      {dock ? <RunDock run={dock} onStop={() => onSearch({ stop: 1 })} /> : null}
     </div>
   )
 }
@@ -386,16 +385,17 @@ function Overlay({
 }) {
   const dismissed = useDismissed()
   const s = view.state
-  if (view.items.length || view.loading || !s || (s.kind !== "none" && s.kind !== "failed")) return null
-  return (
-    <StartCard
-      paperId={paperId}
-      failed={s.kind === "failed" && !dismissed.has(s.run.id) ? s.run : null}
-      onRetry={onRetry}
-      onDetails={() => onSearch({ details: 1 })}
-      onDismiss={(r) => dismissed.dismiss(r.id)}
-    />
-  )
+  if (view.items.length || view.loading || !s || s.kind === "live" || s.kind === "data") return null
+  if (s.kind === "failed" && endedAlert(s.run) !== null && !dismissed.has(s.run.id))
+    return (
+      <EndedCard
+        run={s.run}
+        onRetry={onRetry}
+        onDetails={() => onSearch({ details: 1 })}
+        onDismiss={(r) => dismissed.dismiss(r.id)}
+      />
+    )
+  return <NewCard paperId={paperId} />
 }
 
 /** The paper's own PDF. The top bar's Export offers it; the margin's, shown once all is checked, doesn't. */

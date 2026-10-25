@@ -2,7 +2,13 @@ extend = "../../ruff.toml"
 
 [lint.flake8-tidy-imports.banned-api]
 "pydantic_ai".msg = "pydantic-ai is imported only in sage/agents/"
+"pydantic_ai_harness".msg = "pydantic-ai-harness is imported only in sage/agents/"
+"acp".msg = "the ACP SDK is imported only in sage/agents/"
 "anthropic".msg = "the Anthropic SDK is reached through pydantic-ai in sage/agents/"
+"openai".msg = "the OpenAI SDK is reached through pydantic-ai in sage/agents/"
+"google".msg = "the Google SDK is reached through pydantic-ai in sage/agents/"
+"boto3".msg = "the AWS SDK is reached through pydantic-ai in sage/agents/"
+"botocore".msg = "the AWS SDK is reached through pydantic-ai in sage/agents/"
 "pdftext".msg = "pdftext is imported only in sage/parse/"
 "pypdfium2".msg = "pypdfium2 is imported only in sage/parse/"
 "sage.store".msg = "ir/ and domain/ are pure: no I/O"

@@ -4,7 +4,7 @@ severity: error
 message: Use a design token from web/src/index.css, not a Tailwind default or a one-off value.
 note: |
   The theme resets colour, type, radius and shadow to SAGE's own steps, so a Tailwind default renders nothing.
-  Type is a role (text-display, title, value, body, label, control, caption) that sets size, weight and tracking.
+  Type is a role (text-wordmark, display, title, value, name, body, label, control, caption) that sets size, weight and tracking.
   Spacing is the 4px scale plus inset, gutter, control, control-sm and icon. Radius is control, card, page,
   inline, bar, mark, highlight or full. Colours and shadows are the named ones. A one-off size or colour that
   matters belongs in index.css as a token; widths, grid templates and transitions may stay arbitrary.

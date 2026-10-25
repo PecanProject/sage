@@ -197,12 +197,13 @@ def conversion_problem(q: QuantityValue) -> str | None:
         return None
     if q.reported_numeric_value is None:
         return (
-            f"'{q.reported_text}' doesn't hold one number, so code can't convert it; set converted_units null, or "
-            "give one number in reported_numeric_value"
+            f"'{q.reported_text}' doesn't hold one number, so code can't convert it; remove converted_units, or "
+            "write a value with one number"
         )
     if convert(q.reported_numeric_value, q.reported_units, q.converted_units) is None:
         return (
             f"code can't convert '{q.reported_units}' to '{q.converted_units}': they measure different things or a "
-            "unit is one code doesn't know. Fix the unit spelling (e.g. 'kg ha-1'), or set converted_units null"
+            "unit is one code doesn't know. Fix the units spelling, {text: …, units: kg ha-1}, or remove "
+            "converted_units"
         )
     return None

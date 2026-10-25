@@ -4,48 +4,59 @@ import {
   CaretRightIcon,
   CheckIcon,
   CircleNotchIcon,
-  CopyIcon,
+  HandPalmIcon,
   PauseIcon,
   WarningIcon,
   XIcon,
 } from "@phosphor-icons/react"
 import { type ReactNode, useEffect, useState } from "react"
-import { toast } from "sonner"
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom"
 import { type RunEvent, useRunEvents } from "@/api/events"
+import { BrandIcon } from "@/components/brand-icon"
+import { CopyButton } from "@/components/copy"
 import { RunUsage } from "@/components/paper/run-usage"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogTitle, SheetContent } from "@/components/ui/dialog"
 import { Segmented } from "@/components/ui/segmented"
 import { SidePanel } from "@/components/ui/side-panel"
-import { type Line, type Problem, type Section, type StepState, type Turn, timeline } from "@/lib/feed"
+import { Tip } from "@/components/ui/tooltip"
+import { TERMINAL, useDriverOf } from "@/lib/agents"
+import {
+  type Check,
+  type Line,
+  type Problem,
+  type Section,
+  type StepState,
+  type Turn,
+  timeline,
+} from "@/lib/feed"
 import {
   capital,
   carryOnLabel,
-  type Doc,
   duration,
   isLive,
-  modelName,
   money,
+  NEEDS_OK,
   type RunInfo,
   runStatusLabel,
   stamp,
-  totalCost,
 } from "@/lib/format"
+import { useModelTitle } from "@/lib/models"
+import { useAnswerAgent } from "@/lib/paper-state"
 import { cn } from "@/lib/utils"
 
 export function DetailsDrawer({
   run,
   open,
-  doc,
   onClose,
   onContinue,
+  onStop,
 }: {
   run: RunInfo | null
   open: boolean
-  doc: Doc | undefined
   onClose: () => void
   onContinue: (run: RunInfo) => void
+  onStop: () => void
 }) {
   return (
     <Dialog open={open && run !== null} onOpenChange={(o) => !o && onClose()}>
@@ -54,9 +65,10 @@ export function DetailsDrawer({
           <RunDetails
             key={run.id}
             run={run}
-            doc={doc}
             title={<DialogTitle>This run</DialogTitle>}
+            titleClass="pr-8"
             onContinue={onContinue}
+            onStop={onStop}
           />
         ) : null}
       </SheetContent>
@@ -64,10 +76,10 @@ export function DetailsDrawer({
   )
 }
 
-export function RunDock({ run, doc }: { run: RunInfo; doc: Doc | undefined }) {
+export function RunDock({ run, onStop }: { run: RunInfo; onStop: () => void }) {
   return (
     <SidePanel data-testid="run-dock">
-      <RunDetails key={run.id} run={run} doc={doc} title={<h2 className="text-title">This run</h2>} />
+      <RunDetails key={run.id} run={run} title={<h2 className="text-title">This run</h2>} onStop={onStop} />
     </SidePanel>
   )
 }
@@ -112,31 +124,44 @@ const TABS: { value: Tab; label: string; testid: string }[] = [
 
 function RunDetails({
   run,
-  doc,
   title,
+  titleClass,
   onContinue,
+  onStop,
 }: {
   run: RunInfo
-  doc: Doc | undefined
   title: ReactNode
+  /** Room the title row leaves at its right, for the drawer's close button. */
+  titleClass?: string
   onContinue?: (run: RunInfo) => void
+  /** Asks before it stops the run; shown while the run is live. */
+  onStop: () => void
 }) {
+  const modelName = useModelTitle()
   const [tab, setTab] = useState<Tab>("activity")
   const events = useRunEvents(run.id, `${run.resumes ?? 0}:${run.started_at ?? ""}`)
   const live = isLive(run)
-  const sections = timeline(events, run, doc)
+  const sections = timeline(events, run, modelName)
   const ended = live ? null : (events.at(-1)?.ts ?? null)
   const failedInFeed = sections.some((s) => s.entries.some((e) => e.kind === "line" && e.tone === "bad"))
   return (
     <>
       <header className="border-b border-line p-inset">
-        <div className="pr-8">
-          {title}
-          <p className="mt-1 text-caption text-muted-ink">
-            {runStatusLabel(run)} · {stamp(run.created_at)}
-          </p>
+        <div className={cn("flex items-start justify-between gap-4", titleClass)}>
+          <div className="min-w-0">
+            {title}
+            <p className="mt-1 text-caption text-muted-ink">
+              {runStatusLabel(run)} · {stamp(run.created_at)}
+            </p>
+          </div>
+          {live ? (
+            <Button variant="outline" size="compact" onClick={onStop} data-testid="run-stop">
+              Stop
+            </Button>
+          ) : null}
         </div>
-        <RunStats run={run} live={live} ended={ended} />
+        <RunStats run={run} live={live} ended={ended} events={events} />
+        {live && run.waiting ? <AgentAsks run={run} events={events} /> : null}
         {run.error && !failedInFeed ? (
           <p className="mt-5 line-clamp-3 text-control text-danger" title={run.error} data-testid="run-error">
             {capital(run.error)}
@@ -162,22 +187,105 @@ function RunDetails({
   )
 }
 
-function RunStats({ run, live, ended }: { run: RunInfo; live: boolean; ended: string | null }) {
+function RunStats({
+  run,
+  live,
+  ended,
+  events,
+}: {
+  run: RunInfo
+  live: boolean
+  ended: string | null
+  events: RunEvent[]
+}) {
+  const driver = useDriverOf()(run)
+  const cost = run.usage?.cost_usd ?? 0
+  const checks = events.filter((e) => e.type === "check.ran").length
+  const sage = run.driver === "sage"
   return (
     <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-5">
-      <Stat label="Model" testid="run-model">
-        {modelName(run.extraction_model)} <span className="text-muted-ink">· {run.effort}</span>
+      <Stat label={sage ? "Model" : "Agent"} testid="run-model">
+        <span className="flex min-w-0 items-center gap-2">
+          {driver?.brand ? <BrandIcon brand={driver.brand} /> : null}
+          <span className="truncate">{driver?.title ?? TERMINAL}</span>
+          {run.effort ? <span className="text-muted-ink">· {run.effort}</span> : null}
+        </span>
       </Stat>
       <Stat label="Time" testid="run-time">
         <Elapsed from={run.started_at ?? run.created_at ?? null} to={run.finished_at ?? ended} live={live} />
       </Stat>
-      <Stat label="Cost" testid="run-cost">
-        {money(totalCost(run))} <span className="text-muted-ink">of {money(run.max_cost_usd)}</span>
-      </Stat>
-      <Stat label="Turns" testid="run-turns">
-        {run.turns} <span className="text-muted-ink">of {run.max_turns}</span>
-      </Stat>
+      {sage ? (
+        <>
+          <Stat label="Cost" testid="run-cost">
+            {money(cost)} <span className="text-muted-ink">of {money(run.max_cost_usd)}</span>
+          </Stat>
+          <Stat label="Turns" testid="run-turns">
+            {run.turns} <span className="text-muted-ink">of {run.max_turns}</span>
+          </Stat>
+        </>
+      ) : (
+        <>
+          <Stat label="Checks" testid="run-checks">
+            {checks}
+          </Stat>
+          {/* An agent reports its cost only when its provider bills by the token; a terminal reports nothing. */}
+          {cost > 0 ? (
+            <Stat label="Cost" testid="run-cost">
+              {money(cost)}
+            </Stat>
+          ) : null}
+        </>
+      )}
     </dl>
+  )
+}
+
+/** What the agent driving the run waits for you to allow, with the command or files it names. */
+function AgentAsks({ run, events }: { run: RunInfo; events: RunEvent[] }) {
+  const answer = useAnswerAgent()
+  const asked = events.findLast((e) => e.type === "agent.asked")
+  const title = asked?.title ?? run.waiting
+  const command = asked ? asked.command : run.waiting
+  const reply = (allow: boolean) =>
+    answer.mutate({ params: { path: { paper_id: run.paper_id } }, body: { allow } })
+  return (
+    <div className="mt-5 space-y-3 rounded-card border border-line bg-surface-2 p-4" data-testid="agent-asks">
+      <p className="flex items-start gap-2 text-value">
+        <Tip label={NEEDS_OK}>
+          <span role="img" aria-label={NEEDS_OK} className="flex h-5 shrink-0 items-center">
+            <HandPalmIcon weight="fill" className="size-4 text-check" />
+          </span>
+        </Tip>
+        <span className="min-w-0 break-words">{title}</span>
+      </p>
+      {command && command !== title ? (
+        <pre className="rounded-inline border border-line bg-surface px-3 py-2 font-mono text-caption break-all whitespace-pre-wrap text-ink">
+          {command}
+        </pre>
+      ) : null}
+      {asked?.paths?.length ? (
+        <p className="font-mono text-caption break-all text-muted-ink">{asked.paths.join("\n")}</p>
+      ) : null}
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="outline"
+          size="compact"
+          disabled={answer.isPending}
+          onClick={() => reply(false)}
+          data-testid="agent-deny"
+        >
+          Deny
+        </Button>
+        <Button
+          size="compact"
+          disabled={answer.isPending}
+          onClick={() => reply(true)}
+          data-testid="agent-allow"
+        >
+          Allow
+        </Button>
+      </div>
+    </div>
   )
 }
 
@@ -208,7 +316,7 @@ function RunLog({ events }: { events: RunEvent[] }) {
         <span className="text-caption text-muted-ink tabular-nums">
           {events.length} {events.length === 1 ? "event" : "events"}
         </span>
-        <CopyButton text={text} />
+        <CopyButton text={text} failed="Couldn't copy the log" testid="copy-log" />
       </div>
       <pre
         className="text-caption leading-5 break-all whitespace-pre-wrap text-muted-ink"
@@ -217,30 +325,6 @@ function RunLog({ events }: { events: RunEvent[] }) {
         {text}
       </pre>
     </>
-  )
-}
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false)
-  const copy = () =>
-    navigator.clipboard.writeText(text).then(
-      () => {
-        setCopied(true)
-        setTimeout(() => setCopied(false), 1500)
-      },
-      () => toast.error("Couldn't copy the log"),
-    )
-  return (
-    <Button
-      variant="quiet"
-      size="compact"
-      disabled={!text}
-      onClick={() => void copy()}
-      data-testid="copy-log"
-    >
-      {copied ? <CheckIcon className="size-4 text-good" /> : <CopyIcon className="size-4" />}
-      {copied ? "Copied" : "Copy"}
-    </Button>
   )
 }
 
@@ -334,12 +418,12 @@ function Stage({ section: s, open, live }: { section: Section; open: boolean; li
             switch (e.kind) {
               case "line":
                 return <FeedLine key={e.key} line={e} />
+              case "check":
+                return <CheckView key={e.key} check={e} />
               case "turn":
                 return (
                   <TurnView key={e.key} turn={e} waiting={live && s.state === "active" && e === latest} />
                 )
-              case "problems":
-                return <Problems key={e.key} problems={e.problems} />
               case "summary":
                 return (
                   <p key={e.key} className="text-control leading-6 text-ink" data-testid="run-summary">
@@ -367,7 +451,33 @@ function FeedLine({ line }: { line: Line }) {
       data-tone={line.tone}
     >
       <span className="flex h-5 items-center justify-center">{TONE_ICON[line.tone]}</span>
-      <span className="min-w-0 break-words">{line.text}</span>
+      <span className="min-w-0 break-words">
+        {line.text}
+        {line.code ? (
+          <code className="mt-1 block font-mono text-caption break-all text-muted-ink">{line.code}</code>
+        ) : null}
+      </span>
+    </div>
+  )
+}
+
+/** One check of the folder, the line every driver shares, with its first findings folded under it. */
+function CheckView({ check: c }: { check: Check }) {
+  return (
+    <div className="space-y-2" data-testid="feed-check" data-tone={c.tone}>
+      <div className="grid grid-cols-[14px_1fr_auto] gap-2.5 text-control text-ink">
+        <span className="flex h-5 items-center justify-center">{TONE_ICON[c.tone]}</span>
+        <span className="min-w-0 break-words">{c.text}</span>
+        {c.snapshot !== null ? (
+          <span className="text-caption leading-5 text-muted-ink tabular-nums">Snapshot {c.snapshot}</span>
+        ) : null}
+      </div>
+      {c.problems.length ? (
+        <Problems
+          problems={c.problems}
+          label={c.problems.length < c.total ? `First ${c.problems.length}` : undefined}
+        />
+      ) : null}
     </div>
   )
 }
@@ -384,10 +494,9 @@ function TurnView({ turn, waiting }: { turn: Turn; waiting: boolean }) {
         </Fold>
       ) : null}
       {turn.say ? <p className="text-control text-ink">{turn.say.replaceAll("`", "")}</p> : null}
-      {turn.actions.map((a) => (
-        <FeedLine key={a.key} line={a} />
-      ))}
-      {turn.problems.length ? <Problems problems={turn.problems} /> : null}
+      {turn.actions.map((a) =>
+        a.kind === "check" ? <CheckView key={a.key} check={a} /> : <FeedLine key={a.key} line={a} />,
+      )}
       {!turn.answered ? (
         <p className="flex items-center gap-2.5 text-control text-muted-ink" data-testid="pending-turn">
           <CircleNotchIcon className="size-3.5 animate-spin" /> Thinking
@@ -400,7 +509,7 @@ function TurnView({ turn, waiting }: { turn: Turn; waiting: boolean }) {
   )
 }
 
-function Problems({ problems }: { problems: Problem[] }) {
+function Problems({ problems, label }: { problems: Problem[]; label?: string }) {
   const n = problems.length
   return (
     <Fold
@@ -409,7 +518,7 @@ function Problems({ problems }: { problems: Problem[] }) {
           <span className="flex justify-center">
             <WarningIcon weight="fill" className="size-3.5 text-check" />
           </span>
-          {n} {n === 1 ? "problem" : "problems"}
+          {label ?? `${n} ${n === 1 ? "problem" : "problems"}`}
         </span>
       }
     >

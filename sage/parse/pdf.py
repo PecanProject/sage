@@ -5,18 +5,29 @@ import math
 import re
 import threading
 from collections import Counter
-from collections.abc import Generator, Sequence
+from collections.abc import Callable, Generator, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from statistics import median
 
 import pypdfium2 as pdfium
+import pypdfium2.raw as pdfium_c
 from pdftext.extraction import dictionary_output
 from pydantic import BaseModel, TypeAdapter
 
 from sage.domain.normalize import norm
-from sage.parse.document import Block, BlockKind, Box, Document, Page, Table
-from sage.parse.layout import Span, blank, from_upright, is_bold, is_caption, layout, rotation_of, to_upright
+from sage.parse.document import Block, BlockKind, Box, Document, Page, Table, union
+from sage.parse.layout import (
+    Span,
+    blank,
+    center_in,
+    from_upright,
+    is_bold,
+    is_caption,
+    layout,
+    rotation_of,
+    to_upright,
+)
 
 TABLE_CAPTION = re.compile(r"^\s*Table\s*(\d+|[IVX]+)\b", re.IGNORECASE)
 REFERENCES = {"references", "literaturecited", "bibliography", "referencescited", "citedliterature", "literature"}
@@ -303,7 +314,7 @@ def _table_stubs(blocks: list[Block], pages: dict[int, Page]) -> list[Table]:
     """One pending Table per "Table N" caption. Worked out in the caption's upright frame, so a landscape table on
     a portrait page works too. The region runs from the caption down its column to the next caption, the first
     paragraph of body text, or the bottom margin."""
-    body = median([b.size for b in blocks if b.kind == "text" and len(b.text) > 200] or [10.0])
+    body = _body_size(blocks)
     tables: list[Table] = []
     per_page: Counter[int] = Counter()
     for b in blocks:
@@ -327,7 +338,7 @@ def _table_stubs(blocks: list[Block], pages: dict[int, Page]) -> list[Table]:
             and up(o.bbox)[1] > cap[3]
             and up(o.bbox)[0] < x1
             and up(o.bbox)[2] > x0
-            and (o.kind == "caption" or (len(o.text) > 300 and o.size >= 0.95 * body and o.kind == "text"))
+            and _stops_region(o, body)
         ]
         bottom = min([*stops, h * (1 - MARGIN)])
         per_page[b.page] += 1
@@ -346,6 +357,16 @@ def _table_stubs(blocks: list[Block], pages: dict[int, Page]) -> list[Table]:
     return tables
 
 
+def _body_size(blocks: list[Block]) -> float:
+    """The line height of the paper's body text."""
+    return median([b.size for b in blocks if b.kind == "text" and len(b.text) > 200] or [10.0])
+
+
+def _stops_region(b: Block, body: float) -> bool:
+    """A table's or figure's region ends at another caption or at a paragraph of body text."""
+    return b.kind == "caption" or (b.kind == "text" and len(b.text) > 300 and b.size >= 0.95 * body)
+
+
 def _column(cap: Box, width: float) -> tuple[float, float]:
     mid = width / 2
     if cap[2] < mid + 10 and cap[2] - cap[0] < width * 0.5:
@@ -353,3 +374,204 @@ def _column(cap: Box, width: float) -> tuple[float, float]:
     if cap[0] > mid - 10:
         return mid, width
     return 0.0, width
+
+
+def render_pages(data: bytes, pages: Iterable[int], *, scale: float, write: Callable[[int, bytes], None]) -> None:
+    """Each page as a PNG at `scale` x 72 dpi, handed to `write(page, png)` as soon as it is drawn, so a long paper is
+    never in memory whole. The PDF is opened for each page, so other requests reach PDFium between pages."""
+    for n in pages:
+        with _open(data) as pdf:
+            pg = pdf[n - 1]
+            bitmap = pg.render(scale=scale)
+            out = io.BytesIO()
+            bitmap.to_pil().save(out, format="PNG")
+            bitmap.close()
+            pg.close()
+        write(n, out.getvalue())
+
+
+FIGURE_CAPTION = re.compile(r"^\s*(?:Fig\.?|Figure)\s*(\d+|[IVX]+)\b", re.IGNORECASE)
+FIGURE_REACH = 72.0
+"""Points from a figure caption to the nearest drawing of its figure, at most."""
+FIGURE_JOIN = 36.0
+"""Points between two drawings of one figure, at most."""
+FIGURE_MIN = 36.0
+"""Points a figure's drawings must span both ways, so a rule or a logo is never taken for a figure."""
+FORM_DEPTH = 4
+"""How deep to look into nested Form XObjects for a figure's images and drawings."""
+
+
+@dataclass(frozen=True)
+class Figure:
+    anchor: str
+    """`p{page}.f{n}`: the `n`th figure caption on the page, counted like a table's `t`."""
+    page: int
+    region: Box
+    rotation: int = 0
+
+
+def figures(data: bytes, doc: Document) -> list[Figure]:
+    """The figure of each "Figure N" or "Fig. N" caption, where its drawings can be found. A figure is the images and
+    vector drawings closest to the caption: beside a narrow caption set in the margin, else above it in its column
+    (where most journals put a figure), else below it, never past the body text and captions around it, with the
+    short text among them such as axis labels. A drawing belongs to one figure. A caption with no drawings there has
+    no Figure, so a figure is never guessed."""
+    captions = [b for b in doc.blocks if b.kind == "caption" and FIGURE_CAPTION.match(b.text)]
+    if not captions:
+        return []
+    pages = {p.number: p for p in doc.pages}
+    drawn = _drawings(data, sorted({b.page for b in captions}))
+    body = _body_size(doc.blocks)
+    per_page: Counter[int] = Counter()
+    numbered = []
+    for b in captions:
+        per_page[b.page] += 1
+        numbered.append((f"p{b.page}.f{per_page[b.page]}", b))
+    found: dict[str, Figure] = {}
+    # Side captions first, so a figure beside its caption is never claimed by the one under it.
+    for anchor, b in sorted(numbered, key=lambda n: not _side_caption(n[1], pages[n[1].page])):
+        region = _figure_region(b, doc.blocks, drawn[b.page], pages[b.page], body)
+        if region is None:
+            continue
+        drawn[b.page] = [g for g in drawn[b.page] if not center_in(g, region)]
+        found[anchor] = Figure(anchor=anchor, page=b.page, region=_box(region), rotation=b.rotation)
+    return [found[a] for a, _ in numbered if a in found]
+
+
+def _side_caption(b: Block, page: Page) -> bool:
+    """A caption of several lines set in a narrow margin column, beside its figure."""
+    width = page.height if b.rotation in (90, 270) else page.width
+    box = to_upright(b.bbox, b.rotation, page.width, page.height)
+    return box[2] - box[0] < 0.3 * width and box[3] - box[1] > 3 * max(b.size, 1.0)
+
+
+def _figure_region(cap_block: Block, blocks: list[Block], drawn: list[Box], page: Page, body: float) -> Box | None:
+    """Worked out in the caption's upright frame, like a table's region."""
+    rot = cap_block.rotation
+    w, h = (page.height, page.width) if rot in (90, 270) else (page.width, page.height)
+
+    def up(box: Box) -> Box:
+        return to_upright(box, rot, page.width, page.height)
+
+    cap = up(cap_block.bbox)
+    near = [
+        (up(o.bbox), o)
+        for o in blocks
+        if o.page == cap_block.page and o.rotation == rot and o.anchor != cap_block.anchor
+    ]
+    stops = [box for box, o in near if _stops_region(o, body)]
+
+    def bounds(x0: float, x1: float, y: float) -> tuple[float, float]:
+        """The top and bottom of the free space around height `y` between x0 and x1."""
+        across = [box for box in stops if box[0] < x1 and box[2] > x0]
+        top = max([box[3] for box in across if box[3] <= y] + [h * MARGIN])
+        bottom = min([box[1] for box in across if box[1] >= y] + [h * (1 - MARGIN)])
+        return top, bottom
+
+    x0, x1 = _column(cap, w)
+    top, _ = bounds(x0, x1, cap[1])
+    _, bottom = bounds(x0, x1, cap[3])
+    side_top, side_bottom = bounds(cap[2], w, cap[1])
+    tries = [
+        ((x0, top, x1, cap[1]), lambda g: max(0.0, cap[1] - g[3]) <= FIGURE_REACH),
+        ((x0, cap[3], x1, bottom), lambda g: max(0.0, g[1] - cap[3]) <= FIGURE_REACH),
+    ]
+    beside = (
+        (cap[2], side_top, w, side_bottom),
+        lambda g: g[0] - cap[2] <= FIGURE_REACH and g[1] < cap[3] and g[3] > cap[1],
+    )
+    if _side_caption(cap_block, page):
+        tries.insert(0, beside)
+    for gap, seed in tries:
+        region = _cluster([g for g in (up(g) for g in drawn) if _within(g, gap)], seed)
+        if region is None:
+            continue
+        labels = [
+            box
+            for box, o in near
+            if o.kind == "text" and center_in(box, gap) and box[3] > region[1] and box[1] < region[3]
+        ]
+        return from_upright(union([region, *labels]), rot, page.width, page.height)
+    return None
+
+
+def _within(box: Box, gap: Box) -> bool:
+    """Most of the box is inside the gap."""
+    w = min(box[2], gap[2]) - max(box[0], gap[0])
+    h = min(box[3], gap[3]) - max(box[1], gap[1])
+    area = max(box[2] - box[0], 1.0) * max(box[3] - box[1], 1.0)
+    return w >= 0 and h >= 0 and max(w, 1.0) * max(h, 1.0) >= 0.8 * area
+
+
+def _cluster(drawn: list[Box], seed: Callable[[Box], bool]) -> Box | None:
+    """The drawings that reach the caption (`seed`), and those that reach them in turn, as one box."""
+    seeds = [g for g in drawn if seed(g)]
+    if not seeds:
+        return None
+    region = union(seeds)
+    rest = [g for g in drawn if not seed(g)]
+    grew = True
+    while grew:
+        grew = False
+        for g in list(rest):
+            if max(0.0, g[0] - region[2], region[0] - g[2], g[1] - region[3], region[1] - g[3]) <= FIGURE_JOIN:
+                region = union([region, g])
+                rest.remove(g)
+                grew = True
+    if region[2] - region[0] < FIGURE_MIN or region[3] - region[1] < FIGURE_MIN:
+        return None
+    return region
+
+
+def _drawings(data: bytes, pages: Sequence[int]) -> dict[int, list[Box]]:
+    """The boxes of each page's images and vector paths, in the text layer's frame, nested Form XObjects included. A
+    page-sized background is left out."""
+    out: dict[int, list[Box]] = {}
+    with _open(data) as pdf:
+        for n in pages:
+            pg = pdf[n - 1]
+            frame = pg.get_bbox()
+            rotation = pg.get_rotation()
+            boxes = [_layer_box(r, frame, rotation) for r in _objects(pg, None, None, 0)]
+            width, height = math.ceil(abs(frame[2] - frame[0])), math.ceil(abs(frame[3] - frame[1]))
+            out[n] = [
+                b
+                for b in boxes
+                if (b[2] - b[0] > 0.5 or b[3] - b[1] > 0.5)
+                and not (b[2] - b[0] >= 0.9 * width and b[3] - b[1] >= 0.9 * height)
+            ]
+            pg.close()
+    return out
+
+
+def _objects(
+    page: pdfium.PdfPage, form: pdfium.PdfObject | None, matrix: pdfium.PdfMatrix | None, depth: int
+) -> Iterator[tuple[float, float, float, float]]:
+    """PDF-space rects. An object inside a form has its bounds in the form's space, which the forms' matrices map to
+    the page's."""
+    for o in page.get_objects(max_depth=0, form=form):
+        if o.type == pdfium_c.FPDF_PAGEOBJ_FORM:
+            if depth < FORM_DEPTH:
+                inner = o.get_matrix()
+                yield from _objects(page, o, inner if matrix is None else inner.multiply(matrix), depth + 1)
+        elif o.type in (pdfium_c.FPDF_PAGEOBJ_IMAGE, pdfium_c.FPDF_PAGEOBJ_PATH):
+            rect = o.get_bounds()
+            left, bottom, right, top = rect if matrix is None else matrix.on_rect(*rect)
+            yield (float(left), float(bottom), float(right), float(top))
+
+
+def _layer_box(rect: Sequence[float], frame: Sequence[float], rotation: int) -> Box:
+    """A PDF-space rect in the frame pdftext gives characters: from the page box's top left, turned with the page."""
+    x_start, y_start, x_end, y_end = frame
+    width, height = math.ceil(abs(x_end - x_start)), math.ceil(abs(y_end - y_start))
+    left, bottom, right, top = rect
+    x0, x1 = left - x_start, right - x_start
+    y0, y1 = height - (top - y_start), height - (bottom - y_start)
+    match rotation:
+        case 90:
+            x0, y0, x1, y1 = height - y1, x0, height - y0, x1
+        case 180:
+            x0, y0, x1, y1 = width - x1, height - y1, width - x0, height - y0
+        case 270:
+            x0, y0, x1, y1 = y0, width - x1, y1, width - x0
+    return _box((min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)))

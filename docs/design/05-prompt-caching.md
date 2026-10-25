@@ -1,10 +1,10 @@
 # Prompt caching
 
-The extraction agent sends the whole conversation on every turn. Anthropic's prompt cache makes all but the newest part of it cost a tenth of the input price, or less. A healthy run reads more than 90% of its prompt tokens from the cache. One change in the wrong place can drop that to 40% without any error, so read this page before you change anything that goes into a request: the tools, `guide.md`, the paper view, the model settings, or how SAGE builds the history.
+The extraction agent sends the whole conversation on every turn. Anthropic's prompt cache makes all but the newest part of it cost a tenth of the input price, or less. A healthy run reads more than 90% of its prompt tokens from the cache. One change in the wrong place can drop that to 40% without any error, so read this page before you change anything that goes into a request: the tools, the SAGE skill (`sage/agents/skill/`), `paper.md`, the model settings, or how SAGE builds the history.
 
-The code is `models.cached` in `sage/agents/models.py`. `02-agent-design.md` describes the loop it serves.
+The code is `models.cached` in `sage/agents/models.py` and `extractor.instructions`. `02-agent-design.md` describes the loop it serves. It applies to SAGE's own loop only: an ACP agent or a terminal agent caches its own way.
 
-**This page is about Anthropic.** Its breakpoint rules, lookback limits and prices are Anthropic's and don't carry to OpenAI or Google. SAGE asks for caching with pydantic-ai's unified `cache` setting, which each provider renders its own way, so an OpenAI or Google run is cached too, just not on the terms measured here.
+**This page is about Anthropic.** Its breakpoint rules, lookback limits and prices are Anthropic's and don't carry to the other providers. SAGE asks for caching with pydantic-ai's unified `cache` setting, which each provider renders its own way. Bedrock's Claude models get the same three breakpoints, as `bedrock_cache_*`. OpenAI caches on its own, and takes explicit breakpoints only on GPT-5.6. Gemini caches implicitly. When SAGE moved from setting the three `anthropic_cache*` flags itself to the unified setting, the extraction agent's Anthropic requests were captured through a mocked transport before and after, and they matched byte for byte.
 
 ## How the cache works
 
@@ -22,7 +22,7 @@ The code is `models.cached` in `sage/agents/models.py`. `02-agent-design.md` des
 |---|---|---|---|
 | Tool definitions added, removed, reordered or reworded | lost | lost | lost |
 | Model | lost | lost | lost |
-| System text (the guide or the paper view) | kept | lost | lost |
+| System text (the skill or `paper.md`) | kept | lost | lost |
 | `tool_choice`, or images added or removed | kept | kept | lost |
 | Thinking settings or `effort` | depends on the model | depends on the model | lost |
 | Any earlier message edited, cleared or dropped, thinking blocks included | kept | kept | lost from that message on |
@@ -51,23 +51,23 @@ Per million tokens, from the [pricing page][price]:
 
 | Breakpoint | Covers | Lifetime |
 |---|---|---|
-| Last tool definition | The tools, the same for every paper | 5 minutes |
-| Last instruction block | `guide.md` and the paper view | 5 minutes |
+| Last tool definition | The tools (`FileSystem`'s, `view_image` and `check`, and `done`), the same for every paper | 5 minutes |
+| Last instruction block | `SKILL.md`, its references and `paper.md` | 5 minutes |
 | Automatic, on the last block | The conversation so far | 5 minutes |
 
 - pydantic-ai trims breakpoints past 4 (`_limit_cache_points` in `pydantic_ai/models/anthropic.py`).
 - Every breakpoint lasts 5 minutes. Across the saved Haiku runs, the longest gap between the starts of two turns was 189 seconds, so each turn reads the last one's entries well inside it. A resumed run, or a new run of the same paper with the same model and effort, sends identical tools and instructions, so it reads them too when it starts within 5 minutes.
 - SAGE doesn't use the 1-hour lifetime. On a 1-hour entry, each write costs 0.75 times the input price more. It pays off only when a run reuses the prefix after a gap of 5 to 60 minutes. On Haiku 5.5 that saves about $0.004 per reuse and costs $0.0027 on every run. A turn longer than 5 minutes, which a long Sonnet or Opus turn can be, makes the next turn write the conversation again. If those turns become common, measure the gaps before choosing 1 hour. ([extended thinking][think])
-- The table pass (`models.cached_instructions`, which is `cache={"messages": False}`) has one breakpoint, on its instructions, for 5 minutes. It covers its output tool as well, 784 tokens in all. Each call sends a different table image after that prefix, so an automatic breakpoint would only pay to write an image no other call reads. The first `max_concurrency` calls all write the prefix, because they start together. Later calls, and the next paper's table pass within 5 minutes, read it. The table pass transcribes each table once and keeps it in `document.json`, so the saving is small. On cropsci 2004's 10 tables, 4 calls wrote the prefix and 6 read it, and the pass cost $0.00317 instead of $0.00351.
-- `cache_diagnostics` (off by default) has the API compare each request with the previous one. It names where the prompt first differed. Anthropic alone offers it, so `models.cached` sets it only on an Anthropic run; asking another provider for it is a 400. SAGE logs the answer as `cache_miss` on the turn's `usage` event, and `sage logs` prints it. It is free, but Anthropic rejects it for HIPAA-enabled organizations. ([cache diagnostics][diag])
+- `paper.md` changes when the agent writes a CSV or a page transcription, but the instructions hold the copy the run started with, so the prefix stays fixed for the whole run. The agent reads the new grid from the file.
+- `cache_diagnostics` (off by default) has the API compare each request with the previous one. It names where the prompt first differed. Only Anthropic's own API offers it, so `models.cached` sets it only on a run whose host is `api.anthropic.com`. A gateway, Vertex AI and every other provider get none, since asking anyone else for it is a 400. SAGE logs the answer as `cache_miss` on the turn's `usage` event, and `sage logs` prints it. It is free, but Anthropic rejects it for HIPAA-enabled organizations. ([cache diagnostics][diag]) Its switch is under the built-in Anthropic provider on the Manage page (`cache-diagnostics`), not on Settings.
 
 ## Rules
 
 Keep every one of these. Each has broken caching in a real agent.
 
 1. **Keep the history append-only.** Never clear, summarise, truncate or reorder earlier messages, tool results or thinking blocks. That includes server-side context editing (`clear_tool_uses_*`, `clear_thinking_*`) and pydantic-ai history processors. An edit at turn 3 makes every later turn write everything after turn 3 again. See [What clearing cost](#what-clearing-cost). `rules/append-only-history.yml` fails `scripts/check` on context editing, compaction and history processors.
-2. **Keep the prefix static.** Nothing that varies between runs of the same paper goes into the tools or the instructions: no time, date, run id, budget, setting or counter. Put per-run facts, such as the resume summary and the scientist's guidance, in the first user message, which comes after the cached prefix.
-3. **Build the tools the same way every time.** Same list, same order, same descriptions, same JSON schema, for every paper and every turn. Never add or remove a tool mid-run. To steer the agent, change what a tool returns, not which tools exist. ([Manus][manus], [Claude Code][cc])
+2. **Keep the prefix static.** Nothing that varies between runs of the same paper goes into the tools or the instructions: no time, date, run id, budget, setting, counter or path to the folder. Put per-run facts, such as the resume summary and the scientist's guidance, in the first user message, which comes after the cached prefix.
+3. **Build the tools the same way every time.** Same list, same order, same descriptions, same JSON schema, for every paper and every turn. `FileSystem`'s tools are pinned by `DEFAULT_TOOL_NAMES` and the pinned pydantic-ai-harness version; an upgrade that changes their descriptions starts every paper cold once. Never add or remove a tool mid-run. To steer the agent, change what a tool returns, not which tools exist. ([Manus][manus], [Claude Code][cc])
 4. **Serialise deterministically.** Anything rendered into the prefix comes from ordered data. Sort sets and dicts before you join or dump them. ([Manus][manus], [prompt caching][pc])
 5. **Fix the model, effort and thinking for the whole run.** A run on another model never shares a cache. To change effort mid-run, use the per-message effort system message under its beta, not the top-level setting. ([effort][effort])
 6. **Keep `tool_choice` the same on every turn.**
@@ -81,8 +81,8 @@ Keep every one of these. Each has broken caching in a real agent.
   - hit rate = `cache_read_tokens / input_tokens`
   - write share = `cache_write_tokens / input_tokens`
   - uncached ≈ `input_tokens − cache_read_tokens − cache_write_tokens`
-- The run totals are in `run.json` (`usage`, and `table_usage` for the table pass). Each turn's usage is in `events.jsonl`, as a `type: "usage"` event with `role: "extractor"`.
-- **A healthy turn** reads all of the previous turn's prompt and writes only what that turn added: the last response, which is mostly thinking and `write` arguments, and the new tool results. The uncached tail is a few tokens.
+- The run totals are in `run.json` (`usage`). Each turn's usage is in `events.jsonl`, as a `type: "usage"` event with `role: "extractor"`.
+- **A healthy turn** reads all of the previous turn's prompt and writes only what that turn added: the last response, which is mostly thinking and file edits, and the new tool results. The uncached tail is a few tokens.
 - **A broken turn** has its read fall back to a fixed number, often the size of the prefix, while it writes most of the conversation again. Turn on `cache_diagnostics` and read `cache_miss` to see whether tools, system or messages changed.
 - The first turn of a cold run always writes the whole prefix. A run that ends writes a last tail no turn reads. SAGE can avoid neither.
 
@@ -93,7 +93,7 @@ Run `20261017T182326-deb2` on cropsci 2004 (Haiku 5.5) used Anthropic's `clear_t
 - Turns 3 to 8 read 95 to 99% of their prompt from the cache.
 - From turn 9, each turn cleared one more tool result, in the middle of the conversation. No message entry still matched, so each turn read only the 35,616-token prefix and wrote 73,000 to 80,000 tokens again. Turn 17 cleared nothing new and read 99.7%.
 - Those turns cost about $0.05 each instead of about $0.008. That came to $0.39 of the run's $0.56, all above Haiku's 100K line.
-- The prompt barely shrank: 107,490 tokens at turn 8, 108,757 at turn 9. Tool results are small, and most of the context is the model's own `write` calls and thinking, which clearing never touched.
+- The prompt barely shrank: 107,490 tokens at turn 8, 108,757 at turn 9. Tool results are small, and most of the context is the model's own record writes and thinking, which clearing never touched.
 
 Anthropic's own [context-editing docs][ce] say clearing invalidates cached prefixes. They suggest `clear_at_least` so a clear is big enough to pay for the rewrite. SAGE does not clear at all.
 

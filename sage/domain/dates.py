@@ -365,31 +365,31 @@ def date_problem(d: DateRange, quotes: Iterable[str]) -> str | None:
         match, rule = found
         if (rest := _unread(cleaned, match)) is not None:
             return (
-                f"code reads '{match[0]}' in '{d.reported_text}' but not '{rest}'; put one date, range or timing in "
-                "reported_text (e.g. 'May 18-19, 2006' for two days), or set the value null with a note when the paper "
-                "gives only one end of the span ('before 2000')"
+                f"code reads '{match[0]}' in '{d.reported_text}' but not '{rest}'; write one date, range or timing "
+                '(for two days, ["May 18-19, 2006", p3.b4, note: how]), or [null, note: why] when the paper gives '
+                "only one end of the span ('before 2000')"
             )
         if rule is not None and rule.season:
             return None
         if rule is not None and rule.needs_year and match.groupdict().get("y") is None and len(years) != 1:
             if not years:
                 return (
-                    f"'{d.reported_text}' has no year and no quote of this field states one. Papers usually state the "
-                    "year once, elsewhere in the methods ('in 2006', 'the 2006 growing season', 'September of 2006'): "
-                    "keep this text and also cite that sentence (a field can cite several anchors). Set the value null "
+                    f"'{d.reported_text}' has no year and no cited text states one. Papers usually state the year "
+                    "once, elsewhere in the methods ('in 2006', 'the 2006 growing season', 'September of 2006'): keep "
+                    "this value and also cite that sentence's anchor, [value, p3.b4, p2.b1]. Write [null, note: why] "
                     "only if no sentence in the paper states the year"
                 )
             listed = ", ".join(str(y) for y in years)
             return (
-                f"'{d.reported_text}' has no year and the quotes state several ({listed}); cite only the text for "
-                "this date"
+                f"'{d.reported_text}' has no year and the cited text states several ({listed}); cite only the anchors "
+                'for this date, or pin the words that give its year, {p2.b1: "in 2006"}'
             )
     if not _DATE_LIKE.search(cleaned):
         return None
     return (
-        f"code can't read a date from '{d.reported_text}'; put one date, range or timing in reported_text as the "
-        "paper prints it (e.g. '15 May 1999', 'May-June 2000', '45 days after sowing'), or set the value null with "
-        "a note if the paper doesn't date it"
+        f"code can't read a date from '{d.reported_text}'; write one date, range or timing as the paper prints it "
+        "(e.g. '15 May 1999', 'May-June 2000', '45 days after sowing'), or [null, note: what was looked for] if the "
+        "paper doesn't date it"
     )
 
 

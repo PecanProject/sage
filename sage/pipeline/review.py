@@ -153,7 +153,6 @@ def _value(f: Field[str] | None) -> str | None:
 
 
 def _quantity(q: QuantityValue) -> str:
-    # The printed text often carries the units already ("50.2 g"); don't say them twice.
     if not q.reported_units or q.reported_units in q.reported_text:
         return q.reported_text
     return f"{q.reported_text} {q.reported_units}"

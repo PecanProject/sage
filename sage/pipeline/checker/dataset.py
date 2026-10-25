@@ -3,9 +3,10 @@ what it is a mean of agree with the treatment it belongs to."""
 
 import re
 from collections import defaultdict
+from collections.abc import Collection
 from decimal import ROUND_HALF_UP, Decimal
 
-from sage.domain.normalize import contains, norm, squash
+from sage.domain.normalize import contains, norm, numbers_in, read_number, squash
 from sage.domain.units import normalize_unit
 from sage.ir.draft import Draft, Overwrite
 from sage.ir.schema import (
@@ -25,7 +26,9 @@ from sage.ir.schema import (
 from sage.pipeline.checker.issues import Issue, blocking, warning
 
 
-def check_dataset(draft: Draft) -> list[Issue]:
+def check_dataset(draft: Draft, uncompiled: Collection[str] = ()) -> list[Issue]:
+    """`uncompiled` holds ids whose records failed to compile: a reference to one is that record's problem, reported at
+    its own lines, so it is left out here."""
     records = draft.records
     checks: list[tuple[str, str, str, str]] = []
     for rid, record in records.items():
@@ -35,9 +38,10 @@ def check_dataset(draft: Draft) -> list[Issue]:
             if isinstance(value, Field):
                 value = value.value
             refs = value if isinstance(value, list) else [value]
-            checks += [(rid, attr, ref, wanted) for ref in refs if isinstance(ref, str)]
+            checks += [(rid, attr, ref, wanted) for ref in refs if isinstance(ref, str) and ref not in uncompiled]
     issues = [i for c in checks if (i := _ref_issue(*c, records)) is not None]
     issues += _duplicate_observations(records)
+    issues += _two_values(records)
     issues += _same_value_other_variable(records, {o for d in draft.tables.values() for o in d.observation_ids})
     issues += _duplicate_names(records)
     issues += _site_against_treatment(records)
@@ -73,7 +77,11 @@ def _ref_issue(rid: str, attr: str, ref: str, wanted: str, records: dict[str, En
     target = records.get(ref)
     if target is None:
         known = [r for r, rec in records.items() if rec.type == wanted][:8]
-        hint = f"known {wanted} ids: {', '.join(known)}" if known else f"no {wanted} is written yet; write it first"
+        hint = (
+            f"known {wanted} ids: {', '.join(known)}"
+            if known
+            else f"no {wanted} is written yet; write it in records/ first"
+        )
         return blocking("dataset", f"{rid}.{attr}", f"points at '{ref}' but no record has that id; {hint}")
     if target.type != wanted:
         return blocking("dataset", f"{rid}.{attr}", f"points at '{ref}', which is a {target.type}, not a {wanted}")
@@ -95,10 +103,54 @@ def _duplicate_observations(records: dict[str, Entity]) -> list[Issue]:
         )
         if key in seen:
             issues.append(
-                blocking("dataset", rid, f"duplicates {seen[key]} (same treatment, variable, time and value); drop one")
+                blocking(
+                    "dataset", rid, f"duplicates {seen[key]} (same treatment, variable, time and value); remove one"
+                )
             )
         else:
             seen[key] = rid
+    return issues
+
+
+def _two_values(records: dict[str, Entity]) -> list[Issue]:
+    """Two values for one Treatment that nothing else tells apart: the same Variable and name, site, time, depth,
+    method, crop, species, replicate, replicate level, scope and unit. Each level a table reports needs a Treatment of
+    its own, so this is most often a level with no Treatment, written onto another level's."""
+    seen: dict[tuple[object, ...], tuple[str, str]] = {}
+    issues: list[Issue] = []
+    for rid, o in records.items():
+        if not isinstance(o, Observation) or o.value.value is None:
+            continue
+        depth = o.depth.value if o.depth is not None else None
+        over = o.aggregated_over_factors.value if o.aggregated_over_factors is not None else None
+        key = (
+            o.treatment_id,
+            o.variable_id,
+            squash(o.variable_name.value or "").lower(),
+            o.site_id,
+            _when(o),
+            squash(depth.reported_text).lower() if depth is not None else None,
+            o.method_id,
+            o.crop_id,
+            o.species_id,
+            o.replicate_id,
+            o.is_raw_replicate_level.value,
+            o.reported_effect_scope.value,
+            tuple(sorted(_key(f) for f in over or [])),
+            squash(normalize_unit(o.value.value.reported_units)).lower(),
+        )
+        text = o.value.value.reported_text
+        first, first_text = seen.setdefault(key, (rid, text))
+        if squash(first_text) != squash(text):
+            issues.append(
+                blocking(
+                    "dataset",
+                    rid,
+                    f"'{text}' and {first}'s '{first_text}' are two values for {o.treatment_id} with the same "
+                    "variable, site, time and depth. Give each level the table reports its own Treatment, with "
+                    "factor_levels naming it, and point the value at it; tell replicate values apart with replicate",
+                )
+            )
     return issues
 
 
@@ -149,13 +201,10 @@ def _when(o: Observation) -> tuple[object, ...]:
 
 def _decimals(text: str, value: float) -> int:
     """Decimal places the value is printed with in its text."""
-    for token in text.replace(",", ".").split():
-        head = token.lstrip("±+-<>≤≥(").split("±")[0]
-        try:
-            if float(head.rstrip(".")) == value:
-                return len(head.split(".")[1]) if "." in head else 0
-        except ValueError:
-            continue
+    for token in numbers_in(text):
+        read = read_number(token)
+        if read is not None and abs(read[0]) == abs(value):
+            return read[1]
     return 0
 
 
@@ -193,8 +242,8 @@ def _site_against_treatment(records: dict[str, Entity]) -> list[Issue]:
                 blocking(
                     "dataset",
                     f"{rid}.site_id",
-                    f"is '{o.site_id}', but its treatment {o.treatment_id} is at '{t.site_id}'; a treatment run at "
-                    "several sites is one Treatment per site",
+                    f"is '{o.site_id}', but its treatment {o.treatment_id} is at '{t.site_id}'; fix site or treatment. "
+                    "A treatment run at several sites is one Treatment per site",
                 )
             )
     return issues
@@ -225,8 +274,7 @@ def _scope_against_treatment(records: dict[str, Entity]) -> list[Issue]:
                         "dataset",
                         f"{rid}.aggregated_over_factors",
                         f"{o.treatment_id} fixes {', '.join(clash)}, so its values are not averaged over that factor; "
-                        "point the value at the Treatment it belongs to, or drop the factor from "
-                        "aggregated_over_factors",
+                        "set treatment to the Treatment it belongs to, or drop the factor from over",
                     )
                 )
         elif o.reported_effect_scope.value == "treatment_mean":
@@ -244,7 +292,8 @@ def _scope_against_treatment(records: dict[str, Entity]) -> list[Issue]:
                         f"{rid}.reported_effect_scope",
                         f"{o.treatment_id} fixes only {', '.join(t.factor_levels) or 'no factor'}, while other "
                         f"Treatments in its Study fix {names}; a value for it is most likely averaged over {names}. "
-                        "If the paper says so, use aggregated_mean",
+                        f"If the paper says so, set scope: aggregated_mean and over: [{names}] on the group, with "
+                        "scope_at pointing at the text that says it",
                     )
                 )
     return issues

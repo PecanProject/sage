@@ -1,62 +1,30 @@
-"""What the agent's tools return, and the workspace they act on. The pipeline implements Workspace."""
+"""What SAGE's own agent works on: the paper's folder, through the Workspace the pipeline implements. Check and done
+are the same `sage extract check` and `sage extract done` every other driver calls."""
 
+from pathlib import Path
 from typing import Protocol
 
-from pydantic import BaseModel, JsonValue
-
-from sage.ir.draft import Draft, Mark, TableRoles
-from sage.ir.schema import Record
+from pydantic import BaseModel
 
 
-class WriteOutcome(BaseModel):
-    id: str
-    ok: bool
-    errors: list[str] = []
-    warnings: list[str] = []
-    marked_unresolved: list[str] = []
-
-
-class WriteResult(BaseModel):
-    results: list[WriteOutcome]
-    open_blocking: int
-
-
-class ExpandResult(BaseModel):
-    table_id: str
-    observations: int
-    failed: int = 0
-    empty_cells: int = 0
-    skipped_rows: list[int] = []
-    errors: list[str] = []
-    samples: list[str] = []
-
-
-class CheckResult(BaseModel):
-    blocking: list[str]
-    warnings: list[str]
-    blocking_total: int
-    warning_total: int
-
-
-class ReadResult(BaseModel):
-    records: list[Record]
-    unknown: list[str] = []
-
-
-class FinishResult(BaseModel):
+class Finished(BaseModel):
     accepted: bool
-    message: str
-    blocking: list[str] = []
+    text: str
+    """What `sage extract done` prints: the counts when accepted, the check when refused."""
 
 
 class Workspace(Protocol):
     @property
-    def draft(self) -> Draft: ...
+    def folder(self) -> Path:
+        """The paper's folder, the agent's working directory."""
+        ...
 
-    def write(self, records: list[JsonValue]) -> WriteResult: ...
+    def image(self, path: str) -> bytes | str:
+        """A PNG in the folder, or why it can't be read."""
+        ...
 
-    def expand_table(self, table_id: str, roles: TableRoles | None, irrelevant_reason: str | None) -> ExpandResult: ...
+    def check(self) -> str:
+        """The check as `sage extract check` prints it."""
+        ...
 
-    def check(self) -> CheckResult: ...
-
-    def finish(self, summary: str, unresolved: list[Mark]) -> FinishResult: ...
+    def done(self, summary: str) -> Finished: ...

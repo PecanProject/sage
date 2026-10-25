@@ -18,6 +18,21 @@ from sage import core
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="Extract experiment records from agronomy papers.")
 config_app = typer.Typer(no_args_is_help=True, help="Read and change settings, the same ones the UI's Settings edits.")
 app.add_typer(config_app, name="config")
+models_app = typer.Typer(help="The models extraction may use, with their prices.")
+app.add_typer(models_app, name="models")
+providers_app = typer.Typer(
+    help="Where models come from: Anthropic, OpenAI or compatible, Azure, Gemini, Vertex, Bedrock."
+)
+app.add_typer(providers_app, name="providers")
+extract_app = typer.Typer(
+    no_args_is_help=True,
+    help="Extract a paper by editing the files in its folder: start, check until clean, done. The SAGE skill says how.",
+)
+app.add_typer(extract_app, name="extract")
+agents_app = typer.Typer(help="Coding agents SAGE can start: Claude Code, Codex, Gemini CLI, OpenCode.")
+app.add_typer(agents_app, name="agents")
+skill_app = typer.Typer(no_args_is_help=True, help="The SAGE skill, which tells coding agents how to extract.")
+app.add_typer(skill_app, name="skill")
 
 JSON: TypeAdapter[JsonValue] = TypeAdapter(JsonValue)
 # Markup off: record labels, checker reasons and summaries come from papers and models, and their brackets
@@ -92,22 +107,165 @@ def config_get(key: str, as_json: JsonOpt = False) -> None:
 
 
 @config_app.command("set")
-def config_set(key: str, value: str, as_json: JsonOpt = False) -> None:
+def config_set(
+    key: str,
+    value: str,
+    as_json: JsonOpt = False,
+) -> None:
     """Change a setting in config.toml. An empty value restores the default."""
     view = core.update_settings({key: value})
     emit({key: view.values[key]}) if as_json else print(f"{key} = {json.dumps(view.values[key])}")
 
 
-@config_app.command("test-key")
-def config_test_key(as_json: JsonOpt = False) -> None:
-    """Ask the extraction model's provider whether the saved API key works. Costs nothing."""
-    check = core.test_api_key()
+@models_app.callback(invoke_without_command=True)
+def models_list(ctx: typer.Context, as_json: JsonOpt = False) -> None:
+    """Your models, with their price, whether their provider is ready, and which one extracts."""
+    if ctx.invoked_subcommand is not None:
+        return
+    s = core.settings()
+    found = core.models()
     if as_json:
-        emit(check)
-    else:
-        print(check.message)
-    if not check.ok:
+        emit(found)
+        return
+    ready = {p.id: not p.missing for p in core.providers()}
+    table = Table(ids("model"), "name", "$ in / out per M", "effort", "provider", "default for")
+    for m in found:
+        price = f"{m.input_usd:g} / {m.output_usd:g}" + (" (yours)" if m.your_price else "")
+        status = "ready" if ready.get(m.provider, False) else "needs setup"
+        effort = m.effort or "doesn't think"
+        table.add_row(m.id, m.title, price, effort, status, "extract" if s.default_using() == m.id else "")
+    out.print(table)
+
+
+@models_app.command("available")
+def models_available(
+    provider: Annotated[str | None, typer.Argument(help="A provider id. Default: every ready one.")] = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Ask each provider which models it lets you use, which tests its credentials too. Costs nothing."""
+    chosen = [provider] if provider is not None else [p.id for p in core.providers() if not p.missing]
+    if not chosen:
+        raise core.SageError("missing_key", "no provider is set up yet; see `sage providers`")
+    found = [core.available_models(p) for p in chosen]
+    if as_json:
+        emit(found)
+    for a in [] if as_json else found:
+        out.print(Text.assemble((f"{a.provider}: ", "bold"), (a.message, "green" if a.ok else "red")))
+        for m in a.models:
+            price = "no price" if m.input_usd is None else f"${m.input_usd:g} / ${m.output_usd:g}"
+            notes = [n for n, on in (("yours", m.yours), ("can't call tools", not m.tools)) if on]
+            out.print(f"  {m.id}  {m.title}  {price}" + (f" ({', '.join(notes)})" if notes else ""))
+    if not found or not all(a.ok for a in found):
         raise typer.Exit(1)
+
+
+@models_app.command("add")
+def models_add(
+    model_id: Annotated[str, typer.Argument(help="As provider:name, such as work:gpt-5.1.")],
+    price: Annotated[
+        tuple[float, float] | None,
+        typer.Option(help="Your dollars per million input and output tokens. Needed where SAGE has no price."),
+    ] = None,
+    cache_price: Annotated[
+        tuple[float, float] | None,
+        typer.Option(
+            help="Your dollars per million tokens read from and written to the prompt cache, with --price. Default: "
+            "genai-prices' discount for the model, else the input price."
+        ),
+    ] = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Add a model to yours, or change its price."""
+    found = core.add_model(model_id, price=price, cache_price=cache_price)
+    emit(found) if as_json else out.print(", ".join(m.id for m in found))
+
+
+@models_app.command("set")
+def models_set(
+    model_id: Annotated[str, typer.Argument(help="One of your models, as `sage models` lists it.")],
+    effort: Annotated[
+        str, typer.Option(help="How hard SAGE's own agent has it think: one of the levels `sage models --json` lists.")
+    ],
+    as_json: JsonOpt = False,
+) -> None:
+    """Change how hard one of your models thinks when SAGE's own agent runs it."""
+    found = core.set_model_effort(model_id, effort)
+    if as_json:
+        emit(found)
+        return
+    out.print(", ".join(f"{m.id} {m.effort or 'no effort'}" for m in found))
+
+
+@models_app.command("remove")
+def models_remove(model_ids: list[str], as_json: JsonOpt = False) -> None:
+    """Remove models from yours. If Extract with named one, it goes back to the first model left."""
+    found = core.remove_models(model_ids)
+    emit(found) if as_json else out.print(", ".join(m.id for m in found))
+
+
+@providers_app.callback(invoke_without_command=True)
+def providers_list(ctx: typer.Context, as_json: JsonOpt = False) -> None:
+    """Your providers, and what each still needs."""
+    if ctx.invoked_subcommand is not None:
+        return
+    found = core.providers()
+    if as_json:
+        emit(found)
+        return
+    table = Table(ids("provider"), "kind", "name", "status")
+    for p in found:
+        table.add_row(p.id, p.kind, p.title, "ready" if not p.missing else f"needs {' and '.join(p.missing)}")
+    out.print(table)
+
+
+@providers_app.command("kinds")
+def providers_kinds(as_json: JsonOpt = False) -> None:
+    """The kinds of provider you can add, and the fields each takes."""
+    found = core.provider_kinds()
+    if as_json:
+        emit(found)
+    for k in [] if as_json else found:
+        out.print(Text.assemble((k.kind, "bold"), f"  {k.title}: {k.help}"))
+        out.print("  fields: " + ", ".join(f.name for f in k.fields) + ", name")
+
+
+@providers_app.command("add")
+def providers_add(
+    provider: Annotated[str, typer.Argument(help="An id of your own, such as work or azure-eu.")],
+    kind: Annotated[str, typer.Argument(help="anthropic, openai, azure, google, vertex or bedrock.")],
+    name: Annotated[str | None, typer.Option(help="What the Manage page calls it.")] = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Add a provider. Then give it its fields with `sage providers set`."""
+    found = core.save_provider(provider, {} if name is None else {"name": name}, kind=kind)
+    emit(found) if as_json else out.print(f"added {found.id}; it needs {' and '.join(found.missing) or 'nothing more'}")
+
+
+@providers_app.command("set")
+def providers_set(
+    provider: str,
+    field: Annotated[str, typer.Argument(help="api_key, base_url, region, project, api_version, aws_profile, ...")],
+    value: Annotated[
+        str | None, typer.Argument(help="Leave it out to type it at a hidden prompt, which keeps a key out of history.")
+    ] = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Set one field of a provider. An empty value clears it."""
+    if value is None:
+        value = str(typer.prompt(field, hide_input=True, default="", show_default=False))
+    found = core.save_provider(provider, {field: value})
+    if as_json:
+        emit(found)
+    else:
+        status = "ready" if not found.missing else f"needs {' and '.join(found.missing)}"
+        out.print(f"{provider}: {field} {'set' if value.strip() else 'cleared'}; {status}")
+
+
+@providers_app.command("remove")
+def providers_remove(provider: str, as_json: JsonOpt = False) -> None:
+    """Remove a provider you added. Its models have to go first."""
+    found = core.remove_provider(provider)
+    emit(found) if as_json else out.print(", ".join(p.id for p in found))
 
 
 # papers -----------------------------------------------------------------------------------------------------------
@@ -150,52 +308,66 @@ def papers(as_json: JsonOpt = False) -> None:
     out.print(table)
 
 
-# runs -------------------------------------------------------------------------------------------------------------
+# extract ----------------------------------------------------------------------------------------------------------
+
+PaperArg = Annotated[str, typer.Argument(help="The paper's id, as `sage papers` lists it.")]
 
 
-@app.command("run")
-def run_cmd(
-    paper_id: Annotated[
-        str | None, typer.Argument(help="The paper to extract. Omit it with --resume or --continue.")
+@extract_app.command("run")
+def extract_run(
+    paper_ids: Annotated[
+        list[str] | None, typer.Argument(help="Papers to extract. Omit them with --all, --resume or --continue.")
     ] = None,
-    model: Annotated[
-        str | None, typer.Option(help="Extraction model, e.g. claude-sonnet-5-5 or openai:gpt-5.1.")
+    every: Annotated[bool, typer.Option("--all", help="Extract every paper with no data and nothing running.")] = False,
+    using: Annotated[
+        str | None,
+        typer.Option(
+            "--with",
+            help="An agent (claude, codex, or claude:sonnet for its model) or a model SAGE's own agent runs on. "
+            "Default: the extract_with setting, else the first of your models.",
+        ),
     ] = None,
-    effort: Annotated[str | None, typer.Option(help="low, medium, high, xhigh or max.")] = None,
-    resume: Annotated[str | None, typer.Option(help="Continue this unfinished run from its saved draft.")] = None,
+    effort: Annotated[
+        str | None,
+        typer.Option(
+            help="How hard it thinks: the model's or agent's own level; see `sage models` or `sage agents offer`. "
+            "Default: the model's or agent's effort setting."
+        ),
+    ] = None,
+    resume: Annotated[
+        str | None, typer.Option(help="Carry on this unfinished run with what its budget has left.")
+    ] = None,
     continue_from: Annotated[
         str | None,
-        typer.Option("--continue", help="Start a new run from this run's draft, with --guidance on what to add or fix"),
+        typer.Option("--continue", help="Start a new run after this one, with --guidance on what to add or fix."),
     ] = None,
     guidance: Annotated[
         str | None, typer.Option(help="What the agent should add or fix, with --continue or --resume.")
     ] = None,
-    review_notes: Annotated[
-        bool, typer.Option(help="Pass your edits, rejections and review notes to the agent too.")
-    ] = True,
     follow: Annotated[
         bool, typer.Option(help="Stream the run's log until it ends. Ctrl-C stops watching only.")
     ] = True,
     as_json: JsonOpt = False,
 ) -> None:
-    """Start an extraction. It runs in the background; by default this follows its log until it ends."""
+    """Have SAGE extract papers. Runs go in the background, `parallel_runs` at a time, the rest queued. One is
+    followed to its end; several print a line as each ends."""
     if resume is not None:
-        info = core.resume_run(resume, guidance=guidance, review_notes=review_notes)
+        info = core.resume_run(resume, guidance=guidance)
     elif continue_from is not None:
-        info = core.continue_run(continue_from, guidance, review_notes=review_notes, model=model, effort=effort)
-    elif paper_id is None:
-        raise core.SageError("invalid", "give a paper id, or --resume or --continue <run id>")
+        info = core.continue_run(continue_from, guidance, using=using, effort=effort)
+    elif (paper_ids is None) == (not every):
+        raise core.SageError("invalid", "give paper ids or --all, or --resume or --continue <run id>")
     else:
-        info = core.start_run(paper_id, model=model, effort=effort)
+        started = core.start_runs(None if every else paper_ids, using=using, effort=effort)
+        if len(started) > 1 or every:
+            _follow_many(started, follow=follow, as_json=as_json)
+            return
+        info = started[0]
     if not follow:
         emit(info) if as_json else out.print(Text.assemble("started run ", (info.id, "bold"), f" on {info.paper_id}"))
         return
     if not as_json:
-        out.print(
-            Text.assemble(
-                "run ", (info.id, "bold"), f" on {info.paper_id} ({info.extraction_model}, effort {info.effort})"
-            )
-        )
+        out.print(Text.assemble("run ", (info.id, "bold"), f" on {info.paper_id} ({_driver_line(info)})"))
     _follow(info.id, as_json=as_json)
     final = core.run(info.id)
     if as_json:
@@ -204,57 +376,195 @@ def run_cmd(
         _print_run_line(final)
 
 
-@app.command()
-def stop(run_id: str, as_json: JsonOpt = False) -> None:
-    """Stop a running extraction. It keeps what it found; `sage run --resume` carries it on."""
-    info = core.stop_run(run_id)
-    emit(info) if as_json else out.print(Text.assemble("stopping run ", (info.id, "bold")))
+def _driver_line(info: core.RunInfo) -> str:
+    if info.driver == "here":
+        return "from a terminal"
+    effort = f", effort {info.effort}" if info.effort is not None else ""
+    if info.driver == "agent":
+        return f"{info.agent}" + (f", {info.agent_model}" if info.agent_model is not None else "") + effort
+    return f"{info.extraction_model}{effort}"
 
 
-@app.command("worker", hidden=True)
-def worker(run_id: str, resume: bool = False) -> None:
-    """The detached process behind a run. It reads stdin to the end first: the parent closes it once run.json is
-    written."""
-    core.work(run_id, resume=resume)
-
-
-@app.command("run-all")
-def run_all(
-    paper_ids: Annotated[
-        list[str] | None, typer.Argument(help="Papers to extract. Omit for every paper with no records yet.")
-    ] = None,
-    jobs: Annotated[
-        int | None, typer.Option(help="Papers to extract at once. Default: the batch_jobs setting.")
-    ] = None,
-    model: Annotated[
-        str | None, typer.Option(help="Extraction model, e.g. claude-sonnet-5-5 or openai:gpt-5.1.")
-    ] = None,
-    effort: Annotated[str | None, typer.Option(help="low, medium, high, xhigh or max.")] = None,
+@extract_app.command("start")
+def extract_start(
+    paper_id: PaperArg,
+    guidance: Annotated[str | None, typer.Option(help="What this run should add or fix.")] = None,
     as_json: JsonOpt = False,
 ) -> None:
-    """Extract many papers in one batch. It runs in the background, a few papers at a time; watch it with `sage
-    runs`, and stop a paper with `sage stop`."""
-    batch = core.start_batch(paper_ids or None, jobs=jobs, model=model, effort=effort)
+    """Open a run on a paper that you (or the agent in this terminal) drive. Prints the folder to work in."""
+    status = core.extract_start(paper_id, guidance=guidance)
     if as_json:
-        emit(batch)
+        emit(status)
         return
-    out.print(Text.assemble("batch started on ", (str(len(batch.papers)), "bold"), " papers:"))
-    for paper_id in batch.papers:
-        out.print(f"  {paper_id}")
-    out.print(Text("watch it with `sage runs`", style="dim"))
+    run_id = status.run.id if status.run is not None else "?"
+    out.print(f"run {run_id} open on {status.paper_id}\nfolder: {status.folder}")
 
 
-@app.command("batch", hidden=True)
-def batch(
-    paper_ids: list[str],
-    jobs: int = 2,
-    model: str | None = None,
-    effort: str | None = None,
+@extract_app.command("check")
+def extract_check(
+    paper_id: PaperArg,
+    every: Annotated[bool, typer.Option("--all", help="List every error and warning, not the first few.")] = False,
+    as_json: JsonOpt = False,
 ) -> None:
-    """The detached batch supervisor's body, whose stdout is the batch log."""
-    results = core.work_batch(paper_ids, jobs=jobs, model=model, effort=effort, say=out.print)
-    skipped = [r for r in results if r.error is not None]
-    out.print(f"batch done: {len(results) - len(skipped)} run, {len(skipped)} skipped")
+    """Check the paper's files. Every problem is `file:line  target: what to do`. Exits 1 while anything blocks, 2 when
+    a file doesn't parse at all."""
+    report = core.extract_check(paper_id, every=every)
+    emit(report) if as_json else out.print(report.text())
+    raise typer.Exit(2 if report.unreadable else 1 if report.blocking_total else 0)
+
+
+@extract_app.command("done")
+def extract_done(
+    paper_id: PaperArg,
+    summary: Annotated[str, typer.Option("--summary", "-m", help="What was extracted, and what wasn't and why.")],
+    as_json: JsonOpt = False,
+) -> None:
+    """Finish the run: refused while anything blocks, otherwise its records are settled and it ends."""
+    report = core.extract_done(paper_id, summary)
+    if as_json:
+        emit(report)
+    else:
+        out.print(report.text())
+    raise typer.Exit(0 if report.accepted else 1)
+
+
+@extract_app.command("stop")
+def extract_stop(
+    paper_ids: Annotated[
+        list[str] | None, typer.Argument(help="Papers whose run to stop. Omit them with --all.")
+    ] = None,
+    every: Annotated[bool, typer.Option("--all", help="Stop every open run.")] = False,
+    as_json: JsonOpt = False,
+) -> None:
+    """Stop runs. The files stay as they are, for the next run."""
+    if (paper_ids is None) == (not every):
+        raise core.SageError("invalid", "give paper ids, or --all")
+    found = core.extract_stop(None if every else paper_ids)
+    emit(found) if as_json else out.print(f"stopped {len(found)} run{'' if len(found) == 1 else 's'}")
+
+
+@extract_app.command("answer")
+def extract_answer(
+    paper_id: PaperArg,
+    allow: Annotated[bool, typer.Option("--allow/--deny", help="Let the agent do what it asks, or refuse.")],
+    as_json: JsonOpt = False,
+) -> None:
+    """Answer what the agent extracting a paper is waiting on, as `sage extract status` shows it."""
+    info = core.answer_agent(paper_id, allow=allow)
+    emit(info) if as_json else out.print(f"{'allowed' if allow else 'refused'}: {info.waiting}")
+
+
+@agents_app.callback(invoke_without_command=True)
+def agents_default(ctx: typer.Context, as_json: JsonOpt = False) -> None:
+    """Coding agents SAGE can start in a paper's folder, and whether each is ready."""
+    if ctx.invoked_subcommand is None:
+        agents_list(as_json=as_json)
+
+
+@agents_app.command("list")
+def agents_list(as_json: JsonOpt = False) -> None:
+    """Coding agents SAGE can start in a paper's folder, and whether each is ready."""
+    found = core.agents()
+    if as_json:
+        emit(found)
+        return
+    table = Table(ids("agent"), "name", "state", "model", "effort", "running", "fix")
+    for a in found:
+        state = a.state.replace("_", " ") + (f": {a.detail}" if a.detail is not None and a.state != "ready" else "")
+        model, effort = a.model or "its default", a.effort or "its default"
+        table.add_row(a.id, a.title, state, model, effort, str(a.running or ""), a.fix or "")
+    out.print(table)
+
+
+AgentArg = Annotated[str, typer.Argument(help="The agent's id, as `sage agents` lists it.")]
+
+
+@agents_app.command("offer")
+def agents_offer(
+    agent_id: AgentArg,
+    model: Annotated[
+        str | None, typer.Option(help="The agent's own name for a model, to list its efforts. Default: its default.")
+    ] = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Start the agent in an empty folder and list the models and modes it offers, and the efforts of the model.
+    Spends no tokens."""
+    found = core.agent_offer(agent_id, model)
+    if as_json:
+        emit(found)
+        return
+    out.print(f"models: {', '.join(found.models)} (now {found.model})")
+    out.print(f"modes: {', '.join(found.modes)} (now {found.mode})")
+    efforts = f"{', '.join(found.efforts)} (now {found.effort})" if found.efforts else "none for this model"
+    out.print(f"efforts: {efforts}")
+
+
+@agents_app.command("set")
+def agents_set(
+    agent_id: AgentArg,
+    model: Annotated[
+        str | None, typer.Option(help="The agent's own name for the model to use. Empty: its default.")
+    ] = None,
+    effort: Annotated[
+        str | None,
+        typer.Option(help="The agent's own level, one `sage agents offer AGENT --model M` lists. Empty: its default."),
+    ] = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Set the model and effort an agent runs with. A run checks them when the agent starts."""
+    found = core.set_agent(agent_id, model=model, effort=effort)
+    if as_json:
+        emit(found)
+        return
+    out.print(f"{found.id}: model {found.model or 'its default'}, effort {found.effort or 'its default'}")
+
+
+@skill_app.command("install")
+def skill_install(as_json: JsonOpt = False) -> None:
+    """Install the skill for Claude Code, Codex, Gemini and other agents (~/.agents/skills/sage, linked from
+    ~/.claude/skills/sage)."""
+    _print_skill(core.install_skill(), as_json)
+
+
+@skill_app.command("status")
+def skill_status(as_json: JsonOpt = False) -> None:
+    """Whether the skill is installed and current."""
+    _print_skill(core.skill_status(), as_json)
+
+
+def _print_skill(places: list[core.SkillPlace], as_json: bool) -> None:
+    if as_json:
+        emit(places)
+        return
+    for p in places:
+        link = " (link)" if p.linked else ""
+        out.print(f"{p.state:<9} {p.folder}{link}")
+
+
+@extract_app.command("status")
+def extract_status(
+    paper_id: Annotated[str | None, typer.Argument(help="Only this paper.")] = None, as_json: JsonOpt = False
+) -> None:
+    """Each paper's folder and its open or latest run."""
+    found = core.extract_status(paper_id)
+    if as_json:
+        emit(found)
+        return
+    table = Table(ids("paper"), "run", "by", "status", "folder")
+    for s in found:
+        r = s.run
+        by = "" if r is None else (r.agent or "agent") if r.driver == "agent" else r.driver
+        table.add_row(s.paper_id, r.id if r else "", by, r.status if r else "not extracted", s.folder)
+    out.print(table)
+
+
+@app.command("runner", hidden=True)
+def runner(
+    lock_fd: Annotated[int | None, typer.Option(help="The runner's lock, taken by whoever started it.")] = None,
+) -> None:
+    """The one process that runs every queued extraction. Whoever queues a run starts it when none is alive; it leaves
+    when nothing is left to run. Started by hand while another runs, it leaves at once."""
+    core.serve_runs(lock_fd)
 
 
 @app.command()
@@ -272,8 +582,8 @@ def runs(
     for r in found:
         c = r.counts
         table.add_row(
-            r.id, r.paper_id, r.status, r.extraction_model.removeprefix("anthropic:"), str(r.turns),
-            f"${r.total_usage.cost_usd:.3f}", str(c.records), str(c.verified), str(c.flagged), str(c.unresolved),
+            r.id, r.paper_id, r.status, r.extraction_model, str(r.turns),
+            f"${r.usage.cost_usd:.3f}", str(c.records), str(c.verified), str(c.flagged), str(c.unresolved),
         )  # fmt: skip
     out.print(table)
 
@@ -337,12 +647,12 @@ def export(
     """Export a run's settled records."""
     exported = core.export(run_id, fmt)
     path = output if output is not None or fmt == "json" else Path(exported.filename)
-    if path is not None:
-        core.write_export(path, exported.data)
     if path is None:
         text = exported.data.decode()
         sys.stdout.write(text if text.endswith("\n") else text + "\n")
-    elif as_json:
+        return
+    core.write_export(path, exported.data)
+    if as_json:
         emit({"path": str(path), "format": fmt, "bytes": len(exported.data)})
     else:
         out.print(f"wrote {path}")
@@ -377,10 +687,40 @@ def _print_run_line(r: core.RunInfo) -> None:
     c = r.counts
     status = f"stopped at the {'turn' if r.limit == 'turns' else 'cost'} limit" if r.limit else r.status
     out.print(
-        f"{r.id}  {status}  {r.turns} turn{'' if r.turns == 1 else 's'}  ${r.total_usage.cost_usd:.3f}  "
+        f"{r.id}  {status}  {r.turns} turn{'' if r.turns == 1 else 's'}  ${r.usage.cost_usd:.3f}  "
         f"{c.records} records: {c.verified} verified, {c.flagged} flagged, {c.unresolved} unresolved"
         + (f"\n  error: {r.error}" if r.error is not None else "")
     )
+
+
+def _follow_many(started: list[core.RunInfo], *, follow: bool, as_json: bool) -> None:
+    """Print a line as each run ends, until all have."""
+    if not as_json:
+        out.print(f"queued {len(started)} run{'' if len(started) == 1 else 's'}")
+    if not follow:
+        if as_json:
+            emit(started)
+        return
+    left = {r.id for r in started}
+    try:
+        while left:
+            for r in [core.run(i) for i in sorted(left)]:
+                if r.status not in ("queued", "running"):
+                    left.discard(r.id)
+                    if not as_json:
+                        out.print(
+                            Text.assemble(
+                                (f"{r.finished_at:%H:%M:%S} " if r.finished_at else "", "dim"), (r.paper_id, "bold")
+                            )
+                        )
+                        _print_run_line(r)
+            if left:
+                time.sleep(2)
+    except KeyboardInterrupt:
+        if not as_json:
+            err.print("stopped watching; the runs go on. `sage runs` shows where they are")
+    if as_json:
+        emit([core.run(r.id) for r in started])
 
 
 # review -----------------------------------------------------------------------------------------------------------
@@ -388,22 +728,10 @@ def _print_run_line(r: core.RunInfo) -> None:
 
 @app.command()
 def queue(
-    run_id: Annotated[
-        str | None, typer.Argument(help="This run's review queue. Omit it for every paper's counts.")
-    ] = None,
+    run_id: Annotated[str, typer.Argument(help="The run whose records to list.")],
     as_json: JsonOpt = False,
 ) -> None:
-    """What is left to check. With no RUN, each paper's data run and its counts; with a RUN, its every record."""
-    if run_id is None:
-        inbox = core.review_inbox()
-        if as_json:
-            emit(inbox)
-            return
-        table = Table(ids("paper"), ids("run"), "to check", "looks good", "total")
-        for entry in inbox:
-            table.add_row(entry.paper.id, entry.run.id, str(entry.to_check), str(entry.looks_good), str(entry.total))
-        out.print(table)
-        return
+    """Every record of a run with its status and your review. `sage papers` has each paper's counts."""
     items = core.review_queue(run_id)
     if as_json:
         emit(items)
@@ -465,16 +793,24 @@ def ui(
     port: Annotated[int, typer.Option(help="Port to serve on.", min=1, max=65535)] = 8765,
     as_json: JsonOpt = False,
 ) -> None:
-    """Serve the web UI and the API. Starts without an API key; Settings takes one."""
+    """Serve the web UI and the API, one per data folder. Starts with nothing set up; the Manage page adds providers,
+    models and agents."""
     import uvicorn
 
-    sock = core.listen(host, port)
-    url = f"http://[{host}]:{port}" if ":" in host else f"http://{host}:{port}"
-    if as_json:
-        print(json.dumps({"url": url, "host": host, "port": port}), flush=True)
-    else:
-        out.print(f"SAGE UI on {url}")
-    uvicorn.Server(uvicorn.Config("sage.api:app", log_level="warning")).run(sockets=[sock])
+    lock = core.claim_ui()
+    try:
+        sock = core.listen(host, port)
+        url = f"http://[{host}]:{port}" if ":" in host else f"http://{host}:{port}"
+        core.announce_ui(url)
+        if as_json:
+            print(json.dumps({"url": url, "host": host, "port": port}), flush=True)
+        else:
+            out.print(f"SAGE UI on {url}")
+        # /api/changes never ends on its own, so shutdown would wait on every open window without a limit.
+        config = uvicorn.Config("sage.api:app", log_level="warning", timeout_graceful_shutdown=1)
+        uvicorn.Server(config).run(sockets=[sock])
+    finally:
+        core.release_ui(lock)
 
 
 @app.command()

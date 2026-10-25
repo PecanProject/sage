@@ -6,7 +6,8 @@
 @custom-variant dark (&:is(.dark *));
 
 /* The tokens in docs/design/04-ui.md. Sage is only on the primary button, the logo, focus rings, the progress bar,
- * the active card border, links, "looks good" and the usage meters, never on a background. */
+ * the active card border, links, the current page's top-bar icon, "looks good" and the usage meters, never on a
+ * background. */
 :root {
   --canvas: #fafafa;
   --surface: #ffffff;
@@ -135,6 +136,10 @@
   --text-value: 14px;
   --text-value--line-height: 20px;
   --text-value--font-weight: 500;
+  /* The name a list row leads with: a paper's title on Home. */
+  --text-name: 14px;
+  --text-name--line-height: 20px;
+  --text-name--font-weight: 600;
   /* Running text. */
   --text-body: 14px;
   --text-body--line-height: 20px;
@@ -198,6 +203,11 @@
   }
   html.dark {
     color-scheme: dark;
+  }
+  /* Home, Models and Settings scroll the document. Keeping its scrollbar's room whether or not one shows stops the
+     page shifting sideways between a short one and a long one. The Paper screen scrolls its own panes, so it doesn't. */
+  html:has([data-scroll="document"]) {
+    scrollbar-gutter: stable;
   }
   body {
     background: var(--canvas);

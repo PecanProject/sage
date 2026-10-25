@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useRef } from "react"
 import { toast } from "sonner"
 import { $api, queryClient } from "@/api/client"
-import { endedAlert, isLive, itemCount, pollMs, type RunInfo } from "@/lib/format"
+import { endedAlert, isLive, itemCount, type RunInfo } from "@/lib/format"
 import { type Box, buildItems, type Item } from "@/lib/items"
 import { paperState } from "@/lib/paper-state"
 import type { PaperSearch } from "@/router"
@@ -20,8 +20,6 @@ function marginOrder(items: Item[], boxes: Boxes): Item[] {
   placed.sort((a, b) => a.page - b.page || a.y - b.y)
   return [...unplaced, ...placed.map((p) => p.item)]
 }
-
-const live = (r: RunInfo | null | undefined) => (r ? isLive(r) : false)
 
 const paperPath = (paperId: string) => ({ params: { path: { paper_id: paperId } } })
 const paperRuns = (paperId: string) => ({ params: { query: { paper_id: paperId } } })
@@ -48,28 +46,20 @@ function prefetchRun(runId: string) {
   void queryClient.prefetchQuery($api.queryOptions("get", "/api/runs/{run_id}/document", runPath(runId)))
 }
 
-/** The paper and its extractions, polled faster while an extraction is live. */
+/** The paper and its extractions. `useLibraryChanges` fetches them again whenever their files change. */
 function usePaperQueries(paperId: string) {
-  const summary = $api.useQuery("get", "/api/papers/{paper_id}", paperPath(paperId), {
-    refetchInterval: (q) => pollMs(live(q.state.data?.latest_run)),
-  })
-  const runs = $api.useQuery("get", "/api/runs", paperRuns(paperId), {
-    refetchInterval: (q) => pollMs(q.state.data?.some(isLive) ?? false),
-  })
+  const summary = $api.useQuery("get", "/api/papers/{paper_id}", paperPath(paperId))
+  const runs = $api.useQuery("get", "/api/runs", paperRuns(paperId))
   return { summary, runs: runs.data ?? [], runsLoaded: runs.data !== undefined }
 }
 
-function useDocument(paperId: string, runId: string | null, summaryLoaded: boolean, running: boolean) {
+function useDocument(paperId: string, runId: string | null, summaryLoaded: boolean) {
   const paperDoc = $api.useQuery("get", "/api/papers/{paper_id}/document", paperPath(paperId), {
     enabled: summaryLoaded && runId === null,
   })
-  const runDoc = $api.useQuery(
-    "get",
-    "/api/runs/{run_id}/document",
-    runPath(runId ?? ""),
-    // A live extraction writes its own copy after the table pass, so keep asking until it ends.
-    { enabled: runId !== null, refetchInterval: running ? 1500 : false },
-  )
+  const runDoc = $api.useQuery("get", "/api/runs/{run_id}/document", runPath(runId ?? ""), {
+    enabled: runId !== null,
+  })
   return runId === null ? paperDoc.data : runDoc.data
 }
 
@@ -81,8 +71,7 @@ function useItems(runId: string | null) {
   const queue = $api.useQuery("get", "/api/runs/{run_id}/queue", path, on)
   const boxes: Boxes = records.data?.boxes ?? {}
   const items = records.data && queue.data ? marginOrder(buildItems(records.data, queue.data), boxes) : []
-  const tables = records.data?.settled.tables ?? []
-  return { items, boxes, tables, loading: runId !== null && (records.isLoading || queue.isLoading) }
+  return { items, boxes, loading: runId !== null && (records.isLoading || queue.isLoading) }
 }
 
 /** The run the screen shows: the URL's, once it is known to be this paper's, so a link to another paper's run never
@@ -105,8 +94,8 @@ export function usePaperView(paperId: string, search: PaperSearch) {
   const dataRun = summary.data?.data_run ?? null
   const latest = summary.data?.latest_run ?? null
   const { picked, viewId, missing, waiting } = pickRun(runsLoaded ? runs : null, search.run, dataRun)
-  const { items, boxes, tables, loading } = useItems(viewId)
-  const doc = useDocument(paperId, viewId, summary.data !== undefined, live(latest) && latest?.id === viewId)
+  const { items, boxes, loading } = useItems(viewId)
+  const doc = useDocument(paperId, viewId, summary.data !== undefined)
   return {
     summary,
     runs,
@@ -118,8 +107,6 @@ export function usePaperView(paperId: string, search: PaperSearch) {
     older: picked?.id === dataRun?.id ? null : picked,
     items,
     boxes,
-    /** How the extraction read each table, including its column roles. */
-    tables,
     loading: summary.isLoading || waiting || loading,
     /** The `run` the URL names when this paper has no such extraction. */
     missingRun: missing,
@@ -147,7 +134,7 @@ export function useRunFinished(
     void queryClient.invalidateQueries({ queryKey: ["get", "/api/runs/{run_id}/records", runPath(run.id)] })
     void queryClient.invalidateQueries({ queryKey: ["get", "/api/runs/{run_id}/queue", runPath(run.id)] })
     const alert = endedAlert(run)
-    if (alert === null) toast.success(`Extraction finished: ${itemCount(run.counts?.records ?? 0)}`)
+    if (alert === null) toast(`Extraction finished: ${itemCount(run.counts?.records ?? 0)}`)
     // Only a failure is an error: a stop the user asked for, or a limit, is a warning.
     else
       (run.status === "failed" || run.error ? toast.error : toast.warning)(alert.title, {
