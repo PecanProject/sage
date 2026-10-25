@@ -5,6 +5,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectItems,
   SelectTrigger,
   SelectValue,
   type TriggerVariant,
@@ -47,20 +48,65 @@ export function ModelEffortSelect({
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {items.map((e) => (
-          <SelectItem key={e.value} value={e.value} data-testid={`${testid}-option`}>
-            {e.label}
-          </SelectItem>
-        ))}
+        <SelectItems items={items} testid={`${testid}-option`} />
       </SelectContent>
     </Select>
   )
 }
 
-/** The effort an agent thinks at on `model` (null for its default model), in its own words. What it offers depends
- * on the model and is asked only when the list opens; once known, a model it offers no effort for has no choice.
- * Where `clearable`, "Default effort" (null) leaves it to the agent; elsewhere null shows what the agent would use. */
+type AgentSelectProps = {
+  agent: { id: string; title: string }
+  value: string | null
+  onChange: (value: string | null) => void
+  testid: string
+  /** `ghost` in a list row. */
+  variant?: TriggerVariant
+}
+
+/** The model an agent uses; "Default model" (null) leaves it to the agent. */
+export function AgentModelSelect(props: AgentSelectProps) {
+  return (
+    <OfferSelect
+      {...props}
+      model={null}
+      clearable
+      noun="model"
+      read={(offer) => ({ offered: offer?.models ?? [], own: offer?.model ?? null })}
+      label={(m) => m}
+    />
+  )
+}
+
+/** The effort an agent thinks at on `model` (null for its default model), in its own words. Once known, a model it
+ * offers no effort for has no choice. Where `clearable`, "Default effort" (null) leaves it to the agent; elsewhere
+ * null shows what the agent would use. */
 export function AgentEffortSelect({
+  model,
+  clearable,
+  id,
+  ...props
+}: AgentSelectProps & { model: string | null; clearable: boolean; id?: string }) {
+  return (
+    <OfferSelect
+      {...props}
+      model={model}
+      clearable={clearable}
+      id={id}
+      noun="effort"
+      read={(offer) => {
+        const offered = offer ? offeredEfforts(offer) : []
+        if (offer && offered.length === 0) return null
+        return { offered, own: offer?.effort && offer.effort !== "default" ? offer.effort : null }
+      }}
+      label={capital}
+    />
+  )
+}
+
+/** A select over what an agent offers for `model`. Asking starts the agent for a few seconds, so it asks only when
+ * the list opens. A saved value the agent no longer offers stays listed, so the field never reads blank. `read`
+ * returns null when the agent offers nothing to choose, which hides the select. */
+function OfferSelect({
   agent,
   model,
   value,
@@ -69,22 +115,27 @@ export function AgentEffortSelect({
   id,
   testid,
   variant,
-}: {
-  agent: { id: string; title: string }
+  noun,
+  read,
+  label,
+}: AgentSelectProps & {
   model: string | null
-  value: string | null
-  onChange: (effort: string | null) => void
   clearable: boolean
   id?: string
-  testid: string
-  /** `ghost` in a list row. */
-  variant?: TriggerVariant
+  noun: "model" | "effort"
+  read: (offer: Schemas["AgentOffer"] | undefined) => { offered: string[]; own: string | null } | null
+  label: (value: string) => string
 }) {
   const queryClient = useQueryClient()
   const options = agentOffer(agent.id, model)
   const offer = useQuery({ ...options, enabled: false })
-  const { none, current, shown, items } = agentLevels(offer.data, value, clearable)
-  if (none) return null
+  const levels = read(offer.data)
+  if (levels === null) return null
+  const { offered, own } = levels
+  const shown = value ?? (clearable ? null : own)
+  const listed = shown !== null && !offered.includes(shown) ? [shown, ...offered] : offered
+  const items = listed.map((v) => ({ value: v, label: label(v) }))
+  const none = `Default ${noun}`
   return (
     <Select
       value={shown}
@@ -92,52 +143,33 @@ export function AgentEffortSelect({
       onOpenChange={(open) => {
         if (open) void queryClient.prefetchQuery(options)
       }}
-      items={clearable ? [{ value: null, label: "Default effort" }, ...items] : items}
+      items={clearable ? [{ value: null, label: none }, ...items] : items}
     >
       <SelectTrigger
         variant={variant}
         id={id}
-        aria-label={id ? undefined : `${agent.title}'s effort`}
+        aria-label={id ? undefined : `${agent.title}'s ${noun}`}
         data-testid={testid}
         data-value={shown ?? ""}
       >
-        <SelectValue placeholder="Default effort" />
+        <SelectValue placeholder={none} />
       </SelectTrigger>
       <SelectContent>
         {clearable ? (
           <SelectItem value={null} data-testid={`${testid}-option`}>
-            Default effort
-            <span className="ml-auto text-caption text-muted-ink">{current}</span>
+            {none}
+            <span className="ml-auto text-caption text-muted-ink">{own === null ? null : label(own)}</span>
           </SelectItem>
         ) : null}
-        {items.map((e) => (
-          <SelectItem key={e.value} value={e.value} data-testid={`${testid}-option`}>
-            {e.label}
-          </SelectItem>
-        ))}
+        <SelectItems items={items} testid={`${testid}-option`} />
         <Asking title={agent.title} asking={offer.isFetching && !offer.data} error={offer.error} />
       </SelectContent>
     </Select>
   )
 }
 
-/** What an agent's effort select shows: nothing once the agent offers no levels (`none`), the level it uses on its
- * own, the value, and the levels with a saved one it no longer offers kept, so the field never reads blank. */
-function agentLevels(offer: Schemas["AgentOffer"] | undefined, value: string | null, clearable: boolean) {
-  const offered = offer ? offeredEfforts(offer) : []
-  const own = offer?.effort && offer.effort !== "default" ? offer.effort : null
-  const shown = value ?? (clearable ? null : own)
-  const levels = shown !== null && !offered.includes(shown) ? [shown, ...offered] : offered
-  return {
-    none: offer !== undefined && offered.length === 0,
-    current: own ? capital(own) : null,
-    shown,
-    items: levels.map((e) => ({ value: e, label: capital(e) })),
-  }
-}
-
 /** Inside an agent's list while it is being asked what it offers, or why asking failed. */
-export function Asking({ title, asking, error }: { title: string; asking: boolean; error: unknown }) {
+function Asking({ title, asking, error }: { title: string; asking: boolean; error: unknown }) {
   if (error) return <p className="px-3 py-1.5 text-caption text-danger">{errorMessage(error)}</p>
   if (!asking) return null
   return (

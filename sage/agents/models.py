@@ -1,6 +1,7 @@
 """Model ids from settings, as pydantic-ai models, reached through the provider each id names: Anthropic, OpenAI or any
 server with its API, Azure OpenAI, Google's Gemini API, Vertex AI or Amazon Bedrock."""
 
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from functools import cache
@@ -16,10 +17,10 @@ from pydantic_ai.models.anthropic import AnthropicModel, AnthropicModelSettings
 from pydantic_ai.models.wrapper import WrapperModel
 from pydantic_ai.profiles import DEFAULT_PROFILE
 from pydantic_ai.providers import Provider as Client
-from pydantic_ai.settings import ModelSettings, ThinkingEffort
+from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import RequestUsage, RunUsage
 
-from sage.events import BUILTIN, EFFORTS, CacheMiss, Connection, Effort, ModelId, Usage
+from sage.events import BUILTIN, EFFORTS, CacheMiss, Connection, Effort, ModelId, ProviderKind, Usage
 
 _KNOWN = [m for m in known_model_names() if m.partition(":")[0] in BUILTIN]
 _BY_NAME = {m.partition(":")[2]: m for m in _KNOWN}
@@ -73,16 +74,15 @@ class Listing:
     models: tuple[Listed, ...] = ()
 
 
-def _rejected(name: str, status: int, detail: object = None) -> Listing:
+def _failed(name: str, status: int, detail: object = None, *, bad_key: bool | None = None) -> Listing:
+    """An error answer: a refused key, which is a 401 or 403 unless `bad_key` says, else one to try again."""
+    if not (status in (401, 403) if bad_key is None else bad_key):
+        return Listing(ok=False, message=f"{name} answered HTTP {status}; try again in a minute")
     return Listing(ok=False, message=f"{name} rejected this key (HTTP {status})" + (f": {detail}" if detail else ""))
 
 
 def _unreachable(name: str) -> Listing:
     return Listing(ok=False, message=f"couldn't reach {name} from this machine")
-
-
-def _answered(name: str, status: int) -> Listing:
-    return Listing(ok=False, message=f"{name} answered HTTP {status}; try again in a minute")
 
 
 def _accepted(name: str, found: list[Listed], note: str = "") -> Listing:
@@ -222,19 +222,7 @@ def _anthropic(model: Model) -> bool:
 
 def list_models(c: Connection) -> Listing:
     """The models the provider lets these credentials use, by its own name. Every provider answers this for free."""
-    match c.kind:
-        case "anthropic":
-            return _list_anthropic(c)
-        case "openai":
-            return _list_openai(c)
-        case "azure":
-            return _list_azure(c)
-        case "google":
-            return _list_google(c)
-        case "vertex":
-            return _list_vertex(c)
-        case "bedrock":
-            return _list_bedrock(c)
+    return _LISTERS[c.kind](c)
 
 
 def _list_anthropic(c: Connection) -> Listing:
@@ -245,7 +233,7 @@ def _list_anthropic(c: Connection) -> Listing:
     try:
         found = [Listed(m.id, m.display_name) for m in client.models.list(limit=1000)]
     except anthropic.APIStatusError as e:
-        return _rejected(name, e.status_code) if e.status_code in (401, 403) else _answered(name, e.status_code)
+        return _failed(name, e.status_code)
     except anthropic.APIConnectionError:
         return _unreachable(name)
     return _accepted(name, found)
@@ -259,7 +247,7 @@ def _list_openai(c: Connection) -> Listing:
     try:
         found = [m.id for m in client.models.list()]
     except openai.APIStatusError as e:
-        return _rejected(name, e.status_code) if e.status_code in (401, 403) else _answered(name, e.status_code)
+        return _failed(name, e.status_code)
     except openai.APIConnectionError:
         return _unreachable(name)
     # OpenAI lists embedding, image and speech models too, and says nothing of what each does: its chat models are
@@ -279,7 +267,7 @@ def _list_azure(c: Connection) -> Listing:
     try:
         client.models.list()
     except openai.APIStatusError as e:
-        return _rejected(name, e.status_code) if e.status_code in (401, 403) else _answered(name, e.status_code)
+        return _failed(name, e.status_code)
     except openai.APIConnectionError:
         return _unreachable(name)
     # A model on Azure goes by its deployment's name. Only this older API version lists them with a key; a resource
@@ -313,7 +301,7 @@ def _list_google(c: Connection) -> Listing:
     except errors.APIError as e:
         # Google answers a bad key with 400 and says so in the message, where the others use 401.
         bad = e.code in (401, 403) or (e.code == 400 and "api key not valid" in str(e.message).lower())
-        return _rejected("Google", e.code) if bad else _answered("Google", e.code)
+        return _failed("Google", e.code, bad_key=bad)
     except httpx.TransportError:
         return _unreachable("Google")
     return _accepted("Google", found)
@@ -344,7 +332,7 @@ def _list_vertex(c: Connection) -> Listing:
     except (OSError, ValueError) as e:
         return Listing(ok=False, message=f"couldn't read the service account key file: {e}")
     except errors.APIError as e:
-        return _rejected(name, e.code, e.message) if e.code in (401, 403) else _answered(name, e.code)
+        return _failed(name, e.code, e.message)
     except httpx.TransportError:
         return _unreachable(name)
     # Vertex AI lists Google's own models. Claude is there too, by its Vertex name, but not in the list.
@@ -383,9 +371,7 @@ def _list_bedrock(c: Connection) -> Listing:
         profiles = client.list_inference_profiles(maxResults=1000)["inferenceProfileSummaries"]
     except ClientError as e:
         status = int(e.response.get("ResponseMetadata", {}).get("HTTPStatusCode", 0))
-        if status in (401, 403):
-            return _rejected(name, status, e.response.get("Error", {}).get("Message"))
-        return _answered(name, status)
+        return _failed(name, status, e.response.get("Error", {}).get("Message"))
     except BotoCoreError as e:
         # A missing profile, an expired SSO login or no network: botocore's own words say which.
         return Listing(ok=False, message=f"{name}: {e}")
@@ -396,6 +382,16 @@ def _list_bedrock(c: Connection) -> Listing:
     return _accepted(
         name, on_demand + [Listed(p["inferenceProfileId"], p.get("inferenceProfileName")) for p in profiles]
     )
+
+
+_LISTERS: dict[ProviderKind, Callable[[Connection], Listing]] = {
+    "anthropic": _list_anthropic,
+    "openai": _list_openai,
+    "azure": _list_azure,
+    "google": _list_google,
+    "vertex": _list_vertex,
+    "bedrock": _list_bedrock,
+}
 
 
 def resolve(model_id: ModelId) -> str:
@@ -500,16 +496,6 @@ def _efforts(model: Model) -> tuple[Effort, ...]:
     return EFFORTS if _anthropic(model) else tuple(e for e in EFFORTS if e != "max")
 
 
-_THINKING: dict[Effort, ThinkingEffort] = {
-    "low": "low",
-    "medium": "medium",
-    "high": "high",
-    "xhigh": "xhigh",
-    "max": "xhigh",
-}
-"""Effort on a provider without Anthropic's `max`: the hardest level the unified scale has."""
-
-
 def runs_at(efforts: tuple[Effort, ...], effort: Effort) -> Effort | None:
     """The level a model with these `efforts` thinks at when asked for `effort`: that one, else the hardest it has
     below it, or None for a model that doesn't think. A level set before it was checked against the model, such as a
@@ -531,7 +517,8 @@ def settings(model: Model, effort: Effort | None) -> ModelSettings:
     if effort is None:
         return ModelSettings()
     if not _anthropic(model):
-        return ModelSettings(thinking=_THINKING[effort])
+        # Anthropic's `max` is beyond the unified scale, whose hardest level is xhigh.
+        return ModelSettings(thinking="xhigh" if effort == "max" else effort)
     return AnthropicModelSettings(
         anthropic_effort=effort,
         anthropic_thinking={"type": "adaptive", "display": "summarized"},

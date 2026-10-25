@@ -11,10 +11,11 @@ import {
 import { MARGIN_WIDTH, Margin, type MarginProps, MarginSkeleton } from "@/components/paper/margin"
 import type { Region } from "@/components/pdf-viewer"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
+import { PageSkeleton } from "@/components/ui/skeleton"
 import { Tip } from "@/components/ui/tooltip"
 import { highlights } from "@/lib/evidence"
 import type { Box, Item } from "@/lib/items"
+import { useSize } from "@/lib/media"
 import { PAGE_GAP, type PageSize, pageTops } from "@/lib/pages"
 import { loadPdfViewer } from "@/lib/pdf-chunk"
 import { usePdfZoom } from "@/lib/pdf-zoom"
@@ -28,18 +29,9 @@ const GUTTER = 32
 const FIT_MAX = 1040
 const INSET = 16
 
-function useWidth(ref: React.RefObject<HTMLElement | null>): number {
-  const [width, setWidth] = useState(0)
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    setWidth(el.clientWidth)
-    const observer = new ResizeObserver(([e]) => setWidth(Math.floor(e?.contentRect.width ?? 0)))
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [ref])
-  return width
-}
+/** The pane's width: its client width at first, then its content box's, in whole pixels. */
+const paneWidth = (el: HTMLElement, e?: ResizeObserverEntry) =>
+  e ? Math.floor(e.contentRect.width) : el.clientWidth
 
 function centre(el: HTMLElement, span: [number, number], highlight: [number, number]): number {
   const header = el.querySelector<HTMLElement>('[data-testid="margin-header"]')?.offsetHeight ?? 0
@@ -129,10 +121,6 @@ function useMiddlePage(
     return () => el.removeEventListener("scroll", on)
   }, [scroller])
   return page
-}
-
-function PageSkeleton({ width }: { width: number }) {
-  return <Skeleton className="rounded-page bg-surface" style={{ width, height: width * 1.3 }} />
 }
 
 function follow(active: Item, units: Unit[], boxes: Record<string, Box>) {
@@ -257,7 +245,7 @@ export function PaperCanvas({
 }) {
   const scroller = useRef<HTMLDivElement>(null)
   const column = useRef<HTMLDivElement>(null)
-  const pane = useWidth(scroller)
+  const pane = useSize(scroller, paneWidth)
   const check = mode === "check"
   const withMargin = check && (loading || margin !== null)
   const on = check && active ? follow(active, units, boxes) : NOTHING

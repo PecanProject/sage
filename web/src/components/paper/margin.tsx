@@ -1,5 +1,5 @@
 import { CheckIcon } from "@phosphor-icons/react"
-import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useState } from "react"
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react"
 import { Grid, ItemLine, Line, ReviewMark } from "@/components/paper/card-parts"
 import { ItemFields, ItemFooter, ItemPanel } from "@/components/paper/item-panel"
 import { StatusShape } from "@/components/status-mark"
@@ -11,6 +11,7 @@ import type { Status } from "@/lib/format"
 import { type Box, type Item, needsLook } from "@/lib/items"
 import type { KeyHint } from "@/lib/key-hint"
 import { GAP, layout } from "@/lib/margin"
+import { useSize } from "@/lib/media"
 import type { PageTops } from "@/lib/pages"
 import type { Edits } from "@/lib/review"
 import { cardTitle, type Unit } from "@/lib/units"
@@ -72,17 +73,9 @@ function useHeights() {
   return { heights, observe }
 }
 
-function useHeight() {
-  const [el, setEl] = useState<HTMLElement | null>(null)
-  const [height, setHeight] = useState(0)
-  useLayoutEffect(() => {
-    if (!el) return
-    const o = new ResizeObserver(([e]) => setHeight(Math.round(e?.borderBoxSize[0]?.blockSize ?? 0)))
-    o.observe(el)
-    return () => o.disconnect()
-  }, [el])
-  return [setEl, height] as const
-}
+/** The header's height, with its padding and border, once it has been laid out. */
+const headerBox = (_el: HTMLElement, e?: ResizeObserverEntry) =>
+  e ? Math.round(e.borderBoxSize[0]?.blockSize ?? 0) : 0
 
 /** Where a unit wants its card: level with the top of its source, in px from the top of the page column. */
 function want(unit: Unit, tops: PageTops): number {
@@ -106,7 +99,8 @@ export function Margin({
 }) {
   const { units, active } = props
   const { heights, observe } = useHeights()
-  const [headerRef, headerHeight] = useHeight()
+  const headerRef = useRef<HTMLDivElement>(null)
+  const headerHeight = useSize(headerRef, headerBox)
   const at = active ? units.findIndex((u) => u.items.includes(active)) : -1
   const height = (u: Unit) => heights[u.key] ?? COLLAPSED
   const positions = layout(
@@ -279,30 +273,29 @@ function Review({ item, props }: { item: Item; props: MarginProps }) {
   )
 }
 
-function Open({ children, unit }: { children: ReactNode; unit: Unit }) {
+/** A unit's card: open, with the item's review, or closed to one line that the pointer or the PDF's hover lights. */
+function Card({
+  children,
+  unit,
+  open = false,
+  hovered = false,
+}: {
+  children: ReactNode
+  unit: Unit
+  open?: boolean
+  hovered?: boolean
+}) {
   return (
     <article
-      className="space-y-2 rounded-card border border-sage bg-surface p-3"
+      className={
+        open
+          ? "space-y-2 rounded-card border border-sage bg-surface p-3"
+          : cn("rounded-control transition-colors duration-150 hover:bg-surface", hovered && "bg-surface")
+      }
       data-testid="card"
       data-kind={unit.kind}
       data-unit={unit.key}
-      data-active
-    >
-      {children}
-    </article>
-  )
-}
-
-function Closed({ children, unit, hovered }: { children: ReactNode; unit: Unit; hovered: boolean }) {
-  return (
-    <article
-      className={cn(
-        "rounded-control transition-colors duration-150 hover:bg-surface",
-        hovered && "bg-surface",
-      )}
-      data-testid="card"
-      data-kind={unit.kind}
-      data-unit={unit.key}
+      data-active={open || undefined}
       data-hover={hovered || undefined}
     >
       {children}
@@ -316,29 +309,29 @@ function UnitCard({ unit, hovered, ...props }: MarginProps & { unit: Unit; hover
     const item = unit.items[0] as Item
     if (!open)
       return (
-        <Closed unit={unit} hovered={hovered}>
+        <Card unit={unit} hovered={hovered}>
           <ItemLine item={item} onClick={() => props.onActivate(item.id)} />
-        </Closed>
+        </Card>
       )
     return (
-      <Open unit={unit}>
+      <Card unit={unit} open>
         <div className="-mx-2 -mt-1">
           <ItemLine item={item} onClick={() => props.onActivate(item.id)} />
         </div>
         <Review item={item} props={props} />
-      </Open>
+      </Card>
     )
   }
   const head = <ClusterLine unit={unit} onOpen={props.onActivate} />
   if (!open)
     return (
-      <Closed unit={unit} hovered={hovered}>
+      <Card unit={unit} hovered={hovered}>
         {head}
-      </Closed>
+      </Card>
     )
   const unreviewed = unit.items.filter((i) => i.review === null)
   return (
-    <Open unit={unit}>
+    <Card unit={unit} open>
       <div className="-mx-2 -mt-1 flex items-center gap-2">
         <div className="min-w-0 flex-1">{head}</div>
         {unreviewed.length ? (
@@ -381,7 +374,7 @@ function UnitCard({ unit, hovered, ...props }: MarginProps & { unit: Unit; hover
           ))}
         </ul>
       )}
-    </Open>
+    </Card>
   )
 }
 

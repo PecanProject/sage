@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useRef } from "react"
 import { toast } from "sonner"
-import { $api, queryClient } from "@/api/client"
+import { $api, paperPath, queryClient, runPath } from "@/api/client"
 import { endedAlert, isLive, itemCount, type RunInfo } from "@/lib/format"
 import { type Box, buildItems, type Item } from "@/lib/items"
 import { paperState } from "@/lib/paper-state"
@@ -21,9 +21,7 @@ function marginOrder(items: Item[], boxes: Boxes): Item[] {
   return [...unplaced, ...placed.map((p) => p.item)]
 }
 
-const paperPath = (paperId: string) => ({ params: { path: { paper_id: paperId } } })
 const paperRuns = (paperId: string) => ({ params: { query: { paper_id: paperId } } })
-const runPath = (runId: string) => ({ params: { path: { run_id: runId } } })
 
 /** Starts every request the Paper screen makes, and resolves once the summary has loaded or failed. */
 export async function loadPaper(paperId: string, run: string | undefined) {

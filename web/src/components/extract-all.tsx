@@ -1,18 +1,9 @@
 import { CircleNotchIcon } from "@phosphor-icons/react"
 import { useNavigate, useSearch } from "@tanstack/react-router"
-import { ChoiceFields } from "@/components/paper/extract"
+import { ExtractDialog, StopDialog } from "@/components/paper/extract"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { isLive } from "@/lib/format"
-import { paperState, type Summary, useStartRuns, useStopRuns } from "@/lib/paper-state"
-import { limitLine, useRunChoice } from "@/lib/run-choice"
+import { paperState, type Summary } from "@/lib/paper-state"
 import type { HomeSearch } from "@/router"
 
 /** Home's controls for many papers at once: extract every paper with no data, and stop every live extraction. The
@@ -57,78 +48,23 @@ export function ExtractAll({ papers }: { papers: Summary[] }) {
           Extract all
         </Button>
       ) : null}
-      <ExtractAllDialog open={search.extract === 1 && pending > 1} papers={pending} onClose={close} />
-      <StopAllDialog open={search.stop === 1 && live.length > 0} count={live.length} onClose={close} />
+      <ExtractDialog
+        open={search.extract === 1 && pending > 1}
+        title={`Extract ${pending} papers`}
+        papers={pending}
+        testid="extract-all"
+        startTestid="extract-all-start"
+        onClose={close}
+      />
+      <StopDialog
+        body={search.stop === 1 && live.length > 0 ? {} : null}
+        title={`Stop ${live.length} extractions?`}
+        confirm="Stop all"
+        testid="stop-all"
+        onClose={close}
+      >
+        Each keeps what it has found so far, and you can resume it later. Queued ones won't start.
+      </StopDialog>
     </>
-  )
-}
-
-function ExtractAllDialog({ open, papers, onClose }: { open: boolean; papers: number; onClose: () => void }) {
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[440px]" data-testid="extract-all-dialog">
-        {open ? <ExtractAllForm papers={papers} onClose={onClose} /> : null}
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function ExtractAllForm({ papers, onClose }: { papers: number; onClose: () => void }) {
-  const c = useRunChoice(null)
-  const start = useStartRuns(onClose)
-  const label = `Extract ${papers} papers`
-  return (
-    <>
-      <DialogHeader>
-        <DialogTitle>{label}</DialogTitle>
-      </DialogHeader>
-      <DialogBody className="space-y-4">
-        <ChoiceFields choice={c} testid="extract-all-model" />
-      </DialogBody>
-      <DialogFooter className="justify-between">
-        <span className="text-caption text-muted-ink" data-testid="extract-all-limit">
-          {limitLine(c, papers)}
-        </span>
-        <Button
-          disabled={start.isPending || c.blocker.blocked}
-          onClick={() => start.mutate({ body: { using: c.using, effort: c.effortAsked } })}
-          data-testid="extract-all-start"
-        >
-          {start.isPending ? <CircleNotchIcon className="animate-spin" /> : null}
-          {label}
-        </Button>
-      </DialogFooter>
-    </>
-  )
-}
-
-function StopAllDialog({ open, count, onClose }: { open: boolean; count: number; onClose: () => void }) {
-  const stop = useStopRuns(onClose)
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[400px]" data-testid="stop-all-dialog">
-        <DialogHeader>
-          <DialogTitle>Stop {count} extractions?</DialogTitle>
-        </DialogHeader>
-        <DialogBody>
-          <p className="text-control text-muted-ink">
-            Each keeps what it has found so far, and you can resume it later. Queued ones won't start.
-          </p>
-        </DialogBody>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>
-            Keep going
-          </Button>
-          <Button
-            disabled={stop.isPending}
-            onClick={() => stop.mutate({ body: {} })}
-            data-testid="stop-all-confirm"
-          >
-            {stop.isPending ? <CircleNotchIcon className="animate-spin" /> : null}
-            Stop all
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }

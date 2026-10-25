@@ -1,6 +1,7 @@
-import { QueryClient } from "@tanstack/react-query"
+import { MutationCache, QueryClient } from "@tanstack/react-query"
 import createFetchClient from "openapi-fetch"
 import createClient from "openapi-react-query"
+import { toast } from "sonner"
 import type { components, paths } from "./schema"
 
 export type Schemas = components["schemas"]
@@ -8,8 +9,18 @@ export type Schemas = components["schemas"]
 export const fetchClient = createFetchClient<paths>({ baseUrl: "" })
 export const $api = createClient(fetchClient)
 
-/** The app's one query cache. Route loaders fill it under the same keys `$api` hooks read. */
+/** The request options, and so the query key part, for a route on one paper or one run. */
+export const paperPath = (paperId: string) => ({ params: { path: { paper_id: paperId } } })
+export const runPath = (runId: string) => ({ params: { path: { run_id: runId } } })
+
+/** The app's one query cache. Route loaders fill it under the same keys `$api` hooks read. A failed action says why
+ * in a toast, unless its mutation handles the error itself. */
 export const queryClient = new QueryClient({
+  mutationCache: new MutationCache({
+    onError: (error, _variables, _context, mutation) => {
+      if (!mutation.options.onError) toast.error(errorMessage(error))
+    },
+  }),
   defaultOptions: {
     queries: { refetchOnWindowFocus: false, retry: (failures, error) => failures < 1 && !notFound(error) },
   },

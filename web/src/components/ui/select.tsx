@@ -70,10 +70,28 @@ function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Prop
   )
 }
 
+/** An item per entry of `items`, the list the Select is given to name its value. */
+function SelectItems({ items, testid }: { items: { value: string; label: string }[]; testid?: string }) {
+  return items.map((item) => (
+    <SelectItem key={item.value} value={item.value} data-testid={testid}>
+      {item.label}
+    </SelectItem>
+  ))
+}
+
 const SelectGroup = SelectPrimitive.Group
 
 function SelectGroupLabel({ className, ...props }: SelectPrimitive.GroupLabel.Props) {
   return <SelectPrimitive.GroupLabel className={cn(groupLabelClass, className)} {...props} />
 }
 
-export { Select, SelectContent, SelectGroup, SelectGroupLabel, SelectItem, SelectTrigger, SelectValue }
+export {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectGroupLabel,
+  SelectItem,
+  SelectItems,
+  SelectTrigger,
+  SelectValue,
+}

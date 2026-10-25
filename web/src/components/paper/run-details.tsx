@@ -39,6 +39,7 @@ import {
   NEEDS_OK,
   type RunInfo,
   runStatusLabel,
+  several,
   stamp,
 } from "@/lib/format"
 import { useModelTitle } from "@/lib/models"
@@ -313,9 +314,7 @@ function RunLog({ events }: { events: RunEvent[] }) {
   return (
     <>
       <div className="sticky -top-inset z-10 -mx-inset -mt-inset mb-4 flex h-12 items-center justify-between border-b border-line bg-surface px-inset">
-        <span className="text-caption text-muted-ink tabular-nums">
-          {events.length} {events.length === 1 ? "event" : "events"}
-        </span>
+        <span className="text-caption text-muted-ink tabular-nums">{several(events.length, "event")}</span>
         <CopyButton text={text} failed="Couldn't copy the log" testid="copy-log" />
       </div>
       <pre
@@ -518,7 +517,7 @@ function Problems({ problems, label }: { problems: Problem[]; label?: string }) 
           <span className="flex justify-center">
             <WarningIcon weight="fill" className="size-3.5 text-check" />
           </span>
-          {label ?? `${n} ${n === 1 ? "problem" : "problems"}`}
+          {label ?? several(n, "problem")}
         </span>
       }
     >

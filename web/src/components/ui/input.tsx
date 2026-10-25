@@ -9,10 +9,22 @@ function Input({ className, ...props }: React.ComponentProps<"input">) {
   return <InputPrimitive data-slot="input" className={cn(field, "h-control", className)} {...props} />
 }
 
+/** A number input for dollars, with a $ before the value. */
+function DollarInput({ className, ...props }: React.ComponentProps<"input">) {
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-control text-muted-ink">
+        $
+      </span>
+      <Input type="number" className={cn("pl-7", className)} {...props} />
+    </div>
+  )
+}
+
 function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
   return (
     <textarea data-slot="textarea" className={cn(field, "min-h-24 resize-y py-2", className)} {...props} />
   )
 }
 
-export { Input, Textarea }
+export { DollarInput, Input, Textarea }

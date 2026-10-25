@@ -61,6 +61,14 @@ def read_model_or_none[M: BaseModel](path: Path, cls: type[M]) -> M | None:
         raise UnreadableError(path, e.strerror or type(e).__name__) from e
 
 
+def read_disposable[M: BaseModel](path: Path, cls: type[M]) -> M | None:
+    """A file SAGE can always write again: one that can't be read counts as missing, and nothing is lost."""
+    try:
+        return read_model_or_none(path, cls)
+    except UnreadableError:
+        return None
+
+
 def read_bytes(path: Path) -> bytes:
     return path.read_bytes()
 
@@ -130,26 +138,6 @@ def child_files(path: Path, suffix: str | None = None) -> list[Path]:
         for p in path.iterdir()
         if p.is_file() and not p.name.startswith(".") and (suffix is None or p.name.endswith(suffix))
     )
-
-
-def move(src: Path, dst: Path) -> bool:
-    """Rename a file or folder to `dst`, never over something already there. False, with nothing moved, when `src` is
-    missing or `dst` exists. Within one filesystem the rename is atomic, so a crash leaves it in one place or the
-    other."""
-    if not src.exists() or dst.exists():
-        return False
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    src.rename(dst)
-    return True
-
-
-def remove_empty_dir(path: Path) -> bool:
-    """Remove the folder when it is empty. True when it went."""
-    try:
-        path.rmdir()
-    except OSError:
-        return False
-    return True
 
 
 def exists(path: Path) -> bool:

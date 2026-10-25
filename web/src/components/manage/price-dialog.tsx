@@ -1,4 +1,3 @@
-import { CircleNotchIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 import { $api } from "@/api/client"
 import { Button } from "@/components/ui/button"
@@ -11,7 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Fold } from "@/components/ui/fold"
-import { Input } from "@/components/ui/input"
+import { DollarInput } from "@/components/ui/input"
 import { useSettingsValues } from "@/lib/agents"
 import { useAddModel } from "@/lib/providers"
 
@@ -67,21 +66,14 @@ function PriceField({
       <label htmlFor={testid} className="text-label">
         {label}
       </label>
-      <span className="relative">
-        <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-control text-muted-ink">
-          $
-        </span>
-        <Input
-          id={testid}
-          type="number"
-          min={0}
-          step="any"
-          className="pl-7"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          data-testid={testid}
-        />
-      </span>
+      <DollarInput
+        id={testid}
+        min={0}
+        step="any"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        data-testid={testid}
+      />
     </div>
   )
 }
@@ -146,8 +138,12 @@ function PriceForm({ modelId, onClose }: { modelId: string; onClose: () => void 
         <Button variant="ghost" type="button" onClick={onClose}>
           Cancel
         </Button>
-        <Button type="submit" disabled={!body || add.isPending} data-testid="price-save">
-          {add.isPending ? <CircleNotchIcon className="animate-spin" /> : null}
+        <Button
+          type="submit"
+          disabled={!body || add.isPending}
+          pending={add.isPending}
+          data-testid="price-save"
+        >
           {data?.yours ? "Save" : "Add model"}
         </Button>
       </DialogFooter>

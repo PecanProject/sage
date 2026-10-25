@@ -1,11 +1,8 @@
 import { partialMatchKey, type QueryKey, useQueryClient } from "@tanstack/react-query"
 import { useEffect } from "react"
-import type { Schemas } from "./client"
+import { paperPath, runPath, type Schemas } from "./client"
 
 type Change = Schemas["Change"]
-
-const paperPath = (paperId: string) => ({ params: { path: { paper_id: paperId } } })
-const runPath = (runId: string) => ({ params: { path: { run_id: runId } } })
 
 /** The `$api` queries that show what a change touched, as key prefixes. */
 function touched(c: Change): QueryKey[] {

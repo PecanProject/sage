@@ -6,7 +6,6 @@ from sage.ir.schema import (
     Citation,
     Crop,
     Entity,
-    Field,
     Management,
     Method,
     Observation,
@@ -129,7 +128,8 @@ def label(rec: Entity, names: dict[str, str]) -> str:
         case Species():
             return rec.scientific_name.value or "Species"
         case Crop():
-            return " · ".join(v for v in (_value(rec.common_name), _value(rec.cultivar)) if v is not None) or "Crop"
+            shown = [f.value for f in (rec.common_name, rec.cultivar) if f is not None and f.value is not None]
+            return " · ".join(shown) or "Crop"
         case Method() | Variable():
             return rec.name.value or rec.type
         case Treatment():
@@ -146,10 +146,6 @@ def label(rec: Entity, names: dict[str, str]) -> str:
             return rec.comparison_label.value or "Comparison"
         case _:
             return rec.type
-
-
-def _value(f: Field[str] | None) -> str | None:
-    return f.value if f is not None else None
 
 
 def _quantity(q: QuantityValue) -> str:

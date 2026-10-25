@@ -1,17 +1,12 @@
-import { CloudIcon, DotsThreeIcon } from "@phosphor-icons/react"
+import { CloudIcon } from "@phosphor-icons/react"
 import { useNavigate } from "@tanstack/react-router"
 import type { Schemas } from "@/api/client"
 import { BrandIcon } from "@/components/brand-icon"
 import { ModelEffortSelect } from "@/components/effort-select"
 import { AddModel } from "@/components/manage/add-model"
 import { DefaultMark, Row, Section } from "@/components/manage/section"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+
+import { DropdownMenuItem, MoreMenu } from "@/components/ui/dropdown-menu"
 import { defaultUsing, useSaveSettings } from "@/lib/agents"
 import { type ModelOption, price, useSetModelEffort } from "@/lib/models"
 import { type Provider, providerBrand, useRemoveModel } from "@/lib/providers"
@@ -104,35 +99,20 @@ function ModelRow({
               testid="model-effort"
             />
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="quiet"
-                  size="icon-sm"
-                  className="-mr-2"
-                  aria-label="More"
-                  data-testid="model-menu"
-                />
+          <MoreMenu testid="model-menu">
+            <DropdownMenuItem disabled={isDefault} onClick={onDefault} data-testid="model-use">
+              Use by default
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() =>
+                void navigate({ to: "/manage", search: { price: model.id }, resetScroll: false })
               }
+              data-testid="model-set-price"
             >
-              <DotsThreeIcon weight="bold" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem disabled={isDefault} onClick={onDefault} data-testid="model-use">
-                Use by default
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  void navigate({ to: "/manage", search: { price: model.id }, resetScroll: false })
-                }
-                data-testid="model-set-price"
-              >
-                Set price…
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onRemove}>Remove</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              Set price…
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onRemove}>Remove</DropdownMenuItem>
+          </MoreMenu>
         </>
       }
       data-testid="model-row"

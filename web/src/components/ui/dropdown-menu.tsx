@@ -1,6 +1,7 @@
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
-import { CaretRightIcon } from "@phosphor-icons/react"
+import { CaretRightIcon, DotsThreeIcon } from "@phosphor-icons/react"
 import type * as React from "react"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 const DropdownMenu = MenuPrimitive.Root
@@ -16,6 +17,36 @@ function DropdownMenuContent({ className, ...props }: MenuPrimitive.Popup.Props)
         <MenuPrimitive.Popup className={cn(popup, className)} {...props} />
       </MenuPrimitive.Positioner>
     </MenuPrimitive.Portal>
+  )
+}
+
+/** The ⋯ button at the end of a row, and its menu. */
+function MoreMenu({
+  testid,
+  className,
+  children,
+}: {
+  testid: string
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="quiet"
+            size="icon-sm"
+            className={cn("-mr-2", className)}
+            aria-label="More"
+            data-testid={testid}
+          />
+        }
+      >
+        <DotsThreeIcon weight="bold" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>{children}</DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -76,4 +107,5 @@ export {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  MoreMenu,
 }

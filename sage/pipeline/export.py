@@ -173,7 +173,7 @@ class _Book:
             ]
             for r, c in self.settled_of(Citation)
         ]
-        return Tab("citations", ("citation_id", "author", "year", "title", "doi", *_TAIL), rows)
+        return Tab("citations", _columns("citation_id, author, year, title, doi"), rows)
 
     def sites(self) -> Tab:
         rows = []
@@ -195,19 +195,8 @@ class _Book:
                     *self.tail(r),
                 ]
             )
-        columns = (
-            "name",
-            "latitude",
-            "longitude",
-            "elevation",
-            "elevation_units",
-            "site_name",
-            "country",
-            "state",
-            "city",
-            "soil",
-            "notes",
-            *_TAIL,
+        columns = _columns(
+            "name, latitude, longitude, elevation, elevation_units, site_name, country, state, city, soil, notes"
         )
         return Tab("sites", columns, rows)
 
@@ -232,18 +221,8 @@ class _Book:
                     *self.tail(r),
                 ]
             )
-        columns = (
-            "name",
-            "definition",
-            "start_date",
-            "end_date",
-            "control",
-            "label",
-            "factor_levels",
-            "sitename",
-            "study",
-            "citation",
-            *_TAIL,
+        columns = _columns(
+            "name, definition, start_date, end_date, control, label, factor_levels, sitename, study, citation"
         )
         return Tab("treatments", columns, rows)
 
@@ -252,7 +231,7 @@ class _Book:
             [m.id, _value(m.description), self.cite(m.citation_id), _value(m.name), *self.tail(r)]
             for r, m in self.settled_of(Method)
         ]
-        return Tab("methods", ("method name", "description", "citation_id", "label", *_TAIL), rows)
+        return Tab("methods", _columns("method name, description, citation_id, label"), rows)
 
     def variables(self) -> Tab:
         rows = [
@@ -266,7 +245,7 @@ class _Book:
             ]
             for r, v in self.settled_of(Variable)
         ]
-        return Tab("variables", ("name", "description", "units", "notes", "label", *_TAIL), rows)
+        return Tab("variables", _columns("name, description, units, notes, label"), rows)
 
     def crops(self) -> Tab:
         rows: list[list[Value]] = []
@@ -287,68 +266,48 @@ class _Book:
         for r, s in self.settled_of(Species):
             if s.id not in grown:
                 rows.append([_value(s.scientific_name), _value(s.common_name), None, None, None, *self.tail(r)])
-        columns = ("scientific name", "common name", "notes", "variety", "cover_crop", *_TAIL)
-        return Tab("crops", columns, rows)
+        return Tab("crops", _columns("scientific name, common name, notes, variety, cover_crop"), rows)
 
     def treatment_pairs(self) -> Tab:
-        rows = []
-        for r, p in self.settled_of(TreatmentPair):
-            rows.append(
-                [
-                    p.id,
-                    p.treatment_id_1,
-                    p.treatment_id_2,
-                    _value(p.comparison_factor),
-                    _value(p.comparison_label),
-                    _value(p.use_for_validation),
-                    p.notes,
-                    *self.tail(r),
-                ]
-            )
-        columns = (
-            "pair_id",
-            "treatment_id_1",
-            "treatment_id_2",
-            "comparison_factor",
-            "comparison_label",
-            "use_for_validation",
-            "notes",
-            *_TAIL,
+        rows: list[list[Value]] = [
+            [
+                p.id,
+                p.treatment_id_1,
+                p.treatment_id_2,
+                _value(p.comparison_factor),
+                _value(p.comparison_label),
+                _value(p.use_for_validation),
+                p.notes,
+                *self.tail(r),
+            ]
+            for r, p in self.settled_of(TreatmentPair)
+        ]
+        columns = _columns(
+            "pair_id, treatment_id_1, treatment_id_2, comparison_factor, comparison_label, use_for_validation, notes"
         )
         return Tab("treatment_pairs", columns, rows)
 
     def coverage(self) -> Tab:
-        rows = []
-        for r, c in self.settled_of(Coverage):
-            rows.append(
-                [
-                    c.system,
-                    c.treatment_contrast,
-                    c.site_id,
-                    c.variable_id,
-                    c.daily_rows,
-                    c.annual_rows,
-                    c.seasonal_rows,
-                    c.static_observation_rows,
-                    c.weather_rows,
-                    c.initial_data_sources,
-                    c.notes,
-                    *self.tail(r),
-                ]
-            )
-        columns = (
-            "System",
-            "Treatment contrast",
-            "sitename",
-            "variable",
-            "daily_rows",
-            "annual_rows",
-            "seasonal_rows",
-            "static_observation_rows",
-            "weather_rows",
-            "Initial data sources",
-            "Notes",
-            *_TAIL,
+        rows: list[list[Value]] = [
+            [
+                c.system,
+                c.treatment_contrast,
+                c.site_id,
+                c.variable_id,
+                c.daily_rows,
+                c.annual_rows,
+                c.seasonal_rows,
+                c.static_observation_rows,
+                c.weather_rows,
+                c.initial_data_sources,
+                c.notes,
+                *self.tail(r),
+            ]
+            for r, c in self.settled_of(Coverage)
+        ]
+        columns = _columns(
+            "System, Treatment contrast, sitename, variable, daily_rows, annual_rows, seasonal_rows, "
+            "static_observation_rows, weather_rows, Initial data sources, Notes"
         )
         return Tab("coverage", columns, rows)
 
@@ -562,64 +521,25 @@ class _Book:
         return f"{table.label} ({anchor})" if table is not None else anchor
 
 
+def _columns(names: str) -> tuple[str, ...]:
+    """A tab's columns, written comma-separated, then the SAGE id, status and review every tab ends with."""
+    return (*names.split(", "), *_TAIL)
+
+
 _TAIL = ("sage_id", "status", "review")
 OBSERVATION_COLUMNS = (
-    "min_date",
-    "max_date",
-    "crop",
-    "variety",
-    "sitename",
-    "variable",
-    "method",
-    "value",
-    "n",
-    "statname",
-    "stat",
-    "treatment_id",
-    "replicate_id",
-    "study_year",
-    "min_depth",
-    "max_depth",
-    "citation",
-    "fill_status",
-    "notes",
-    "dataset_id",
-    "reported_units",
-    "observation_level",
-    "attributes_json",
-    "reported_effect_scope",
-    "aggregated_over_factors",
-    "relative_timing",
-    "relative_timing_days",
-    "reported_time",
-    "reported_depth",
-    "reported_variable",
-    "reported_value",
-    "source",
-    "quote",
-    *_TAIL,
+    *_columns(
+        "min_date, max_date, crop, variety, sitename, variable, method, value, n, statname, stat, treatment_id, "
+        "replicate_id, study_year, min_depth, max_depth, citation, fill_status, notes, dataset_id, reported_units, "
+        "observation_level, attributes_json, reported_effect_scope, aggregated_over_factors, relative_timing, "
+        "relative_timing_days, reported_time, reported_depth, reported_variable, reported_value, source, quote"
+    ),
     "status_reason",
 )
 """The curators' observation columns (protocol §16.1), then what SAGE adds."""
-MANAGEMENT_COLUMNS = (
-    "event_id",
-    "sites.name",
-    "treatments.name",
-    "min_date",
-    "max_date",
-    "mgmttype",
-    "cover_crop",
-    "crop_name",
-    "level",
-    "units",
-    "notes",
-    "attributes_keyvalue",
-    "citation",
-    "relative_timing",
-    "relative_timing_days",
-    "reported_date",
-    "reported_amount",
-    *_TAIL,
+MANAGEMENT_COLUMNS = _columns(
+    "event_id, sites.name, treatments.name, min_date, max_date, mgmttype, cover_crop, crop_name, level, units, notes, "
+    "attributes_keyvalue, citation, relative_timing, relative_timing_days, reported_date, reported_amount"
 )
 
 

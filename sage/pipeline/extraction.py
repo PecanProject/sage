@@ -159,20 +159,24 @@ def opened(home: Home, info: RunInfo) -> RunInfo:
     `info.parent_id` names, so reviews of records it keeps unchanged still stand."""
     paths = home.run(info.paper_id, info.id)
     files.write_model(paths.info, info)
-    _emit(
-        paths,
-        RunStarted(
-            run_id=info.id,
-            paper_id=info.paper_id,
-            driver=info.driver,
-            agent=info.agent,
-            extraction_model=info.extraction_model,
-            effort=info.effort,
-            continued_from=info.parent_id,
-            guidance=info.guidance,
-        ),
-    )
+    _emit(paths, started(info))
     return info
+
+
+def started(info: RunInfo, *, resumed: bool = False) -> RunStarted:
+    """The `run.started` event every driver writes first. A resumed run carries on itself, so it continues no other."""
+    return RunStarted(
+        run_id=info.id,
+        paper_id=info.paper_id,
+        driver=info.driver,
+        agent=info.agent,
+        agent_model=info.agent_model,
+        extraction_model=info.extraction_model,
+        effort=info.effort,
+        resumed=resumed,
+        continued_from=None if resumed else info.parent_id,
+        guidance=info.guidance,
+    )
 
 
 def stopped(home: Home, settings: Settings, info: RunInfo, reason: str) -> RunInfo:

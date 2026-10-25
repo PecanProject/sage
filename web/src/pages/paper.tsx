@@ -247,14 +247,25 @@ function RunDialogs({
     <>
       <ExtractDialog
         open={search.extract === 1 && live === null}
-        paperId={paperId}
+        title="Extract data"
+        paperIds={[paperId]}
+        testid="extract"
+        startTestid="start-extraction"
         onClose={() => onSearch({ extract: undefined })}
       />
       <ContinueDialog
         run={view.runs.find((r) => r.id === search.continue) ?? null}
         onClose={() => onSearch({ continue: undefined })}
       />
-      <StopDialog run={search.stop === 1 ? live : null} onClose={() => onSearch({ stop: undefined })} />
+      <StopDialog
+        body={search.stop === 1 && live ? { run_ids: [live.id] } : null}
+        title="Stop this extraction?"
+        confirm="Stop"
+        testid="stop"
+        onClose={() => onSearch({ stop: undefined })}
+      >
+        It keeps what it has found so far, and you can resume it later.
+      </StopDialog>
     </>
   )
 }
@@ -401,6 +412,12 @@ function Overlay({
 /** The paper's own PDF. The top bar's Export offers it; the margin's, shown once all is checked, doesn't. */
 type PdfLink = { href: string; filename: string | undefined }
 
+const EXPORTS = [
+  ["xlsx", "Curation workbook (Excel)"],
+  ["csv", "Curation workbook (CSV)"],
+  ["json", "Everything (JSON)"],
+] as const
+
 function ExportMenu({
   runId,
   pdf,
@@ -420,27 +437,16 @@ function ExportMenu({
         <CaretDownIcon className="size-3.5 text-muted-ink" />
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <DropdownMenuLinkItem
-          href={`/api/runs/${runId}/export?format=xlsx`}
-          disabled={!runId}
-          data-testid="export-xlsx"
-        >
-          Curation workbook (Excel)
-        </DropdownMenuLinkItem>
-        <DropdownMenuLinkItem
-          href={`/api/runs/${runId}/export?format=csv`}
-          disabled={!runId}
-          data-testid="export-csv"
-        >
-          Curation workbook (CSV)
-        </DropdownMenuLinkItem>
-        <DropdownMenuLinkItem
-          href={`/api/runs/${runId}/export?format=json`}
-          disabled={!runId}
-          data-testid="export-json"
-        >
-          Everything (JSON)
-        </DropdownMenuLinkItem>
+        {EXPORTS.map(([format, label]) => (
+          <DropdownMenuLinkItem
+            key={format}
+            href={`/api/runs/${runId}/export?format=${format}`}
+            disabled={!runId}
+            data-testid={`export-${format}`}
+          >
+            {label}
+          </DropdownMenuLinkItem>
+        ))}
         {pdf ? (
           <>
             <DropdownMenuSeparator />

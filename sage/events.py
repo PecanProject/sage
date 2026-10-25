@@ -2,7 +2,7 @@
 
 import re
 from datetime import UTC, datetime
-from typing import Annotated, Literal, get_args
+from typing import Annotated, Literal, Protocol, cast, get_args
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, JsonValue, SecretStr, TypeAdapter
 from pydantic_core import PydanticCustomError
@@ -10,9 +10,7 @@ from pydantic_core import PydanticCustomError
 Effort = Literal["low", "medium", "high", "xhigh", "max"]
 """Defined here because settings, store and agents may all import this module."""
 
-EFFORTS: tuple[Effort, ...] = ("low", "medium", "high", "xhigh", "max")
-if get_args(Effort) != EFFORTS:
-    raise TypeError("EFFORTS must list every Effort, in order")
+EFFORTS = cast("tuple[Effort, ...]", get_args(Effort))
 EffortAdapter: TypeAdapter[Effort] = TypeAdapter(Effort)
 
 
@@ -83,14 +81,7 @@ class Usage(BaseModel):
     cost_usd: float = 0.0
 
     def __add__(self, other: "Usage") -> "Usage":
-        return Usage(
-            requests=self.requests + other.requests,
-            input_tokens=self.input_tokens + other.input_tokens,
-            output_tokens=self.output_tokens + other.output_tokens,
-            cache_read_tokens=self.cache_read_tokens + other.cache_read_tokens,
-            cache_write_tokens=self.cache_write_tokens + other.cache_write_tokens,
-            cost_usd=self.cost_usd + other.cost_usd,
-        )
+        return Usage(**{f: getattr(self, f) + getattr(other, f) for f in Usage.model_fields})
 
 
 Stage = Literal["parse", "agent", "settle"]
@@ -284,6 +275,8 @@ Event = Annotated[
     Field(discriminator="type"),
 ]
 EventAdapter: TypeAdapter[Event] = TypeAdapter(Event)
+JSON: TypeAdapter[JsonValue] = TypeAdapter(JsonValue)
+"""Checks that a value is plain JSON, for tool arguments and what a person types."""
 
 
 def describe(e: Event) -> str | None:
@@ -293,14 +286,7 @@ def describe(e: Event) -> str | None:
             again = " (resumed)" if e.resumed else ""
             if e.continued_from is not None:
                 again = f" (continues {e.continued_from})"
-            if e.driver == "here":
-                by = "from a terminal"
-            elif e.driver == "agent":
-                by = f"by {e.agent}" + (f", {e.agent_model}" if e.agent_model is not None else "")
-                by += f", effort {e.effort}" if e.effort is not None else ""
-            else:
-                by = f"{e.extraction_model}" + (f", effort {e.effort}" if e.effort is not None else "")
-            line = f"run started{again}: {by}"
+            line = f"run started{again}: {'by ' if e.driver == 'agent' else ''}{driven_by(e)}"
             return line + (f"\nguidance: {e.guidance}" if e.guidance is not None else "")
         case StageStarted():
             return f"{e.stage} …"
@@ -333,13 +319,39 @@ def describe(e: Event) -> str | None:
         case AgentAnswered():
             return f"{'allowed' if e.allowed else 'refused'} by {e.by}"
         case RunFinished():
-            names = {"turns": "turn", "cost": "cost", "time": "time"}
-            ended = f"stopped at the {names[e.limit]} limit" if e.limit else e.status
+            ended = stopped_at(e.limit) if e.limit else e.status
             return f"run {ended}" + (f": {e.summary}" if e.summary is not None else "")
         case RunError():
             return f"run failed: {e.message}"
         case LlmThinking() | RecordSettled():
             return None
+
+
+class _Driven(Protocol):
+    @property
+    def driver(self) -> Driver: ...
+    @property
+    def agent(self) -> str | None: ...
+    @property
+    def agent_model(self) -> str | None: ...
+    @property
+    def extraction_model(self) -> str | None: ...
+    @property
+    def effort(self) -> str | None: ...
+
+
+def driven_by(run: _Driven) -> str:
+    """Who drives a run, and on what: the agent and its model, or SAGE's model, with the effort."""
+    if run.driver == "here":
+        return "from a terminal"
+    effort = f", effort {run.effort}" if run.effort is not None else ""
+    if run.driver == "agent":
+        return f"{run.agent}" + (f", {run.agent_model}" if run.agent_model is not None else "") + effort
+    return f"{run.extraction_model}{effort}"
+
+
+def stopped_at(limit: Limit) -> str:
+    return f"stopped at the {'turn' if limit == 'turns' else limit} limit"
 
 
 def _args(args: JsonValue) -> str:

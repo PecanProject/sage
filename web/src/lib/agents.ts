@@ -1,6 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
-import { $api, errorMessage, type Schemas } from "@/api/client"
+import { $api, type Schemas } from "@/api/client"
 import type { RunInfo } from "@/lib/format"
 import { useModelTitle } from "@/lib/models"
 import { obj } from "@/lib/utils"
@@ -48,7 +47,6 @@ export function useSetAgent() {
       )
       void queryClient.invalidateQueries({ queryKey: ["get", "/api/settings"] })
     },
-    onError: (e) => toast.error(errorMessage(e)),
   })
 }
 
@@ -82,7 +80,6 @@ export function useSaveSettings() {
       queryClient.setQueryData(["get", "/api/settings"], view)
       void queryClient.invalidateQueries({ queryKey: ["get", "/api/agents"] })
     },
-    onError: (e) => toast.error(errorMessage(e)),
   })
 }
 
@@ -159,6 +156,5 @@ export function useInstallSkill(onDone?: (places: SkillPlace[]) => void) {
       queryClient.setQueryData(["get", "/api/skill"], places)
       onDone?.(places)
     },
-    onError: (e) => toast.error(errorMessage(e)),
   })
 }

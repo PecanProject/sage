@@ -7,9 +7,9 @@ import { toast } from "sonner"
 import { $api, errorMessage, type Schemas } from "@/api/client"
 import { TopBar } from "@/components/top-bar"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { DollarInput, Input } from "@/components/ui/input"
 import { Segmented } from "@/components/ui/segmented"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItems, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton, TextSkeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Tip } from "@/components/ui/tooltip"
@@ -124,9 +124,10 @@ function SettingsForm({ view }: { view: View }) {
       onChange={change(f)}
     />
   )
-  const byGroup = new Map<string, FieldSpec[]>()
-  for (const f of fields.filter((f) => !GENERAL.includes(f.name)))
-    byGroup.set(f.group, [...(byGroup.get(f.group) ?? []), f])
+  const byGroup = Map.groupBy(
+    fields.filter((f) => !GENERAL.includes(f.name)),
+    (f) => f.group,
+  )
   const dirty = Object.keys(draft).length > 0
   const wrong = fields.filter((f) => f.name in errors.byField).map((f) => f.title)
   const problem =
@@ -339,11 +340,7 @@ function ChoiceInput({
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {items.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
-            {o.label}
-          </SelectItem>
-        ))}
+        <SelectItems items={items} />
       </SelectContent>
     </Select>
   )
@@ -370,25 +367,17 @@ function NumberInput({
   max,
   step,
 }: ControlProps & { min?: number; max?: number; step: number | "any" }) {
-  const dollars = field.name.endsWith("_usd")
+  const Field = field.name.endsWith("_usd") ? DollarInput : Input
   return (
-    <div className="relative">
-      {dollars ? (
-        <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-control text-muted-ink">
-          $
-        </span>
-      ) : null}
-      <Input
-        id={id}
-        type="number"
-        min={min}
-        max={max}
-        step={step}
-        disabled={disabled}
-        className={cn(dollars && "pl-7")}
-        value={value === null ? "" : String(value)}
-        onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
-      />
-    </div>
+    <Field
+      id={id}
+      type="number"
+      min={min}
+      max={max}
+      step={step}
+      disabled={disabled}
+      value={value === null ? "" : String(value)}
+      onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
+    />
   )
 }

@@ -1,6 +1,6 @@
-import { type ReactNode, Suspense, useState } from "react"
+import { type CSSProperties, type ReactNode, Suspense, useState } from "react"
 import { Document, Page, pdfjs } from "react-pdf"
-import { Skeleton } from "@/components/ui/skeleton"
+import { PageSkeleton } from "@/components/ui/skeleton"
 import { Tip } from "@/components/ui/tooltip"
 import type { Highlight, Tone } from "@/lib/evidence"
 import { PAGE_GAP, type PageSize } from "@/lib/pages"
@@ -87,10 +87,9 @@ export default function PdfPages({
   tip?: (itemId: string) => ReactNode
 }) {
   const [failed, setFailed] = useState<string | null>(null)
-  const byPage = new Map<number, Highlight[]>()
-  for (const h of highlights) byPage.set(h.page, [...(byPage.get(h.page) ?? []), h])
+  const byPage = Map.groupBy(highlights, (h) => h.page)
   const [file] = useState(() => ({ url }))
-  const placeholder = <Skeleton className="rounded-page bg-surface" style={{ width, height: width * 1.3 }} />
+  const placeholder = <PageSkeleton width={width} />
 
   if (failed) return <p className="py-16 text-center text-muted-ink">Couldn't show the PDF: {failed}</p>
   return (
@@ -157,6 +156,20 @@ export default function PdfPages({
   )
 }
 
+/** Where a box in PDF points draws: grown by `pad` (x, y) on each side, in px at `scale`, from `origin` in points (the
+ * page's top left unless the box sits inside another). */
+function boxStyle(bbox: number[], pad: [number, number], scale: number, origin = [0, 0]): CSSProperties {
+  const [x0 = 0, y0 = 0, x1 = 0, y1 = 0] = bbox
+  const [px, py] = pad
+  const [ox = 0, oy = 0] = origin
+  return {
+    left: (x0 - px - ox) * scale,
+    top: (y0 - py - oy) * scale,
+    width: (x1 - x0 + 2 * px) * scale,
+    height: (y1 - y0 + 2 * py) * scale,
+  }
+}
+
 function markClass(h: Highlight, hovered: boolean): string {
   const own = h.lines.length > 0 ? QUOTED_BLOCK[h.tone] : cn(TONE[h.tone], h.active && ACTIVE[h.tone])
   return cn(
@@ -181,7 +194,6 @@ function Mark({
   onHighlight: (itemId: string) => void
   onHover?: (itemId: string | null) => void
 }) {
-  const [x0 = 0, y0 = 0, x1 = 0, y1 = 0] = h.bbox
   return (
     <button
       type="button"
@@ -199,12 +211,7 @@ function Mark({
       data-hover={hovered || undefined}
       data-precise={h.lines.length > 0 || undefined}
       className={markClass(h, hovered)}
-      style={{
-        left: (x0 - PAD_X) * scale,
-        top: (y0 - PAD_Y) * scale,
-        width: (x1 - x0 + 2 * PAD_X) * scale,
-        height: (y1 - y0 + 2 * PAD_Y) * scale,
-      }}
+      style={boxStyle(h.bbox, [PAD_X, PAD_Y], scale)}
     >
       {h.lines.map((line) => (
         <QuoteLine key={line.join(",")} line={line} from={h.bbox} tone={h.tone} scale={scale} />
@@ -224,36 +231,24 @@ function QuoteLine({
   tone: Tone
   scale: number
 }) {
-  const [x0 = 0, y0 = 0, x1 = 0, y1 = 0] = line
   const [bx = 0, by = 0] = from
   return (
     <span
       aria-hidden
       data-testid="quote-line"
       className={cn("pointer-events-none absolute rounded-highlight mix-blend-multiply", QUOTED_LINE[tone])}
-      style={{
-        left: (x0 - LINE_PAD - (bx - PAD_X)) * scale,
-        top: (y0 - LINE_PAD - (by - PAD_Y)) * scale,
-        width: (x1 - x0 + 2 * LINE_PAD) * scale,
-        height: (y1 - y0 + 2 * LINE_PAD) * scale,
-      }}
+      style={boxStyle(line, [LINE_PAD, LINE_PAD], scale, [bx - PAD_X, by - PAD_Y])}
     />
   )
 }
 
 function RegionOutline({ bbox, scale }: { bbox: number[]; scale: number }) {
-  const [x0 = 0, y0 = 0, x1 = 0, y1 = 0] = bbox
   return (
     <div
       aria-hidden
       data-testid="table-outline"
       className="pointer-events-none absolute rounded-mark outline-[1.5px] outline-hl-ink/70"
-      style={{
-        left: (x0 - 4) * scale,
-        top: (y0 - 4) * scale,
-        width: (x1 - x0 + 8) * scale,
-        height: (y1 - y0 + 8) * scale,
-      }}
+      style={boxStyle(bbox, [4, 4], scale)}
     />
   )
 }

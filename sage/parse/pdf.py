@@ -16,7 +16,7 @@ from pdftext.extraction import dictionary_output
 from pydantic import BaseModel, TypeAdapter
 
 from sage.domain.normalize import norm
-from sage.parse.document import Block, BlockKind, Box, Document, Page, Table, union
+from sage.parse.document import Block, BlockKind, Box, Document, Page, Table, rounded, union
 from sage.parse.layout import (
     Span,
     blank,
@@ -127,7 +127,7 @@ def _resolve(page: _RawPage) -> None:
             for span in line.spans:
                 rot = rotation_of(span.rotation)
                 for ch in span.chars:
-                    box = to_upright(_box(ch.bbox), rot, page.width, page.height)
+                    box = to_upright(rounded(ch.bbox), rot, page.width, page.height)
                     if ch.char == "\x02":
                         ch.char = MINUS if prev is not None and _superscript(box, prev) else SOFT_HYPHEN
                     if ch.char.strip():
@@ -189,7 +189,7 @@ def parse(data: bytes, *, paper_id: str, sha256: str) -> Document:
                 Block(
                     anchor=f"p{number}.b{n}",
                     page=number,
-                    bbox=_box(lb.bbox),
+                    bbox=rounded(lb.bbox),
                     text=lb.text,
                     kind=kind,
                     size=round(lb.line_height, 2),
@@ -218,7 +218,7 @@ def pages_chars(data: bytes, pages: Sequence[int]) -> dict[int, list[Char]]:
                         if not text.strip():
                             first, space = True, space or blank(text)
                             continue
-                        chars.append(Char(text=text, bbox=_box(ch.bbox), boundary=first, space=space))
+                        chars.append(Char(text=text, bbox=rounded(ch.bbox), boundary=first, space=space))
                         first = space = False
     return out
 
@@ -261,13 +261,9 @@ def _crop(box: Box, width: float, height: float, scale: float) -> tuple[float, f
 def _span(s: _RawSpan) -> Span:
     f = s.font
     bold = is_bold(f.weight or 0, f.flags or 0, f.name or "")
-    chars = tuple((c.char.translate(_CONTROL), _box(c.bbox)) for c in s.chars)
+    chars = tuple((c.char.translate(_CONTROL), rounded(c.bbox)) for c in s.chars)
     text = s.text.translate(_CONTROL)
-    return Span(text=text, bbox=_box(s.bbox), bold=bold, rotation=rotation_of(s.rotation), chars=chars)
-
-
-def _box(b: Sequence[float]) -> Box:
-    return (round(b[0], 2), round(b[1], 2), round(b[2], 2), round(b[3], 2))
+    return Span(text=text, bbox=rounded(s.bbox), bold=bold, rotation=rotation_of(s.rotation), chars=chars)
 
 
 def _classify(blocks: list[Block], pages: dict[int, Page]) -> list[Block]:
@@ -350,7 +346,7 @@ def _table_stubs(blocks: list[Block], pages: dict[int, Page]) -> list[Table]:
                 label=f"Table {m.group(1)}",
                 caption_anchor=b.anchor,
                 caption=b.text,
-                region=_box(region),
+                region=rounded(region),
                 rotation=rot,
             )
         )
@@ -434,7 +430,7 @@ def figures(data: bytes, doc: Document) -> list[Figure]:
         if region is None:
             continue
         drawn[b.page] = [g for g in drawn[b.page] if not center_in(g, region)]
-        found[anchor] = Figure(anchor=anchor, page=b.page, region=_box(region), rotation=b.rotation)
+        found[anchor] = Figure(anchor=anchor, page=b.page, region=rounded(region), rotation=b.rotation)
     return [found[a] for a, _ in numbered if a in found]
 
 
@@ -574,4 +570,4 @@ def _layer_box(rect: Sequence[float], frame: Sequence[float], rotation: int) -> 
             x0, y0, x1, y1 = width - x1, height - y1, width - x0, height - y0
         case 270:
             x0, y0, x1, y1 = y0, width - x1, y1, width - x0
-    return _box((min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)))
+    return rounded((min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)))

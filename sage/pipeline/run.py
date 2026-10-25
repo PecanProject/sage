@@ -18,7 +18,6 @@ from sage.events import (
     Note,
     RunError,
     RunFinished,
-    RunStarted,
     Stage,
     StageFinished,
     StageStarted,
@@ -94,18 +93,7 @@ async def execute(home: Home, settings: Settings, info: RunInfo, *, route: model
         info.resumes += 1
     run.save()
     try:
-        run.emit(
-            RunStarted(
-                run_id=info.id,
-                paper_id=info.paper_id,
-                driver="sage",
-                extraction_model=info.extraction_model,
-                effort=info.effort,
-                resumed=resumed,
-                continued_from=None if resumed else info.parent_id,
-                guidance=info.guidance,
-            )
-        )
+        run.emit(extraction.started(info, resumed=resumed))
         await _drive(run)
     except asyncio.CancelledError:
         info.status = "interrupted"

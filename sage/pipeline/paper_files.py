@@ -130,7 +130,7 @@ def materialize(home: Home, paper_id: str, data: bytes, settings: Settings) -> N
     document is parsed again; `refresh` calls it for any paper missing a file."""
     doc = files.read_model(home.document(paper_id), Document)
     key = _render_key(doc, settings)
-    old = _read_disposable(home.rendered(paper_id), _Rendered)
+    old = files.read_disposable(home.rendered(paper_id), _Rendered)
     fresh = old is None or old.key != key
     scale = settings.page_render_dpi / 72
     pages = {p.number: p for p in doc.pages}
@@ -144,16 +144,12 @@ def materialize(home: Home, paper_id: str, data: bytes, settings: Settings) -> N
         scale=scale,
         write=lambda n, png: files.write_bytes(home.page_png(paper_id, n), png),
     )
-    for t in doc.tables:
-        path = home.table_png(paper_id, t.anchor)
+    crops: list[tuple[Path, Table | pdf.Figure]] = [(home.table_png(paper_id, t.anchor), t) for t in doc.tables]
+    crops += [(home.figure_png(paper_id, f.anchor), f) for f in pdf.figures(data, doc)]
+    for path, c in crops:
         if needed(path):
-            box = _padded(t.region, pages[t.page])
-            files.write_bytes(path, pdf.render(data, t.page, bbox=box, scale=scale, text_rotation=t.rotation))
-    for f in pdf.figures(data, doc):
-        path = home.figure_png(paper_id, f.anchor)
-        if needed(path):
-            box = _padded(f.region, pages[f.page])
-            files.write_bytes(path, pdf.render(data, f.page, bbox=box, scale=scale, text_rotation=f.rotation))
+            box = _padded(c.region, pages[c.page])
+            files.write_bytes(path, pdf.render(data, c.page, bbox=box, scale=scale, text_rotation=c.rotation))
     # The agent's folders are there from the start, so writing its first record needs no mkdir.
     files.make_dirs(home.records_dir(paper_id) / "observations", home.tables_dir(paper_id), home.pages_dir(paper_id))
     refresh_paper_md(home, paper_id, settings)
@@ -180,16 +176,9 @@ def effective_document(home: Home, paper_id: str, settings: Settings) -> tuple[D
     issues: list[FileIssue] = []
     tables = _csv_tables(home, paper_id, base, settings, issues)
     blocks = sorted([*base.blocks, *_scan_blocks(home, paper_id, base, issues)], key=lambda b: b.page)
-    staged = Document(
-        paper_id=base.paper_id,
-        sha256=base.sha256,
-        parser_version=base.parser_version,
-        pages=base.pages,
-        blocks=blocks,
-        tables=tables,
-    )
-    marked = staged.model_copy(update={"blocks": mark_table_blocks(staged)})
-    return marked.with_tables(attach_notes(marked)), issues
+    staged = base.replace(blocks=blocks, tables=tables)
+    marked = staged.replace(blocks=mark_table_blocks(staged))
+    return marked.replace(tables=attach_notes(marked)), issues
 
 
 def _csv_tables(home: Home, paper_id: str, base: Document, settings: Settings, issues: list[FileIssue]) -> list[Table]:
@@ -213,7 +202,7 @@ def _csv_tables(home: Home, paper_id: str, base: Document, settings: Settings, i
     grounded: dict[str, Table] = {}
     misses: list[str] = []
     for anchor, (_, key) in grids.items():
-        cached = _read_disposable(home.table_cache(paper_id, anchor), _Grounded)
+        cached = files.read_disposable(home.table_cache(paper_id, anchor), _Grounded)
         if cached is not None and cached.key == key:
             grounded[anchor] = cached.table
         else:
@@ -353,7 +342,7 @@ def _page_blocks(text: str, page: Page, rel: str, issues: list[FileIssue]) -> li
 
 def _stale(home: Home, paper_id: str, doc: Document, settings: Settings) -> bool:
     """Whether a file `materialize` writes is missing, or was rendered from something else."""
-    old = _read_disposable(home.rendered(paper_id), _Rendered)
+    old = files.read_disposable(home.rendered(paper_id), _Rendered)
     if old is None or old.key != _render_key(doc, settings) or not files.exists(home.paper_md(paper_id)):
         return True
     paths = [home.page_png(paper_id, p.number) for p in doc.pages]
@@ -374,14 +363,6 @@ def _ground_key(text: str, table: Table, settings: Settings) -> str:
         settings.table_min_grounded,
     ]
     return hashlib.sha256(json.dumps(parts, sort_keys=True).encode()).hexdigest()
-
-
-def _read_disposable[M: BaseModel](path: Path, cls: type[M]) -> M | None:
-    """A file SAGE can always write again: one that can't be read counts as missing."""
-    try:
-        return files.read_model_or_none(path, cls)
-    except files.UnreadableError:
-        return None
 
 
 def _padded(region: Box, page: Page) -> Box:

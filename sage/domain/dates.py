@@ -84,62 +84,53 @@ class _Rule(NamedTuple):
     """A season states a year but no dates: which months it covers depends on the hemisphere and the paper."""
 
 
-def _rule(pattern: str, build: Builder, *, needs_year: bool, season: bool = False) -> _Rule:
-    return _Rule(re.compile(pattern, re.IGNORECASE), build, needs_year, season)
+def _rule(pattern: str, build: Builder, *, season: bool = False) -> _Rule:
+    """A rule with a year group "y" needs a year: with none written, it takes the one the quotes state."""
+    compiled = re.compile(pattern, re.IGNORECASE)
+    return _Rule(compiled, build, "y" in compiled.groupindex, season)
 
 
-# A rule whose year group "y" is optional needs_year: with no year written, it takes the year the quotes state.
 _DATED: tuple[_Rule, ...] = (
     _rule(
         r"\b(?P<y1>\d{4})-(?P<m1>\d{2})-(?P<d1>\d{2})" + _TO + r"(?P<y2>\d{4})-(?P<m2>\d{2})-(?P<d2>\d{2})\b",
         lambda g, _: (_iso(g), date(int(g["y2"]), int(g["m2"]), int(g["d2"]))),
-        needs_year=False,
     ),
-    _rule(r"\b(?P<y1>\d{4})-(?P<m1>\d{2})-(?P<d1>\d{2})\b", lambda g, _: _same(_iso(g)), needs_year=False),
+    _rule(r"\b(?P<y1>\d{4})-(?P<m1>\d{2})-(?P<d1>\d{2})\b", lambda g, _: _same(_iso(g))),
     _rule(
         rf"\b{_day('d1')}[\s-]+{_m('m1')}{_TO}{_day('d2')}[\s-]+{_m('m2')}{_y()}\b",
         lambda g, y: (date(y, _month(g["m1"]), int(g["d1"])), date(y, _month(g["m2"]), int(g["d2"]))),
-        needs_year=True,
     ),
     _rule(
         rf"\b{_m('m1')}\s+{_day('d1')}{_TO}{_m('m2')}\s+{_day('d2')}{_y()}\b",
         lambda g, y: (date(y, _month(g["m1"]), int(g["d1"])), date(y, _month(g["m2"]), int(g["d2"]))),
-        needs_year=True,
     ),
     _rule(
         rf"\b{_day('d1')}{_TO}{_day('d2')}[\s-]+{_m('m1')}{_y()}\b",
         lambda g, y: (date(y, _month(g["m1"]), int(g["d1"])), date(y, _month(g["m1"]), int(g["d2"]))),
-        needs_year=True,
     ),
     _rule(
         rf"\b{_m('m1')}\s+{_day('d1')}{_TO}{_day('d2')}{_y()}\b",
         lambda g, y: (date(y, _month(g["m1"]), int(g["d1"])), date(y, _month(g["m1"]), int(g["d2"]))),
-        needs_year=True,
     ),
     _rule(
         rf"\b{_day('d1')}{_AND}{_day('d2')}[\s-]+{_m('m1')}{_y()}\b",
         lambda g, y: (date(y, _month(g["m1"]), int(g["d1"])), date(y, _month(g["m1"]), int(g["d2"]))),
-        needs_year=True,
     ),
     _rule(
         rf"\b{_m('m1')}\s+{_day('d1')}{_AND}{_day('d2')}{_y()}\b",
         lambda g, y: (date(y, _month(g["m1"]), int(g["d1"])), date(y, _month(g["m1"]), int(g["d2"]))),
-        needs_year=True,
     ),
     _rule(
         rf"\b{_day('d1')}[\s-]+{_m('m1')}{_y()}\b",
         lambda g, y: _same(date(y, _month(g["m1"]), int(g["d1"]))),
-        needs_year=True,
     ),
     _rule(
         rf"\b{_m('m1')}\s+{_day('d1')}{_y()}\b",
         lambda g, y: _same(date(y, _month(g["m1"]), int(g["d1"]))),
-        needs_year=True,
     ),
     _rule(
         rf"\b(?P<part>early|mid|middle|late|end)(?:\s+of)?[\s-]+{_m('m1')}{_y()}\b",
         lambda g, y: _part_of_month(g["part"], y, _month(g["m1"])),
-        needs_year=True,
     ),
     _rule(
         rf"\b{_m('m1')}\s+(?P<y1>{_YEAR}){_TO}{_m('m2')}\s+(?P<y2>{_YEAR})\b",
@@ -147,30 +138,26 @@ _DATED: tuple[_Rule, ...] = (
             _whole_month(int(g["y1"]), _month(g["m1"]))[0],
             _whole_month(int(g["y2"]), _month(g["m2"]))[1],
         ),
-        needs_year=False,
     ),
     _rule(
         rf"\b{_m('m1')}{_TO}{_m('m2')}{_y()}\b",
         lambda g, y: (_whole_month(y, _month(g["m1"]))[0], _whole_month(y, _month(g["m2"]))[1]),
-        needs_year=True,
     ),
-    _rule(rf"\b{_m('m1')}{_y()}(?![a-z])", lambda g, y: _whole_month(y, _month(g["m1"])), needs_year=True),
+    _rule(rf"\b{_m('m1')}{_y()}(?![a-z])", lambda g, y: _whole_month(y, _month(g["m1"]))),
     _rule(
         rf"\b(?P<y1>{_YEAR})(?:\s*/\s*|{_TO})(?P<y2>{_YEAR}|\d{{2}})\b",
         lambda g, _: _season(g["y1"], g["y2"]),
-        needs_year=False,
     ),
     _rule(
         rf"\b(?:(?:early|mid|late)[\s-]*)?{_SEASON}(?:,?\s*(?P<y1>{_YEAR}))?"
         rf"(?:\s*(?:/|-|and|to|through)\s*(?:(?:early|mid|late)[\s-]*)?{_SEASON})*{_y()}(?![a-z])",
         lambda _g, _y: None,
-        needs_year=False,
         season=True,
     ),
 )
 """Every way of writing a date that places a day, a month or a season in time. A year written in one of these is a
 year the text states."""
-_BARE_YEAR = _rule(rf"\b(?P<y>{_YEAR})\b", lambda _, y: (date(y, 1, 1), date(y, 12, 31)), needs_year=False)
+_BARE_YEAR = _rule(rf"\b(?P<y>{_YEAR})\b", lambda _, y: (date(y, 1, 1), date(y, 12, 31)))
 _RULES: tuple[_Rule, ...] = (*_DATED, _BARE_YEAR)
 
 

@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
 
-from pydantic import JsonValue, TypeAdapter
+from pydantic import JsonValue
 from pydantic_ai import Agent, BinaryContent, ModelRetry, RunContext, Tool, ToolOutput
 from pydantic_ai.capabilities import LocalWorkspace
 from pydantic_ai.exceptions import AgentRunError, UsageLimitExceeded
@@ -27,6 +27,7 @@ from pydantic_ai_harness.filesystem import DEFAULT_TOOL_NAMES, FileSystem
 from sage.agents import models
 from sage.agents.contract import Finished, Workspace
 from sage.events import (
+    JSON,
     Event,
     LlmRequest,
     LlmText,
@@ -39,7 +40,6 @@ from sage.events import (
 from sage.ir.settled import Outcome
 
 ROLE = "extractor"
-JSON: TypeAdapter[JsonValue] = TypeAdapter(JsonValue)
 START = "Extract this paper, following the skill's timeline. The run is open; finish with done."
 RESUME = (
     "This run is resuming: the folder holds what you wrote before. Call check to see what is open, carry on from "

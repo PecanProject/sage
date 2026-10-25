@@ -1,4 +1,4 @@
-import { CircleNotchIcon, InfoIcon, TerminalWindowIcon } from "@phosphor-icons/react"
+import { InfoIcon, TerminalWindowIcon } from "@phosphor-icons/react"
 import { $api, errorMessage } from "@/api/client"
 import { CopyLine, TerminalCommand } from "@/components/copy"
 import { Row, Section } from "@/components/manage/section"
@@ -44,10 +44,10 @@ function SkillAction({ places }: { places: SkillPlace[] }) {
       variant="outline"
       size="compact"
       disabled={install.isPending}
+      pending={install.isPending}
       onClick={() => install.mutate({})}
       data-testid="skill-install"
     >
-      {install.isPending ? <CircleNotchIcon className="animate-spin" /> : null}
       {state === "missing" ? "Install" : "Update"}
     </Button>
   )

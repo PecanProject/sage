@@ -40,27 +40,44 @@ export function CopyLine({ text, testid }: { text: string; testid: string }) {
   )
 }
 
-/** A command shown inline, in mono, with a bare copy icon after it: for a command inside a row or a caption line. */
-export function InlineCommand({ text, testid }: { text: string; testid: string }) {
+/** A bare copy icon, with "Copy" or "Copied" in its tooltip, after a command in mono. */
+function CopyIconButton({
+  text,
+  testid,
+  size,
+  className,
+}: {
+  text: string
+  testid: string
+  size: "inline" | "icon-sm"
+  className: string
+}) {
   const { copied, copy } = useCopy(text, "Couldn't copy it")
   const label = copied ? "Copied" : "Copy"
+  return (
+    <Tip label={label}>
+      <Button
+        variant="quiet"
+        size={size}
+        className={className}
+        aria-label={label}
+        onClick={copy}
+        data-testid={testid}
+      >
+        {copied ? <CheckIcon className="size-3.5 text-good" /> : <CopyIcon className="size-3.5" />}
+      </Button>
+    </Tip>
+  )
+}
+
+/** A command shown inline, in mono, with a bare copy icon after it: for a command inside a row or a caption line. */
+export function InlineCommand({ text, testid }: { text: string; testid: string }) {
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5">
       <code className="min-w-0 truncate font-mono" data-testid={testid}>
         {text}
       </code>
-      <Tip label={label}>
-        <Button
-          variant="quiet"
-          size="inline"
-          className="rounded-inline p-0.5"
-          aria-label={label}
-          onClick={copy}
-          data-testid={`${testid}-copy`}
-        >
-          {copied ? <CheckIcon className="size-3.5 text-good" /> : <CopyIcon className="size-3.5" />}
-        </Button>
-      </Tip>
+      <CopyIconButton text={text} testid={`${testid}-copy`} size="inline" className="rounded-inline p-0.5" />
     </span>
   )
 }
@@ -68,26 +85,18 @@ export function InlineCommand({ text, testid }: { text: string; testid: string }
 /** A command to run in a terminal, as a terminal shows it: a prompt, the command in mono on a tinted strip, and a copy
  * icon inside the strip's right end. */
 export function TerminalCommand({ text, testid }: { text: string; testid: string }) {
-  const { copied, copy } = useCopy(text, "Couldn't copy it")
-  const label = copied ? "Copied" : "Copy"
   return (
     <span className="inline-flex h-control-sm max-w-full items-center gap-2 rounded-control bg-surface-2 pr-1 pl-3 font-mono text-control">
       <span className="text-muted-ink select-none">$</span>
       <code className="min-w-0 truncate text-ink" data-testid={testid}>
         {text}
       </code>
-      <Tip label={label}>
-        <Button
-          variant="quiet"
-          size="icon-sm"
-          className="size-6 rounded-inline hover:bg-line"
-          aria-label={label}
-          onClick={copy}
-          data-testid={`${testid}-copy`}
-        >
-          {copied ? <CheckIcon className="size-3.5 text-good" /> : <CopyIcon className="size-3.5" />}
-        </Button>
-      </Tip>
+      <CopyIconButton
+        text={text}
+        testid={`${testid}-copy`}
+        size="icon-sm"
+        className="size-6 rounded-inline hover:bg-line"
+      />
     </span>
   )
 }

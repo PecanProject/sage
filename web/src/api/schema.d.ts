@@ -11,8 +11,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Settings */
-        get: operations["get_settings_api_settings_get"];
+        /** Settings View */
+        get: operations["settings_view_api_settings_get"];
         /** Put Settings */
         put: operations["put_settings_api_settings_put"];
         post?: never;
@@ -29,8 +29,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Models */
-        get: operations["list_models_api_models_get"];
+        /**
+         * Models
+         * @description Your models, the ones extraction may use, in their order. One that has lost its price, after an update to
+         *     genai-prices or a change of provider, is left out until it has one again.
+         */
+        get: operations["models_api_models_get"];
         put?: never;
         /** Add Model */
         post: operations["add_model_api_models_post"];
@@ -115,8 +119,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Providers */
-        get: operations["list_providers_api_providers_get"];
+        /**
+         * Providers
+         * @description Every provider: the built-in ones first, then the ones added, in the order they were.
+         */
+        get: operations["providers_api_providers_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -136,7 +143,10 @@ export interface paths {
         /** Save Provider */
         put: operations["save_provider_api_providers__provider__put"];
         post?: never;
-        /** Remove Provider */
+        /**
+         * Remove Provider
+         * @description Remove a provider someone added. A built-in one stays, and one your models use stays until they go.
+         */
         delete: operations["remove_provider_api_providers__provider__delete"];
         options?: never;
         head?: never;
@@ -150,7 +160,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Available Models */
+        /**
+         * Available Models
+         * @description Ask the provider which models its credentials can use. It costs nothing, and tests them.
+         */
         get: operations["available_models_api_providers__provider__models_get"];
         put?: never;
         post?: never;
@@ -167,8 +180,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Papers */
-        get: operations["list_papers_api_papers_get"];
+        /** Papers */
+        get: operations["papers_api_papers_get"];
         put?: never;
         /** Upload Papers */
         post: operations["upload_papers_api_papers_post"];
@@ -202,8 +215,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Paper */
-        get: operations["get_paper_api_papers__paper_id__get"];
+        /** Paper Summary */
+        get: operations["paper_summary_api_papers__paper_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -219,8 +232,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Paper Document */
-        get: operations["paper_document_api_papers__paper_id__document_get"];
+        /** Document */
+        get: operations["document_api_papers__paper_id__document_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -236,8 +249,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Run Document */
-        get: operations["get_run_document_api_runs__run_id__document_get"];
+        /**
+         * Run Doc
+         * @description The document a run's anchors point into, which a later reparse of the paper doesn't change.
+         */
+        get: operations["run_doc_api_runs__run_id__document_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -253,8 +269,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Paper Reviews */
-        get: operations["paper_reviews_api_papers__paper_id__reviews_get"];
+        /** Reviews */
+        get: operations["reviews_api_papers__paper_id__reviews_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -289,7 +305,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Extract Check */
+        /**
+         * Extract Check
+         * @description Check the paper's folder. While a run is open the check is recorded in it. `every` lists every finding, not the
+         *     first `error_list_cap` of each severity.
+         */
         post: operations["extract_check_api_papers__paper_id__extract_check_post"];
         delete?: never;
         options?: never;
@@ -355,8 +375,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Agents */
-        get: operations["list_agents_api_agents_get"];
+        /**
+         * Agents
+         * @description Each configured agent and whether it can run: installed, and signed in where it says how to tell.
+         */
+        get: operations["agents_api_agents_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -372,7 +395,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Agent Offer */
+        /**
+         * Agent Offer
+         * @description Start the agent in an empty folder and read its models and modes, and the efforts of `model` (else its
+         *     default model), without prompting it. Takes a few seconds, longer the first time npx fetches its adapter.
+         */
         get: operations["agent_offer_api_agents__agent_id__offer_get"];
         put?: never;
         post?: never;
@@ -442,7 +469,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Install Skill */
+        /**
+         * Install Skill
+         * @description Install the skill into the shared folder and link Claude Code's folder to it. A copy someone put in Claude Code's
+         *     folder by hand is brought up to date in place instead.
+         */
         post: operations["install_skill_api_skill_install_post"];
         delete?: never;
         options?: never;
@@ -457,8 +488,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Runs */
-        get: operations["list_runs_api_runs_get"];
+        /**
+         * Runs
+         * @description A run folder with no run.json is skipped; one whose run.json won't parse fails the list and names it.
+         */
+        get: operations["runs_api_runs_get"];
         put?: never;
         /** Start Runs */
         post: operations["start_runs_api_runs_post"];
@@ -492,8 +526,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Run */
-        get: operations["get_run_api_runs__run_id__get"];
+        /**
+         * Run
+         * @description Reads only this run's run.json, so a broken file elsewhere doesn't hide it.
+         */
+        get: operations["run_api_runs__run_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -543,8 +580,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Run Events */
-        get: operations["run_events_api_runs__run_id__events_get"];
+        /**
+         * Events
+         * @description Events from byte `offset` on, and the offset to read from next. `done` is read before the events, so a page
+         *     that says done holds every event the run wrote: a follower can stop on it without missing the last ones.
+         */
+        get: operations["events_api_runs__run_id__events_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -602,8 +643,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Run Records */
-        get: operations["run_records_api_runs__run_id__records_get"];
+        /** Records */
+        get: operations["records_api_runs__run_id__records_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -619,8 +660,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Run Queue */
-        get: operations["run_queue_api_runs__run_id__queue_get"];
+        /**
+         * Review Queue
+         * @description Every record of the run, unresolved first, with its latest standing review.
+         */
+        get: operations["review_queue_api_runs__run_id__queue_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -655,7 +699,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Accept Looks Good */
+        /**
+         * Accept Looks Good
+         * @description Running it again accepts nothing new.
+         */
         post: operations["accept_looks_good_api_runs__run_id__accept_looks_good_post"];
         delete?: never;
         options?: never;
@@ -2509,7 +2556,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    get_settings_api_settings_get: {
+    settings_view_api_settings_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -2652,7 +2699,7 @@ export interface operations {
             };
         };
     };
-    list_models_api_models_get: {
+    models_api_models_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -3092,7 +3139,7 @@ export interface operations {
             };
         };
     };
-    list_providers_api_providers_get: {
+    providers_api_providers_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -3389,7 +3436,7 @@ export interface operations {
             };
         };
     };
-    list_papers_api_papers_get: {
+    papers_api_papers_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -3606,7 +3653,7 @@ export interface operations {
             };
         };
     };
-    get_paper_api_papers__paper_id__get: {
+    paper_summary_api_papers__paper_id__get: {
         parameters: {
             query?: never;
             header?: never;
@@ -3682,7 +3729,7 @@ export interface operations {
             };
         };
     };
-    paper_document_api_papers__paper_id__document_get: {
+    document_api_papers__paper_id__document_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -3758,7 +3805,7 @@ export interface operations {
             };
         };
     };
-    get_run_document_api_runs__run_id__document_get: {
+    run_doc_api_runs__run_id__document_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -3834,7 +3881,7 @@ export interface operations {
             };
         };
     };
-    paper_reviews_api_papers__paper_id__reviews_get: {
+    reviews_api_papers__paper_id__reviews_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -4302,7 +4349,7 @@ export interface operations {
             };
         };
     };
-    list_agents_api_agents_get: {
+    agents_api_agents_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -4735,7 +4782,7 @@ export interface operations {
             };
         };
     };
-    list_runs_api_runs_get: {
+    runs_api_runs_get: {
         parameters: {
             query?: {
                 paper_id?: string | null;
@@ -4967,7 +5014,7 @@ export interface operations {
             };
         };
     };
-    get_run_api_runs__run_id__get: {
+    run_api_runs__run_id__get: {
         parameters: {
             query?: never;
             header?: never;
@@ -5203,7 +5250,7 @@ export interface operations {
             };
         };
     };
-    run_events_api_runs__run_id__events_get: {
+    events_api_runs__run_id__events_get: {
         parameters: {
             query?: {
                 offset?: number;
@@ -5381,7 +5428,7 @@ export interface operations {
             };
         };
     };
-    run_records_api_runs__run_id__records_get: {
+    records_api_runs__run_id__records_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -5457,7 +5504,7 @@ export interface operations {
             };
         };
     };
-    run_queue_api_runs__run_id__queue_get: {
+    review_queue_api_runs__run_id__queue_get: {
         parameters: {
             query?: never;
             header?: never;

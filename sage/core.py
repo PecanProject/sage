@@ -4,7 +4,7 @@ import asyncio
 import errno
 import os
 import socket
-from collections.abc import AsyncIterator, Generator, Mapping
+from collections.abc import AsyncIterator, Generator, Iterable, Mapping
 from contextlib import contextmanager, suppress
 from datetime import UTC, datetime
 from functools import cache
@@ -17,6 +17,7 @@ from sage.agents import acp_client
 from sage.agents.models import Price, Route, entry, keep_prices_fresh, list_models, resolve, runs_at
 from sage.events import (
     BUILTIN,
+    JSON,  # noqa: F401 - cli.py reads a typed value with it
     PROVIDER_ID,
     STAGE_STEP,  # noqa: F401 - cli.py words the live stage with it
     Connection,
@@ -29,7 +30,9 @@ from sage.events import (
     Stage,
     StageStarted,
     describe,  # noqa: F401 - cli.py prints events with it
+    driven_by,  # noqa: F401 - cli.py words a run's driver with it
     now,
+    stopped_at,  # noqa: F401 - cli.py words a budget stop with it
 )
 from sage.ir.settled import Settled
 from sage.parse import pdf
@@ -88,9 +91,7 @@ class SageError(Exception):
 
 def settings() -> Settings:
     """Read fresh on every call, so a change made in the UI takes effect without a restart."""
-    # Read through the store first, so a config.toml that is binary, unreadable or a folder fails as corrupt.
-    with _on_disk():
-        files.read_toml(config_path())
+    _stored()  # through the store first, so a config.toml that is binary, unreadable or a folder fails as corrupt
     try:
         return Settings()
     except ValidationError as e:
@@ -194,8 +195,7 @@ class SettingsView(BaseModel):
 
 def settings_view() -> SettingsView:
     current = settings()
-    with _on_disk():
-        file_values = files.read_toml(config_path())
+    file_values = _stored()
     locked = locked_fields()
     values = current.model_dump(mode="json")
     sources: dict[str, SettingSource] = {
@@ -221,10 +221,7 @@ def update_settings(changes: dict[str, JsonValue]) -> SettingsView:
     if managed:
         where = f"change them on the Manage page, or with `sage {managed[0]}`"
         raise SageError("invalid", f"{', '.join(managed)}: {where}")
-    locked = locked_fields()
-    blocked = sorted(k for k in changes if k in locked)
-    if blocked:
-        raise SageError("conflict", "set through the environment: " + ", ".join(f"{k} ({locked[k]})" for k in blocked))
+    _refuse_locked(changes, locked_fields())
     stored = _stored()
     setting = {k: v for k, v in changes.items() if v is not None and v != ""}
     chosen = setting.get("extract_with")
@@ -247,6 +244,13 @@ def _stored() -> dict[str, object]:
     """config.toml as it is on disk."""
     with _on_disk():
         return files.read_toml(config_path())
+
+
+def _refuse_locked(keys: Iterable[str], locked: Mapping[str, str]) -> None:
+    """Refuse to change what an environment variable sets, naming the variable."""
+    blocked = sorted(k for k in keys if k in locked)
+    if blocked:
+        raise SageError("conflict", "set through the environment: " + ", ".join(f"{k} ({locked[k]})" for k in blocked))
 
 
 def config_get(key: str) -> JsonValue:
@@ -278,6 +282,13 @@ def _needs(provider: str, c: Connection, needed_by: str) -> str:
         f"{_provider_title(provider, c)} has no {lacks} set, which {needed_by} needs. "
         f"Set it on the Manage page in `sage ui`, or run `sage providers set {provider} {first}`{env}."
     )
+
+
+def _connection(s: Settings, provider: str) -> Connection:
+    c = s.providers.get(provider)
+    if c is None:
+        raise SageError("not_found", f"no provider {provider}; see `sage providers`")
+    return c
 
 
 def _provider(s: Settings, model_id: str) -> str:
@@ -468,10 +479,7 @@ def save_provider(provider: str, values: Mapping[str, str | None], *, kind: str 
         raise SageError(
             "invalid", f"a {chosen} provider has no {', '.join(unknown)}; it takes {', '.join(sorted(fields))}"
         )
-    locked = provider_locked().get(provider, {})
-    blocked = sorted(set(values) & locked.keys())
-    if blocked:
-        raise SageError("conflict", "set through the environment: " + ", ".join(f"{k} ({locked[k]})" for k in blocked))
+    _refuse_locked(values, provider_locked().get(provider, {}))
     stored = _stored()
     tables = stored.setdefault("providers", {})
     if not isinstance(tables, dict):
@@ -504,8 +512,7 @@ def remove_provider(provider: str) -> list[ProviderInfo]:
     s = settings()
     if provider in BUILTIN:
         raise SageError("invalid", f"{provider} is built in; clear its fields instead")
-    if provider not in s.providers:
-        raise SageError("not_found", f"no provider {provider}; see `sage providers`")
+    _connection(s, provider)
     using = [m.id for m in s.models if m.id.partition(":")[0] == provider]
     if using:
         verb = "uses" if len(using) == 1 else "use"
@@ -521,9 +528,7 @@ def remove_provider(provider: str) -> list[ProviderInfo]:
 def available_models(provider: str) -> Available:
     """Ask the provider which models its credentials can use. It costs nothing, and tests them."""
     s = settings()
-    if provider not in s.providers:
-        raise SageError("not_found", f"no provider {provider}; see `sage providers`")
-    c = s.providers[provider]
+    c = _connection(s, provider)
     gaps = missing(c)
     if gaps:
         return Available(provider=provider, ok=False, message=f"needs {' and '.join(gaps)}", models=[])
@@ -666,19 +671,19 @@ def remove_models(model_ids: list[str]) -> list[ModelOption]:
     model left."""
     s = settings()
     gone = {_canonical(m) for m in model_ids}
-    kept = [m for m in s.models if m.id not in gone]
-    stored = _stored()
+    chosen_gone = False
     if s.extract_with is not None and s.extract_with.partition(":")[0] not in s.agents:
         with suppress(SageError):
-            if _canonical(s.extract_with) in gone:
-                stored.pop("extract_with", None)
-    stored["models"] = [m.model_dump(exclude_defaults=True) for m in kept]
-    files.write_toml(config_path(), stored)
+            chosen_gone = _canonical(s.extract_with) in gone
+    _write_models([m for m in s.models if m.id not in gone], forget_choice=chosen_gone)
     return models()
 
 
-def _write_models(listed: list[YourModel]) -> None:
+def _write_models(listed: list[YourModel], *, forget_choice: bool = False) -> None:
+    """Write your models; `forget_choice` also clears Extract with."""
     stored = _stored()
+    if forget_choice:
+        stored.pop("extract_with", None)
     stored["models"] = [m.model_dump(exclude_defaults=True) for m in listed]
     files.write_toml(config_path(), stored)
 
@@ -783,14 +788,18 @@ def _summary(info: PaperInfo) -> PaperSummary:
     paper_runs = runs(info.id)
     shown = run_state.data_run(paper_runs)
     latest = run_state.current(paper_runs)
-    left = None if shown is None else _left(review_queue(shown.id))
+    to_check = looks_good = None
+    if shown is not None:
+        unreviewed = [i for i in review_queue(shown.id) if i.review is None]
+        looks_good = sum(1 for i in unreviewed if i.status == "verified")
+        to_check = len(unreviewed) - looks_good
     return PaperSummary(
         paper=info,
         latest_run=latest,
         run_count=len(paper_runs),
         data_run=shown,
-        to_check=None if left is None else left.to_check,
-        looks_good=None if left is None else left.looks_good,
+        to_check=to_check,
+        looks_good=looks_good,
         live_stage=_live_stage(latest) if latest is not None and run_state.live(latest) else None,
     )
 
@@ -1421,19 +1430,6 @@ def review_queue(run_id: str) -> list[QueueItem]:
     info = run(run_id)
     settled = _settled(info)
     return queue(settled, _standing(info, settled))
-
-
-class Left(BaseModel):
-    to_check: int
-    """Unreviewed items that are flagged or unresolved."""
-    looks_good: int
-    """Unreviewed items that are verified."""
-
-
-def _left(items: list[QueueItem]) -> Left:
-    open_items = [i for i in items if i.review is None]
-    good = sum(1 for i in open_items if i.status == "verified")
-    return Left(to_check=len(open_items) - good, looks_good=good)
 
 
 def add_review(review: Review) -> Review:

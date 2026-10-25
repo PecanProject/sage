@@ -5,6 +5,7 @@ and tables count from 1; rows and columns count from 0, so header rows come firs
 """
 
 import re
+from collections.abc import Sequence
 from typing import Literal
 
 from pydantic import BaseModel, Field, PrivateAttr
@@ -96,16 +97,10 @@ class Document(BaseModel):
             self._index = _build_index(self)
         return self._index.get(anchor)
 
-    def with_tables(self, tables: list[Table]) -> "Document":
-        """A new Document rather than `model_copy`, which would carry over an anchor index built from the old tables."""
-        return Document(
-            paper_id=self.paper_id,
-            sha256=self.sha256,
-            parser_version=self.parser_version,
-            pages=self.pages,
-            blocks=self.blocks,
-            tables=tables,
-        )
+    def replace(self, **update: object) -> "Document":
+        """A new Document with `update` applied. Not `model_copy`, which would carry over an anchor index built from the
+        old blocks and tables."""
+        return Document.model_validate({**dict(self), **update})
 
 
 ANCHOR = re.compile(r"^p(\d+)\.(?:b\d+|t\d+(?:\.r\d+(?:\.c\d+)?)?)$")
@@ -123,6 +118,11 @@ def _build_index(doc: Document) -> dict[str, Resolved]:
             for c in row:
                 index[c.anchor] = Resolved(anchor=c.anchor, page=t.page, bbox=c.bbox or t.region, text=c.text)
     return index
+
+
+def rounded(b: Sequence[float]) -> Box:
+    """A box to the hundredth of a point, as documents store them."""
+    return (round(b[0], 2), round(b[1], 2), round(b[2], 2), round(b[3], 2))
 
 
 def union(boxes: list[Box]) -> Box:

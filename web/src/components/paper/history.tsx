@@ -6,7 +6,7 @@ import {
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu"
 import { TERMINAL, useDriverOf } from "@/lib/agents"
-import { type RunInfo, runStatusLabel, stamp } from "@/lib/format"
+import { itemCount, type RunInfo, runStatusLabel, stamp } from "@/lib/format"
 
 /** History, as a submenu of the Runs menu: the paper's extractions, newest first. */
 export function HistoryMenu({
@@ -50,9 +50,7 @@ export function HistoryMenu({
                   </span>
                 ) : null}
               </span>
-              <span className="text-caption text-muted-ink">
-                {n ? `${n} ${n === 1 ? "item" : "items"}` : "No data"}
-              </span>
+              <span className="text-caption text-muted-ink">{n ? itemCount(n) : "No data"}</span>
             </DropdownMenuItem>
           )
         })}

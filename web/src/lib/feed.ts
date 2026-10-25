@@ -1,5 +1,5 @@
 import type { RunEvent } from "@/api/events"
-import { capital, isLive, itemCount, limitTitle, type RunInfo } from "@/lib/format"
+import { capital, isLive, itemCount, limitTitle, type RunInfo, several } from "@/lib/format"
 import { obj } from "@/lib/utils"
 
 type Stage = Extract<RunEvent, { type: "stage.started" }>["stage"]
@@ -125,7 +125,10 @@ function finding(key: string, line: string): Problem {
   return m ? problemOf(key, line, m) : problem(key, line)
 }
 
-const several = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`
+/** What the scientist asked a resumed or continued run to add or fix. */
+function guidanceLine(key: string, guidance: string): Line {
+  return { kind: "line", key: `${key}.guidance`, tone: "info", text: `Guidance: ${guidance}` }
+}
 
 function checkEntry(key: string, e: CheckRan): Check {
   const notes = e.warnings ? several(e.warnings, "note") : null
@@ -189,19 +192,12 @@ export function timeline(events: RunEvent[], run: RunInfo, modelName: (id: strin
         if (e.resumed) {
           const model = e.extraction_model ? ` with ${modelName(e.extraction_model)}` : ""
           resumed = [{ kind: "line", key, tone: "info", text: `Resumed${model}` }]
-          if (e.guidance)
-            resumed.push({
-              kind: "line",
-              key: `${key}.guidance`,
-              tone: "info",
-              text: `Guidance: ${e.guidance}`,
-            })
+          if (e.guidance) resumed.push(guidanceLine(key, e.guidance))
           break
         }
         if (e.continued_from)
           push({ kind: "line", key, tone: "info", text: "Continued from an earlier extraction" })
-        if (e.guidance)
-          push({ kind: "line", key: `${key}.guidance`, tone: "info", text: `Guidance: ${e.guidance}` })
+        if (e.guidance) push(guidanceLine(key, e.guidance))
         for (const entry of section.entries) opening.add(entry.key)
         break
       case "stage.started":

@@ -11,7 +11,7 @@ from statistics import median
 
 from sage.domain.normalize import needles, norm
 from sage.parse import pdf
-from sage.parse.document import Box, Document, union
+from sage.parse.document import Box, Document, rounded, union
 from sage.parse.layout import Rotation, center_in, from_upright, same_line, to_upright
 
 LOCATOR_VERSION = "1"
@@ -68,7 +68,7 @@ def locate(data: bytes, doc: Document, cites: Iterable[tuple[str, str]]) -> Quot
             readings[anchor] = _readings(_lines(inside, block.rotation, width, height))
         lines = next((found for r in readings[anchor] if (found := _find(r, quote))), [])
         if lines:
-            out.setdefault(anchor, {})[quote] = [_round(from_upright(b, block.rotation, width, height)) for b in lines]
+            out.setdefault(anchor, {})[quote] = [rounded(from_upright(b, block.rotation, width, height)) for b in lines]
     return out
 
 
@@ -163,7 +163,3 @@ def _height(b: Box) -> float:
 
 def _overlap(b: Box, band: Box) -> float:
     return min(b[3], band[3]) - max(b[1], band[1])
-
-
-def _round(b: Box) -> Box:
-    return (round(b[0], 2), round(b[1], 2), round(b[2], 2), round(b[3], 2))

@@ -20,4 +20,9 @@ function TextSkeleton({ className }: { className?: string }) {
   )
 }
 
-export { Skeleton, TextSkeleton }
+/** A PDF page while it loads, at the width it will draw. */
+function PageSkeleton({ width }: { width: number }) {
+  return <Skeleton className="rounded-page bg-surface" style={{ width, height: width * 1.3 }} />
+}
+
+export { PageSkeleton, Skeleton, TextSkeleton }

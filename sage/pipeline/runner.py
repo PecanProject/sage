@@ -10,7 +10,7 @@ from contextlib import suppress
 
 from sage.agents.models import Route
 from sage.events import RunError, RunFinished, now
-from sage.pipeline import agent_run
+from sage.pipeline import agent_run, run_state
 from sage.pipeline.run import execute
 from sage.settings import Settings
 from sage.store import files, proc
@@ -34,14 +34,7 @@ run's agent isn't configured."""
 
 def queued(home: Home) -> list[RunInfo]:
     """Every queued run, oldest first, which is the order they start in."""
-    found = [
-        info
-        for paper in files.child_dirs(home.papers)
-        for d in files.child_dirs(home.runs(paper.name))
-        if (info := files.read_model_or_none(home.run(paper.name, d.name).info, RunInfo)) is not None
-        and info.status == "queued"
-    ]
-    return sorted(found, key=lambda r: r.created_at)
+    return [r for r in run_state.listed(home) if r.status == "queued"][::-1]
 
 
 def wake(home: Home) -> None:

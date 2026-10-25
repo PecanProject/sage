@@ -13,7 +13,7 @@ from functools import partial
 from pathlib import Path
 
 from sage.agents import acp_client
-from sage.events import AgentAnswered, AgentAsked, Event, Note, RunError, RunFinished, RunStarted, Usage, now
+from sage.events import AgentAnswered, AgentAsked, Event, Note, RunError, RunFinished, Usage, now
 from sage.ir.settled import Outcome
 from sage.pipeline import extraction, paper_files
 from sage.settings import AgentConfig, Settings
@@ -99,18 +99,7 @@ async def execute(home: Home, settings: Settings, info: RunInfo) -> RunInfo:
     outcome: Outcome | None = None
     status: RunStatus = "interrupted"
     try:
-        run.emit(
-            RunStarted(
-                run_id=info.id,
-                paper_id=info.paper_id,
-                driver="agent",
-                agent=info.agent,
-                agent_model=info.agent_model,
-                effort=info.effort,
-                continued_from=info.parent_id,
-                guidance=info.guidance,
-            )
-        )
+        run.emit(extraction.started(info))
         paper_files.materialize(home, info.paper_id, files.read_bytes(home.pdf(info.paper_id)), settings)
         limit = agent.time_limit_minutes * 60
         try:

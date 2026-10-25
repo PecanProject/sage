@@ -1,7 +1,8 @@
-import { CircleNotchIcon, WarningIcon, XIcon } from "@phosphor-icons/react"
+import { WarningIcon, XIcon } from "@phosphor-icons/react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { type ReactNode, useState } from "react"
+import type { Schemas } from "@/api/client"
 import { AgentEffortSelect, ModelEffortSelect } from "@/components/effort-select"
 import { ExtractWithSelect } from "@/components/extract-with"
 import { Button } from "@/components/ui/button"
@@ -39,7 +40,7 @@ function SetupNeeded({ blocker }: { blocker: Blocker }) {
 
 /** The picker and, under More options, the effort, when what it picked has levels to choose from. An agent's are
  * asked when the list opens, so until then the fold shows, since only the agent knows whether its model has any. */
-export function ChoiceFields({ choice: c, testid }: { choice: RunChoice; testid: string }) {
+function ChoiceFields({ choice: c, testid }: { choice: RunChoice; testid: string }) {
   const id = `${testid}-effort`
   const configs = agentConfigs(useSettingsValues())
   const chosen = c.chosen
@@ -78,48 +79,52 @@ export function ChoiceFields({ choice: c, testid }: { choice: RunChoice; testid:
   )
 }
 
-export function ExtractDialog({
-  open,
-  paperId,
-  onClose,
-}: {
-  open: boolean
-  paperId: string
+type ExtractProps = {
+  title: string
+  /** The papers to extract; none means every paper with no data and nothing live. */
+  paperIds?: string[]
+  /** How many papers it starts, for the limit line. */
+  papers?: number
+  /** The prefix of the dialog's, the picker's and the limit line's test ids. */
+  testid: string
+  startTestid: string
   onClose: () => void
-}) {
+}
+
+export function ExtractDialog({ open, ...props }: ExtractProps & { open: boolean }) {
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[440px]" data-testid="extract-dialog">
-        {open ? <ExtractForm paperId={paperId} onClose={onClose} /> : null}
+    <Dialog open={open} onOpenChange={(o) => !o && props.onClose()}>
+      <DialogContent className="max-w-[440px]" data-testid={`${props.testid}-dialog`}>
+        {open ? <ExtractForm {...props} /> : null}
       </DialogContent>
     </Dialog>
   )
 }
 
-function ExtractForm({ paperId, onClose }: { paperId: string; onClose: () => void }) {
+function ExtractForm({ title, paperIds, papers, testid, startTestid, onClose }: ExtractProps) {
   const c = useRunChoice(null)
   const start = useStartRuns(onClose)
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Extract data</DialogTitle>
+        <DialogTitle>{title}</DialogTitle>
       </DialogHeader>
       <DialogBody className="space-y-4">
-        <ChoiceFields choice={c} testid="extract-model" />
+        <ChoiceFields choice={c} testid={`${testid}-model`} />
       </DialogBody>
       <DialogFooter className="justify-between">
-        <span className="text-caption text-muted-ink" data-testid="extract-limit">
-          {limitLine(c)}
+        <span className="text-caption text-muted-ink" data-testid={`${testid}-limit`}>
+          {limitLine(c, papers)}
         </span>
         <Button
           disabled={start.isPending || c.blocker.blocked}
+          pending={start.isPending}
           onClick={() =>
-            start.mutate({ body: { paper_ids: [paperId], using: c.using, effort: c.effortAsked } })
+            start.mutate({ body: { paper_ids: paperIds, using: c.using, effort: c.effortAsked } })
           }
-          data-testid="start-extraction"
+          data-testid={startTestid}
         >
-          {start.isPending ? <CircleNotchIcon className="animate-spin" /> : null}
-          Extract data
+          {title}
         </Button>
       </DialogFooter>
     </>
@@ -220,12 +225,12 @@ function StartForm({ paperId }: { paperId: string }) {
         </div>
         <Button
           disabled={start.isPending || c.blocker.blocked}
+          pending={start.isPending}
           onClick={() =>
             start.mutate({ body: { paper_ids: [paperId], using: c.using, effort: c.effortAsked } })
           }
           data-testid="extract-card-start"
         >
-          {start.isPending ? <CircleNotchIcon className="animate-spin" /> : null}
           Extract data
         </Button>
       </div>
@@ -297,8 +302,12 @@ function ResumeForm({ run, onClose }: { run: RunInfo; onClose: () => void }) {
         <SetupNeeded blocker={blocker} />
       </DialogBody>
       <DialogFooter>
-        <Button disabled={resume.isPending || blocker.blocked} onClick={submit} data-testid="continue-start">
-          {resume.isPending ? <CircleNotchIcon className="animate-spin" /> : null}
+        <Button
+          disabled={resume.isPending || blocker.blocked}
+          pending={resume.isPending}
+          onClick={submit}
+          data-testid="continue-start"
+        >
           Resume
         </Button>
       </DialogFooter>
@@ -344,8 +353,7 @@ function ContinueForm({ run, onClose }: { run: RunInfo; onClose: () => void }) {
         <span className="text-caption text-muted-ink" data-testid="continue-limit">
           {limitLine(c)}
         </span>
-        <Button disabled={!ready} onClick={submit} data-testid="continue-start">
-          {proceed.isPending ? <CircleNotchIcon className="animate-spin" /> : null}
+        <Button disabled={!ready} pending={proceed.isPending} onClick={submit} data-testid="continue-start">
           Continue
         </Button>
       </DialogFooter>
@@ -353,18 +361,32 @@ function ContinueForm({ run, onClose }: { run: RunInfo; onClose: () => void }) {
   )
 }
 
-export function StopDialog({ run, onClose }: { run: RunInfo | null; onClose: () => void }) {
+/** Asks before stopping: the runs in `body`, or with none named, every live one. Open while `body` is set. */
+export function StopDialog({
+  body,
+  title,
+  children,
+  confirm,
+  testid,
+  onClose,
+}: {
+  body: Schemas["StopRuns"] | null
+  title: string
+  children: ReactNode
+  confirm: string
+  /** The prefix of the dialog's and the confirm button's test ids. */
+  testid: string
+  onClose: () => void
+}) {
   const stop = useStopRuns(onClose)
   return (
-    <Dialog open={run !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[400px]" data-testid="stop-dialog">
+    <Dialog open={body !== null} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-[400px]" data-testid={`${testid}-dialog`}>
         <DialogHeader>
-          <DialogTitle>Stop this extraction?</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <DialogBody>
-          <p className="text-control text-muted-ink">
-            It keeps what it has found so far, and you can resume it later.
-          </p>
+          <p className="text-control text-muted-ink">{children}</p>
         </DialogBody>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
@@ -372,11 +394,11 @@ export function StopDialog({ run, onClose }: { run: RunInfo | null; onClose: () 
           </Button>
           <Button
             disabled={stop.isPending}
-            onClick={() => run && stop.mutate({ body: { run_ids: [run.id] } })}
-            data-testid="stop-confirm"
+            pending={stop.isPending}
+            onClick={() => body && stop.mutate({ body })}
+            data-testid={`${testid}-confirm`}
           >
-            {stop.isPending ? <CircleNotchIcon className="animate-spin" /> : null}
-            Stop
+            {confirm}
           </Button>
         </DialogFooter>
       </DialogContent>

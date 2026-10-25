@@ -1,6 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
-import { $api, errorMessage, type Schemas } from "@/api/client"
+import { $api, type Schemas } from "@/api/client"
 
 export type Provider = Schemas["ProviderInfo"]
 export type Kind = Schemas["KindInfo"]
@@ -41,7 +40,6 @@ export function useSaveProvider(onSaved?: (p: Provider) => void) {
       refresh(p.id)
       onSaved?.(p)
     },
-    onError: (e) => toast.error(errorMessage(e)),
   })
 }
 
@@ -49,7 +47,6 @@ export function useRemoveProvider() {
   const refresh = useRefresh()
   return $api.useMutation("delete", "/api/providers/{provider}", {
     onSuccess: (_, { params }) => refresh(params.path.provider),
-    onError: (e) => toast.error(errorMessage(e)),
   })
 }
 
@@ -60,7 +57,6 @@ export function useAddModel(onAdded?: () => void) {
       refresh()
       onAdded?.()
     },
-    onError: (e) => toast.error(errorMessage(e)),
   })
 }
 
@@ -68,6 +64,5 @@ export function useRemoveModel() {
   const refresh = useRefresh()
   return $api.useMutation("post", "/api/models/remove", {
     onSuccess: () => refresh(),
-    onError: (e) => toast.error(errorMessage(e)),
   })
 }

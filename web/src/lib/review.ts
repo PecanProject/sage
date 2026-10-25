@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { $api, errorMessage, type Schemas } from "@/api/client"
+import { $api, type Schemas } from "@/api/client"
 import { itemCount } from "@/lib/format"
 import type { Item, QueueItem } from "@/lib/items"
 import type { Summary } from "@/lib/paper-state"
@@ -46,7 +46,6 @@ export function useReview(runId: string) {
       ])
       show(body)
     },
-    onError: (e) => toast.error(errorMessage(e)),
     // Refetch only after the last save in flight, so an earlier save's refetch can't undo a later one's review.
     onSettled: () =>
       queryClient.isMutating({ mutationKey: ["post", "/api/reviews"] }) === 1 ? refresh() : undefined,
@@ -56,9 +55,8 @@ export function useReview(runId: string) {
       await refresh()
       toast(`Accepted ${itemCount(accepted.length)}`)
     },
-    onError: (e) => toast.error(errorMessage(e)),
   })
-  // A failed save has already shown its toast through the mutation's onError, and the refetch takes its review back.
+  // A failed save has already shown its toast, and the refetch takes its review back.
   const save = (bodies: ReviewBody[]) => {
     for (const body of bodies) post.mutate({ body })
   }

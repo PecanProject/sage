@@ -28,10 +28,7 @@ def quote_lines(home: Home, paper_id: str, run_id: str, settled: Settled, doc: D
     wanted = cites(settled)
     key = _key(wanted, doc)
     path = home.run(paper_id, run_id).quotes
-    try:
-        cached = files.read_model_or_none(path, QuoteBoxes)
-    except files.UnreadableError:
-        cached = None  # A derived file: one that won't parse is worked out again, and nothing is lost.
+    cached = files.read_disposable(path, QuoteBoxes)
     if cached is not None and cached.key == key:
         return cached.lines
     lines = locate(files.read_bytes(home.pdf(paper_id)), doc, wanted)

@@ -1,19 +1,13 @@
-import { CircleDashedIcon, CircleIcon, DotsThreeIcon } from "@phosphor-icons/react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { CircleDashedIcon, CircleIcon } from "@phosphor-icons/react"
+import { useQueryClient } from "@tanstack/react-query"
 import type { ReactNode } from "react"
 import { errorMessage, type Schemas } from "@/api/client"
 import { BrandIcon } from "@/components/brand-icon"
 import { InlineCommand } from "@/components/copy"
-import { AgentEffortSelect, Asking } from "@/components/effort-select"
+import { AgentEffortSelect, AgentModelSelect } from "@/components/effort-select"
 import { DefaultMark, Row, Section } from "@/components/manage/section"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+import { DropdownMenuItem, MoreMenu } from "@/components/ui/dropdown-menu"
 import { TextSkeleton } from "@/components/ui/skeleton"
 import { Tip } from "@/components/ui/tooltip"
 import {
@@ -177,7 +171,13 @@ function AgentRow({
           {ready ? (
             <>
               <div className="w-44 shrink-0">
-                <AgentModel agent={a} model={a.model ?? null} onChange={onModel} />
+                <AgentModelSelect
+                  agent={a}
+                  value={a.model ?? null}
+                  onChange={onModel}
+                  variant="ghost"
+                  testid="agent-model"
+                />
               </div>
               <div className="w-36 shrink-0">
                 <AgentEffortSelect
@@ -192,75 +192,16 @@ function AgentRow({
               </div>
             </>
           ) : null}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="quiet"
-                  size="icon-sm"
-                  className="-mr-2"
-                  aria-label="More"
-                  data-testid="agent-menu"
-                />
-              }
-            >
-              <DotsThreeIcon weight="bold" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem disabled={isDefault || !ready} onClick={onDefault} data-testid="agent-use">
-                Use by default
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <MoreMenu testid="agent-menu">
+            <DropdownMenuItem disabled={isDefault || !ready} onClick={onDefault} data-testid="agent-use">
+              Use by default
+            </DropdownMenuItem>
+          </MoreMenu>
         </>
       }
       data-testid="agent-row"
       data-agent={a.id}
       data-state={a.state}
     />
-  )
-}
-
-/** The model an agent uses. What it offers is asked only when the list opens, since that starts the agent for a few
- * seconds; the answer is kept for the session. */
-function AgentModel({
-  agent,
-  model,
-  onChange,
-}: {
-  agent: Agent
-  model: string | null
-  onChange: (model: string | null) => void
-}) {
-  const queryClient = useQueryClient()
-  const options = agentOffer(agent.id, null)
-  const offer = useQuery({ ...options, enabled: false })
-  const offered = offer.data?.models ?? []
-  const shown = model !== null && !offered.includes(model) ? [model, ...offered] : offered
-  return (
-    <Select
-      value={model}
-      onValueChange={(v) => onChange(typeof v === "string" ? v : null)}
-      onOpenChange={(open) => {
-        if (open) void queryClient.prefetchQuery(options)
-      }}
-      items={[{ value: null, label: "Default model" }, ...shown.map((m) => ({ value: m, label: m }))]}
-    >
-      <SelectTrigger variant="ghost" aria-label={`${agent.title}'s model`} data-testid="agent-model">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={null} data-testid="agent-model-option">
-          Default model
-          <span className="ml-auto text-caption text-muted-ink">{offer.data?.model}</span>
-        </SelectItem>
-        {shown.map((m) => (
-          <SelectItem key={m} value={m} data-testid="agent-model-option">
-            {m}
-          </SelectItem>
-        ))}
-        <Asking title={agent.title} asking={offer.isFetching && !offer.data} error={offer.error} />
-      </SelectContent>
-    </Select>
   )
 }

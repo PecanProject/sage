@@ -49,9 +49,7 @@ class SettingsUpdate(BaseModel):
     values: dict[str, JsonValue]
 
 
-@app.get("/api/settings", responses=_errors)
-def get_settings() -> core.SettingsView:
-    return core.settings_view()
+app.get("/api/settings", responses=_errors)(core.settings_view)
 
 
 @app.put("/api/settings", responses=_errors)
@@ -59,9 +57,7 @@ def put_settings(body: SettingsUpdate) -> core.SettingsView:
     return core.update_settings(body.values)
 
 
-@app.get("/api/models", responses=_errors)
-def list_models() -> list[core.ModelOption]:
-    return core.models()
+app.get("/api/models", responses=_errors)(core.models)
 
 
 class AddModel(BaseModel):
@@ -121,14 +117,8 @@ def describe_model(id: str) -> core.Candidate:  # noqa: A002 - the query paramet
     return core.describe_model(id)
 
 
-@app.get("/api/provider-kinds", responses=_errors)
-def provider_kinds() -> list[core.KindInfo]:
-    return core.provider_kinds()
-
-
-@app.get("/api/providers", responses=_errors)
-def list_providers() -> list[core.ProviderInfo]:
-    return core.providers()
+app.get("/api/provider-kinds", responses=_errors)(core.provider_kinds)
+app.get("/api/providers", responses=_errors)(core.providers)
 
 
 class SaveProvider(BaseModel):
@@ -143,19 +133,9 @@ def save_provider(provider: str, body: SaveProvider) -> core.ProviderInfo:
     return core.save_provider(provider, body.values, kind=body.kind)
 
 
-@app.delete("/api/providers/{provider}", responses=_errors)
-def remove_provider(provider: str) -> list[core.ProviderInfo]:
-    return core.remove_provider(provider)
-
-
-@app.get("/api/providers/{provider}/models", responses=_errors)
-def available_models(provider: str) -> core.Available:
-    return core.available_models(provider)
-
-
-@app.get("/api/papers", responses=_errors)
-def list_papers() -> list[core.PaperSummary]:
-    return core.papers()
+app.delete("/api/providers/{provider}", responses=_errors)(core.remove_provider)
+app.get("/api/providers/{provider}/models", responses=_errors)(core.available_models)
+app.get("/api/papers", responses=_errors)(core.papers)
 
 
 @app.post("/api/papers", responses=_errors)
@@ -168,24 +148,10 @@ def paper_pdf(paper_id: str) -> Response:
     return Response(core.paper_pdf(paper_id), media_type="application/pdf")
 
 
-@app.get("/api/papers/{paper_id}", responses=_errors)
-def get_paper(paper_id: str) -> core.PaperSummary:
-    return core.paper_summary(paper_id)
-
-
-@app.get("/api/papers/{paper_id}/document", responses=_errors)
-def paper_document(paper_id: str) -> core.Document:
-    return core.document(paper_id)
-
-
-@app.get("/api/runs/{run_id}/document", responses=_errors)
-def get_run_document(run_id: str) -> core.Document:
-    return core.run_doc(run_id)
-
-
-@app.get("/api/papers/{paper_id}/reviews", responses=_errors)
-def paper_reviews(paper_id: str) -> list[core.Review]:
-    return core.reviews(paper_id)
+app.get("/api/papers/{paper_id}", responses=_errors)(core.paper_summary)
+app.get("/api/papers/{paper_id}/document", responses=_errors)(core.document)
+app.get("/api/runs/{run_id}/document", responses=_errors)(core.run_doc)
+app.get("/api/papers/{paper_id}/reviews", responses=_errors)(core.reviews)
 
 
 class ExtractStart(BaseModel):
@@ -206,9 +172,7 @@ def extract_start(paper_id: str, body: ExtractStart | None = None) -> core.Extra
     return core.extract_start(paper_id, guidance=(body or ExtractStart()).guidance)
 
 
-@app.post("/api/papers/{paper_id}/extract/check", responses=_errors)
-def extract_check(paper_id: str, every: bool = False) -> core.CheckReport:
-    return core.extract_check(paper_id, every=every)
+app.post("/api/papers/{paper_id}/extract/check", responses=_errors)(core.extract_check)
 
 
 @app.post("/api/papers/{paper_id}/extract/done", responses=_errors)
@@ -221,19 +185,9 @@ def extract_stop(body: ExtractStop) -> list[core.RunInfo]:
     return core.extract_stop(body.paper_ids)
 
 
-@app.get("/api/extract/status", responses=_errors)
-def extract_status(paper_id: str | None = None) -> list[core.ExtractStatus]:
-    return core.extract_status(paper_id)
-
-
-@app.get("/api/agents", responses=_errors)
-def list_agents() -> list[core.AgentStatus]:
-    return core.agents()
-
-
-@app.get("/api/agents/{agent_id}/offer", responses=_errors)
-def agent_offer(agent_id: str, model: str | None = None) -> core.AgentOffer:
-    return core.agent_offer(agent_id, model)
+app.get("/api/extract/status", responses=_errors)(core.extract_status)
+app.get("/api/agents", responses=_errors)(core.agents)
+app.get("/api/agents/{agent_id}/offer", responses=_errors)(core.agent_offer)
 
 
 class AgentChange(BaseModel):
@@ -256,14 +210,8 @@ def answer_agent(paper_id: str, body: Answer) -> core.RunInfo:
     return core.answer_agent(paper_id, allow=body.allow)
 
 
-@app.get("/api/skill", responses=_errors)
-def skill_status() -> list[core.SkillPlace]:
-    return core.skill_status()
-
-
-@app.post("/api/skill/install", responses=_errors)
-def install_skill() -> list[core.SkillPlace]:
-    return core.install_skill()
+app.get("/api/skill", responses=_errors)(core.skill_status)
+app.post("/api/skill/install", responses=_errors)(core.install_skill)
 
 
 class StartRuns(BaseModel):
@@ -289,14 +237,8 @@ def stop_runs(body: StopRuns) -> list[core.RunInfo]:
     return core.stop_runs(body.run_ids)
 
 
-@app.get("/api/runs", responses=_errors)
-def list_runs(paper_id: str | None = None) -> list[core.RunInfo]:
-    return core.runs(paper_id)
-
-
-@app.get("/api/runs/{run_id}", responses=_errors)
-def get_run(run_id: str) -> core.RunInfo:
-    return core.run(run_id)
+app.get("/api/runs", responses=_errors)(core.runs)
+app.get("/api/runs/{run_id}", responses=_errors)(core.run)
 
 
 class ResumeRun(BaseModel):
@@ -320,9 +262,7 @@ def continue_run(run_id: str, body: ContinueRun) -> core.RunInfo:
     return core.continue_run(run_id, body.guidance, using=body.using, effort=body.effort)
 
 
-@app.get("/api/runs/{run_id}/events", responses=_errors)
-def run_events(run_id: str, offset: int = 0) -> core.EventPage:
-    return core.events(run_id, offset=offset)
+app.get("/api/runs/{run_id}/events", responses=_errors)(core.events)
 
 
 def _known_run(run_id: str) -> str:
@@ -360,24 +300,10 @@ async def changes() -> AsyncIterable[list[core.Change] | ServerSentEvent]:
         yield batch
 
 
-@app.get("/api/runs/{run_id}/records", responses=_errors)
-def run_records(run_id: str) -> core.RecordsView:
-    return core.records(run_id)
-
-
-@app.get("/api/runs/{run_id}/queue", responses=_errors)
-def run_queue(run_id: str) -> list[core.QueueItem]:
-    return core.review_queue(run_id)
-
-
-@app.post("/api/reviews", responses=_errors)
-def add_review(review: core.Review) -> core.Review:
-    return core.add_review(review)
-
-
-@app.post("/api/runs/{run_id}/accept-looks-good", responses=_errors)
-def accept_looks_good(run_id: str) -> list[core.Review]:
-    return core.accept_looks_good(run_id)
+app.get("/api/runs/{run_id}/records", responses=_errors)(core.records)
+app.get("/api/runs/{run_id}/queue", responses=_errors)(core.review_queue)
+app.post("/api/reviews", responses=_errors)(core.add_review)
+app.post("/api/runs/{run_id}/accept-looks-good", responses=_errors)(core.accept_looks_good)
 
 
 @app.get("/api/runs/{run_id}/export", response_class=Response, responses=_errors)

@@ -1,4 +1,3 @@
-import { CircleNotchIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
@@ -10,7 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItems, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { type Kind, type Provider, useSaveProvider } from "@/lib/providers"
 
 /** A provider id from its name: "Company gateway" becomes company-gateway. */
@@ -65,6 +64,7 @@ function AddProviderForm({
   const [values, setValues] = useState<Record<string, string>>({})
   const save = useSaveProvider((p) => onAdded(p.id))
   const kind = kinds.find((k) => k.kind === kindId)
+  const kindItems = kinds.map((k) => ({ value: k.kind, label: k.title }))
   const providerId = id ?? slug(name)
   const taken = providers.some((p) => p.id === providerId)
   const value = (field: string) => values[field] ?? kind?.fields.find((f) => f.name === field)?.default ?? ""
@@ -95,17 +95,13 @@ function AddProviderForm({
           <Select
             value={kindId}
             onValueChange={(v) => typeof v === "string" && setKindId(v)}
-            items={kinds.map((k) => ({ value: k.kind, label: k.title }))}
+            items={kindItems}
           >
             <SelectTrigger id="add-provider-kind" data-testid="add-provider-kind">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {kinds.map((k) => (
-                <SelectItem key={k.kind} value={k.kind}>
-                  {k.title}
-                </SelectItem>
-              ))}
+              <SelectItems items={kindItems} />
             </SelectContent>
           </Select>
           {kind ? <p className="text-caption text-muted-ink">{kind.help}</p> : null}
@@ -164,8 +160,12 @@ function AddProviderForm({
         <Button variant="ghost" type="button" onClick={onClose}>
           Cancel
         </Button>
-        <Button type="submit" disabled={!ready || save.isPending} data-testid="add-provider-save">
-          {save.isPending ? <CircleNotchIcon className="animate-spin" /> : null}
+        <Button
+          type="submit"
+          disabled={!ready || save.isPending}
+          pending={save.isPending}
+          data-testid="add-provider-save"
+        >
           Add provider
         </Button>
       </DialogFooter>

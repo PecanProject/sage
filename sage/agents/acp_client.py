@@ -34,13 +34,12 @@ from acp.schema import (
     ToolCallUpdate,
     UsageUpdate,
 )
-from pydantic import BaseModel, JsonValue, TypeAdapter
+from pydantic import BaseModel, JsonValue
 
-from sage.events import Event, LlmRequest, LlmText, LlmThinking, LlmToolCall, LlmToolResult, Note, Usage
+from sage.events import JSON, Event, LlmRequest, LlmText, LlmThinking, LlmToolCall, LlmToolResult, Note, Usage
 
 START_SECONDS = 180.0
 """How long an agent may take to start and open a session: npx may download its adapter first."""
-JSON: TypeAdapter[JsonValue] = TypeAdapter(JsonValue)
 ConfigOption = SessionConfigOptionSelect | SessionConfigOptionBoolean
 
 

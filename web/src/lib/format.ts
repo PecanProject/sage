@@ -151,8 +151,13 @@ function shortError(error: string | null | undefined): string {
   return capital(error.split(/;|\n/)[0]?.trim() ?? error)
 }
 
+/** `n` of a thing, with an s after its name unless there is one. */
+export function several(n: number, one: string): string {
+  return `${n} ${one}${n === 1 ? "" : "s"}`
+}
+
 export function itemCount(n: number): string {
-  return `${n} ${n === 1 ? "item" : "items"}`
+  return several(n, "item")
 }
 
 type EndedAlert = { title: string; reason: string; action: string }

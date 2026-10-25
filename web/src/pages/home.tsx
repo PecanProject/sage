@@ -2,7 +2,6 @@ import {
   ArrowClockwiseIcon,
   CheckIcon,
   CircleNotchIcon,
-  DotsThreeIcon,
   DownloadSimpleIcon,
   FileTextIcon,
   HandPalmIcon,
@@ -18,13 +17,7 @@ import { Logo } from "@/components/logo"
 import { Onboarding, TerminalHint } from "@/components/onboarding"
 import { TopBar } from "@/components/top-bar"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLinkItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { DropdownMenuItem, DropdownMenuLinkItem, MoreMenu } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { TextSkeleton } from "@/components/ui/skeleton"
 import { Tip } from "@/components/ui/tooltip"
@@ -36,8 +29,6 @@ import { type PaperState, paperState, type Summary, useStartRuns } from "@/lib/p
 import { type Adding, pdfsOf, useUpload } from "@/lib/upload"
 import { cn } from "@/lib/utils"
 import type { HomeSearch } from "@/router"
-
-const STATUS = "flex items-center gap-2 text-caption text-muted-ink"
 
 function lastActivity(s: Summary): string {
   const r = s.latest_run
@@ -69,10 +60,23 @@ function InlineAction({
   )
 }
 
+/** A row's status line; `state` names it for tests. */
+function Status({ state, className, children }: { state: string; className?: string; children: ReactNode }) {
+  return (
+    <span
+      className={cn("flex items-center gap-2 text-caption text-muted-ink", className)}
+      data-testid="paper-status"
+      data-state={state}
+    >
+      {children}
+    </span>
+  )
+}
+
 function DataStatus({ state }: { state: Extract<PaperState, { kind: "data" }> }) {
   const dismissed = useDismissed()
   return (
-    <span className={STATUS} data-testid="paper-status" data-state={state.toCheck ? "to-check" : "checked"}>
+    <Status state={state.toCheck ? "to-check" : "checked"}>
       {state.warn && !dismissed.has(state.warn.id) ? (
         <Tip label={lastAttempt(state.warn)}>
           <span
@@ -93,7 +97,7 @@ function DataStatus({ state }: { state: Extract<PaperState, { kind: "data" }> })
           All checked
         </>
       )}
-    </span>
+    </Status>
   )
 }
 
@@ -103,37 +107,33 @@ function RowStatus({ s, onExtract, busy }: { s: Summary; onExtract: () => void; 
   switch (state.kind) {
     case "live":
       return state.run.waiting ? (
-        <span className={cn(STATUS, "text-ink")} data-testid="paper-status" data-state="waiting">
+        <Status state="waiting" className="text-ink">
           <HandPalmIcon weight="fill" className="size-4 text-check" aria-hidden />
           {NEEDS_OK}
-        </span>
+        </Status>
       ) : (
-        <span className={STATUS} data-testid="paper-status" data-state="live">
+        <Status state="live">
           <CircleNotchIcon className="size-4 animate-spin text-muted-ink" />
           {state.step.word}…
-        </span>
+        </Status>
       )
     case "none":
       return (
-        <span className={STATUS} data-testid="paper-status" data-state="none">
+        <Status state="none">
           Not extracted
           <InlineAction onClick={onExtract} busy={busy} testid="row-extract">
             Extract
           </InlineAction>
-        </span>
+        </Status>
       )
     case "failed":
       return (
-        <span
-          className={cn(STATUS, state.run.status === "failed" && "text-danger")}
-          data-testid="paper-status"
-          data-state="failed"
-        >
+        <Status state="failed" className={state.run.status === "failed" ? "text-danger" : undefined}>
           {endedWord(state.run)}
           <InlineAction onClick={onExtract} busy={busy} testid="row-retry">
             Extract again
           </InlineAction>
-        </span>
+        </Status>
       )
     case "data":
       return <DataStatus state={state} />
@@ -153,35 +153,20 @@ function RowMenu({
 }) {
   const live = s.latest_run ? isLive(s.latest_run) : false
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="quiet"
-            size="icon-sm"
-            className="relative z-10 -mr-2"
-            aria-label="More"
-            data-testid="row-menu"
-          />
-        }
+    <MoreMenu testid="row-menu" className="relative z-10">
+      <DropdownMenuItem onClick={onOpen}>
+        <FileTextIcon /> Open
+      </DropdownMenuItem>
+      <DropdownMenuItem disabled={live || busy} onClick={onExtract}>
+        <ArrowClockwiseIcon /> {s.run_count ? "Extract again" : "Extract"}
+      </DropdownMenuItem>
+      <DropdownMenuLinkItem
+        href={`/api/papers/${encodeURIComponent(s.paper.id)}/pdf`}
+        download={s.paper.filename}
       >
-        <DotsThreeIcon weight="bold" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuItem onClick={onOpen}>
-          <FileTextIcon /> Open
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={live || busy} onClick={onExtract}>
-          <ArrowClockwiseIcon /> {s.run_count ? "Extract again" : "Extract"}
-        </DropdownMenuItem>
-        <DropdownMenuLinkItem
-          href={`/api/papers/${encodeURIComponent(s.paper.id)}/pdf`}
-          download={s.paper.filename}
-        >
-          <DownloadSimpleIcon /> Download PDF
-        </DropdownMenuLinkItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        <DownloadSimpleIcon /> Download PDF
+      </DropdownMenuLinkItem>
+    </MoreMenu>
   )
 }
 

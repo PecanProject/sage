@@ -1,6 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
-import { $api, errorMessage, type Schemas } from "@/api/client"
+import { $api, type Schemas } from "@/api/client"
 
 export type ModelOption = Schemas["ModelOption"]
 
@@ -21,7 +20,6 @@ export function useSetModelEffort() {
   const queryClient = useQueryClient()
   return $api.useMutation("post", "/api/models/effort", {
     onSuccess: (models) => queryClient.setQueryData(["get", "/api/models"], models),
-    onError: (e) => toast.error(errorMessage(e)),
   })
 }
 

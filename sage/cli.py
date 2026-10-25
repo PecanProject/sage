@@ -3,12 +3,12 @@
 import json
 import sys
 import time
-from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated, NoReturn
 
 import typer
-from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
+from pydantic import JsonValue, ValidationError
+from pydantic_core import to_json
 from rich.console import Console
 from rich.table import Column, Table
 from rich.text import Text
@@ -34,7 +34,6 @@ app.add_typer(agents_app, name="agents")
 skill_app = typer.Typer(no_args_is_help=True, help="The SAGE skill, which tells coding agents how to extract.")
 app.add_typer(skill_app, name="skill")
 
-JSON: TypeAdapter[JsonValue] = TypeAdapter(JsonValue)
 # Markup off: record labels, checker reasons and summaries come from papers and models, and their brackets
 # ("[kg ha-1]") would be read as Rich tags, dropped or crashing the print. Styles go through Text instead.
 out = Console(markup=False)
@@ -48,13 +47,15 @@ def ids(header: str) -> Column:
     return Column(header, no_wrap=True)
 
 
-def emit(data: BaseModel | Sequence[BaseModel] | JsonValue) -> None:
-    if isinstance(data, BaseModel):
-        print(data.model_dump_json(indent=2))
-    elif isinstance(data, Sequence) and not isinstance(data, str) and all(isinstance(d, BaseModel) for d in data):
-        print(json.dumps([d.model_dump(mode="json") for d in data if isinstance(d, BaseModel)], indent=2))
-    else:
-        print(json.dumps(data, indent=2, default=str))
+def emit(data: object) -> None:
+    print(to_json(data, indent=2, fallback=str).decode())
+
+
+def emitted(data: object, as_json: bool) -> bool:
+    """Print `data` as JSON under --json. True when it did, so the command skips its table."""
+    if as_json:
+        emit(data)
+    return as_json
 
 
 def main() -> None:
@@ -89,8 +90,7 @@ def fail(error: core.ErrorBody, code: int, *, as_json: bool) -> NoReturn:
 def config_list(as_json: JsonOpt = False) -> None:
     """Every setting with its value and where it comes from (env, file or default)."""
     view = core.settings_view()
-    if as_json:
-        emit(view)
+    if emitted(view, as_json):
         return
     table = Table("key", "value", "source", title=f"settings ({view.config_path})")
     for key, value in view.values.items():
@@ -124,8 +124,7 @@ def models_list(ctx: typer.Context, as_json: JsonOpt = False) -> None:
         return
     s = core.settings()
     found = core.models()
-    if as_json:
-        emit(found)
+    if emitted(found, as_json):
         return
     ready = {p.id: not p.missing for p in core.providers()}
     table = Table(ids("model"), "name", "$ in / out per M", "effort", "provider", "default for")
@@ -190,8 +189,7 @@ def models_set(
 ) -> None:
     """Change how hard one of your models thinks when SAGE's own agent runs it."""
     found = core.set_model_effort(model_id, effort)
-    if as_json:
-        emit(found)
+    if emitted(found, as_json):
         return
     out.print(", ".join(f"{m.id} {m.effort or 'no effort'}" for m in found))
 
@@ -209,8 +207,7 @@ def providers_list(ctx: typer.Context, as_json: JsonOpt = False) -> None:
     if ctx.invoked_subcommand is not None:
         return
     found = core.providers()
-    if as_json:
-        emit(found)
+    if emitted(found, as_json):
         return
     table = Table(ids("provider"), "kind", "name", "status")
     for p in found:
@@ -292,8 +289,7 @@ def add(pdfs: Annotated[list[Path], typer.Argument(help="PDF files to add.")], a
 def papers(as_json: JsonOpt = False) -> None:
     """The library, like the Home screen: each paper, its latest run and how much is left to check."""
     found = core.papers()
-    if as_json:
-        emit(found)
+    if emitted(found, as_json):
         return
     table = Table(ids("paper"), "title", "pages", ids("latest run"), "status", "to check", "looks good")
     for p in found:
@@ -367,22 +363,10 @@ def extract_run(
         emit(info) if as_json else out.print(Text.assemble("started run ", (info.id, "bold"), f" on {info.paper_id}"))
         return
     if not as_json:
-        out.print(Text.assemble("run ", (info.id, "bold"), f" on {info.paper_id} ({_driver_line(info)})"))
+        out.print(Text.assemble("run ", (info.id, "bold"), f" on {info.paper_id} ({core.driven_by(info)})"))
     _follow(info.id, as_json=as_json)
     final = core.run(info.id)
-    if as_json:
-        emit(final)
-    else:
-        _print_run_line(final)
-
-
-def _driver_line(info: core.RunInfo) -> str:
-    if info.driver == "here":
-        return "from a terminal"
-    effort = f", effort {info.effort}" if info.effort is not None else ""
-    if info.driver == "agent":
-        return f"{info.agent}" + (f", {info.agent_model}" if info.agent_model is not None else "") + effort
-    return f"{info.extraction_model}{effort}"
+    emit(final) if as_json else _print_run_line(final)
 
 
 @extract_app.command("start")
@@ -393,8 +377,7 @@ def extract_start(
 ) -> None:
     """Open a run on a paper that you (or the agent in this terminal) drive. Prints the folder to work in."""
     status = core.extract_start(paper_id, guidance=guidance)
-    if as_json:
-        emit(status)
+    if emitted(status, as_json):
         return
     run_id = status.run.id if status.run is not None else "?"
     out.print(f"run {run_id} open on {status.paper_id}\nfolder: {status.folder}")
@@ -421,10 +404,7 @@ def extract_done(
 ) -> None:
     """Finish the run: refused while anything blocks, otherwise its records are settled and it ends."""
     report = core.extract_done(paper_id, summary)
-    if as_json:
-        emit(report)
-    else:
-        out.print(report.text())
+    emit(report) if as_json else out.print(report.text())
     raise typer.Exit(0 if report.accepted else 1)
 
 
@@ -455,18 +435,12 @@ def extract_answer(
 
 
 @agents_app.callback(invoke_without_command=True)
-def agents_default(ctx: typer.Context, as_json: JsonOpt = False) -> None:
+def agents_list(ctx: typer.Context, as_json: JsonOpt = False) -> None:
     """Coding agents SAGE can start in a paper's folder, and whether each is ready."""
-    if ctx.invoked_subcommand is None:
-        agents_list(as_json=as_json)
-
-
-@agents_app.command("list")
-def agents_list(as_json: JsonOpt = False) -> None:
-    """Coding agents SAGE can start in a paper's folder, and whether each is ready."""
+    if ctx.invoked_subcommand is not None:
+        return
     found = core.agents()
-    if as_json:
-        emit(found)
+    if emitted(found, as_json):
         return
     table = Table(ids("agent"), "name", "state", "model", "effort", "running", "fix")
     for a in found:
@@ -490,8 +464,7 @@ def agents_offer(
     """Start the agent in an empty folder and list the models and modes it offers, and the efforts of the model.
     Spends no tokens."""
     found = core.agent_offer(agent_id, model)
-    if as_json:
-        emit(found)
+    if emitted(found, as_json):
         return
     out.print(f"models: {', '.join(found.models)} (now {found.model})")
     out.print(f"modes: {', '.join(found.modes)} (now {found.mode})")
@@ -513,8 +486,7 @@ def agents_set(
 ) -> None:
     """Set the model and effort an agent runs with. A run checks them when the agent starts."""
     found = core.set_agent(agent_id, model=model, effort=effort)
-    if as_json:
-        emit(found)
+    if emitted(found, as_json):
         return
     out.print(f"{found.id}: model {found.model or 'its default'}, effort {found.effort or 'its default'}")
 
@@ -533,8 +505,7 @@ def skill_status(as_json: JsonOpt = False) -> None:
 
 
 def _print_skill(places: list[core.SkillPlace], as_json: bool) -> None:
-    if as_json:
-        emit(places)
+    if emitted(places, as_json):
         return
     for p in places:
         link = " (link)" if p.linked else ""
@@ -547,8 +518,7 @@ def extract_status(
 ) -> None:
     """Each paper's folder and its open or latest run."""
     found = core.extract_status(paper_id)
-    if as_json:
-        emit(found)
+    if emitted(found, as_json):
         return
     table = Table(ids("paper"), "run", "by", "status", "folder")
     for s in found:
@@ -573,8 +543,7 @@ def runs(
 ) -> None:
     """Runs, newest first."""
     found = core.runs(paper_id)
-    if as_json:
-        emit(found)
+    if emitted(found, as_json):
         return
     table = Table(
         ids("run"), ids("paper"), "status", "model", "turns", "cost", "records", "verified", "flagged", "unresolved"
@@ -592,8 +561,7 @@ def runs(
 def show(run_id: str, as_json: JsonOpt = False) -> None:
     """A run's settled records: status, what each one says, and why anything isn't verified."""
     view = core.records(run_id)
-    if as_json:
-        emit(view)
+    if emitted(view, as_json):
         return
     _print_run_line(view.run)
     if view.provisional:
@@ -652,10 +620,7 @@ def export(
         sys.stdout.write(text if text.endswith("\n") else text + "\n")
         return
     core.write_export(path, exported.data)
-    if as_json:
-        emit({"path": str(path), "format": fmt, "bytes": len(exported.data)})
-    else:
-        out.print(f"wrote {path}")
+    emit({"path": str(path), "format": fmt, "bytes": len(exported.data)}) if as_json else out.print(f"wrote {path}")
 
 
 def _follow(run_id: str, *, as_json: bool) -> None:
@@ -685,7 +650,7 @@ def _print_event(e: core.Event, *, as_json: bool) -> None:
 
 def _print_run_line(r: core.RunInfo) -> None:
     c = r.counts
-    status = f"stopped at the {'turn' if r.limit == 'turns' else 'cost'} limit" if r.limit else r.status
+    status = core.stopped_at(r.limit) if r.limit else r.status
     out.print(
         f"{r.id}  {status}  {r.turns} turn{'' if r.turns == 1 else 's'}  ${r.usage.cost_usd:.3f}  "
         f"{c.records} records: {c.verified} verified, {c.flagged} flagged, {c.unresolved} unresolved"
@@ -733,8 +698,7 @@ def queue(
 ) -> None:
     """Every record of a run with its status and your review. `sage papers` has each paper's counts."""
     items = core.review_queue(run_id)
-    if as_json:
-        emit(items)
+    if emitted(items, as_json):
         return
     table = Table(ids("record"), "type", "status", "what", "review", "why")
     for i in items:
@@ -777,7 +741,7 @@ def _json_or_text(value: str | None) -> JsonValue:
     if value is None:
         return None
     try:
-        return JSON.validate_json(value)
+        return core.JSON.validate_json(value)
     except ValidationError:
         return value
 
