@@ -129,14 +129,18 @@ def child_dirs(path: Path) -> Iterator[Path]:
 
 
 def child_files(path: Path, suffix: str | None = None) -> list[Path]:
-    """The folder's files by name, without hidden ones (an atomic write's temporary file is hidden), and only those
-    ending in `suffix` when given. A missing folder has none."""
+    """The folder's files by name, without hidden ones (an atomic write's temporary file is hidden) or empty ones (an
+    agent whose tools can't delete a file empties it), and only those ending in `suffix` when given. A missing folder
+    has none."""
     if not path.is_dir():
         return []
     return sorted(
         p
         for p in path.iterdir()
-        if p.is_file() and not p.name.startswith(".") and (suffix is None or p.name.endswith(suffix))
+        if p.is_file()
+        and not p.name.startswith(".")
+        and (suffix is None or p.name.endswith(suffix))
+        and p.stat().st_size > 0
     )
 
 

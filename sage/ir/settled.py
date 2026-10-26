@@ -37,7 +37,7 @@ class Settled(BaseModel):
     records: list[SettledRecord]
     tables: list[TableDecision] = Field(default_factory=list)
     unresolved: list[Unresolved] = Field(default_factory=list)
-    """Marks whose target is not a record or one of its fields: a table, or `results`."""
+    """Marks whose target is not a record or one of its fields: a table, or a Results block."""
     overwrites: list[Overwrite] = Field(default_factory=list)
 
     def record(self, record_id: str) -> SettledRecord | None:

@@ -4,13 +4,14 @@ from sage.domain.coordinates import Axis, coordinate_problem, recompute_coordina
 from sage.domain.dates import date_problem, date_warning, recompute_date
 from sage.domain.depth import depth_problem, recompute_depth
 from sage.domain.management import event_type
-from sage.domain.stats import has_dispersion, replicate_level
+from sage.domain.stats import has_dispersion, named_replicate, replicate_level
 from sage.domain.units import conversion_problem, recompute_quantity
 from sage.ir.draft import Overwrite
 from sage.ir.schema import (
     Citation,
     DateRange,
     DepthRange,
+    EffectScope,
     Entity,
     Field,
     Management,
@@ -129,7 +130,7 @@ def _observation_judgements(o: Observation) -> tuple[dict[str, object], list[Ove
     quantity = o.value.value
     if quantity is not None:
         cited = [e for name, f in fields_of(o).items() if name != "value" for e in f.evidence]
-        found = replicate_level(quantity, o.value.evidence, cited)
+        found = replicate_level(quantity, o.value.evidence, cited, named_replicate(o))
         if found is not None:
             before = o.is_raw_replicate_level.value
             if before is not None and before != found.raw:
@@ -154,6 +155,16 @@ def _observation_judgements(o: Observation) -> tuple[dict[str, object], list[Ove
             note="follows from is_raw_replicate_level, which is inferred" if inferred else None,
         )
     scope = o.reported_effect_scope
+    if isinstance(raw, Field) and raw.value is True and raw.basis == "derived":
+        if scope.value is not None and scope.value != "treatment_mean":
+            why = "a single replicate's value pools over no factor"
+            overwrites.append(
+                Overwrite(
+                    record_id=o.id, field="reported_effect_scope", before=scope.value, after="treatment_mean", why=why
+                )
+            )
+        scope = Field[EffectScope](value="treatment_mean", basis="derived", evidence=raw.evidence)
+        update["reported_effect_scope"] = scope
     if scope.value == "treatment_mean":
         inferred = scope.basis == "inferred"
         update["aggregated_over_factors"] = Field[list[str]](

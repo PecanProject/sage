@@ -176,7 +176,28 @@ def run_document(home: Home, paper_id: str, run_id: str) -> Document | None:
     return own if own is not None else files.read_model_or_none(home.document(paper_id), Document)
 
 
+RETRIES = 3
+"""Times a run resumes from its folder when the connection to the provider drops."""
+
+
 async def _agent(run: Run) -> extractor.ExtractResult:
+    """The agent's loop. When the connection drops mid-call, it waits and resumes from the folder, which holds the
+    work, counting what the lost attempt spent against the budget."""
+    attempt = 0
+    while True:
+        try:
+            return await _attempt(run)
+        except Exception as e:
+            if attempt == RETRIES or not models.dropped(e):
+                raise
+            run.base_usage, run.base_turns, run.resume = run.info.usage, run.info.turns, True
+            wait = 15 * 2**attempt
+            attempt += 1
+            run.emit(Note(level="warning", text=f"the connection dropped ({type(e).__name__}); resuming in {wait} s"))
+            await asyncio.sleep(wait)
+
+
+async def _attempt(run: Run) -> extractor.ExtractResult:
     info = run.info
     remaining = info.max_cost_usd - run.base_usage.cost_usd
     turns_left = info.max_turns - run.base_turns

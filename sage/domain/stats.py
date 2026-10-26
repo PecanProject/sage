@@ -6,7 +6,7 @@ from typing import NamedTuple
 
 from sage.domain.cell_values import CellValue, parse_cell
 from sage.domain.normalize import contains_loose, norm
-from sage.ir.schema import EffectScope, Evidence, QuantityValue
+from sage.ir.schema import EffectScope, Evidence, Observation, QuantityValue
 
 _DISPERSION_NAMES = (
     ("SE", re.compile(r"±\s*s\.?e\.?(?:m\.?)?\b|\bs\.?e\.?m?\b|standard errors?", re.IGNORECASE)),
@@ -18,19 +18,23 @@ _LETTERS_MEANING = re.compile(r"(?:different|same) letters?[^.]{0,120}(?:signifi
 _MEANS = re.compile(r"\b(?:means?|averages?|averaged)\b", re.IGNORECASE)
 _COUNT = r"(?:all|both|each|the|two|three|four|five|six|seven|eight|nine|ten|\d+)"
 _ACROSS = rf"(?:over|across|regardless of|irrespective of|(?:for|of) (?:all|both|the {_COUNT}))"
+_NUMBER_WORD = r"(?:\d+|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)"
 _NOT_A_FACTOR = (
     rf"(?!(?:\s+{_COUNT})*\s+(?:replicat\w*|reps?|blocks?|plots?|samples?|subsamples?|plants?|measurements?"
     r"|observations?|readings?|treatments?)\b)"
 )
-_POOLED = re.compile(
-    rf"\b(?:means?|averages?|averaged|pooled|combined)\b[^.;]{{0,60}}?\b{_ACROSS}\b{_NOT_A_FACTOR}"
-    r"|\bpooled\b(?!\s+(?:s\.?e|standard|error|variance|s\.?d|lsd|cv)\b)",
-    re.IGNORECASE,
-)
+_SPAN = rf"(?!\s+(?:the\s+)?{_NUMBER_WORD}[\s-]*(?:years?|yrs?|seasons?|months?|weeks?|days?)\b)"
+_POOLING = rf"\b(?:means?|averages?|averaged|pooled|combined)\b[^.;]{{0,60}}?\b{_ACROSS}\b{_NOT_A_FACTOR}"
+_BARE_POOLED = r"\bpooled\b(?!\s+(?:s\.?e|standard|error|variance|s\.?d|lsd|cv)\b)"
+_POOLED = re.compile(f"{_POOLING}|{_BARE_POOLED}", re.IGNORECASE)
 """Values pooled over a factor, as papers word it: "means over two cultivars", "averaged across years", "the mean ±
 SE for all cultivar mixture treatments", "data were combined over locations", "means for both years", "pooled".
 Averaging over replicates, blocks, plots or samples is how any treatment mean is made, so it pools nothing; "means
 for all treatments" lists every treatment's mean; and a "pooled SE" names a statistic, not a pooling of the values."""
+_POOLED_FACTOR = re.compile(f"{_POOLING}{_SPAN}|{_BARE_POOLED}", re.IGNORECASE)
+"""Pooling that rules out a treatment mean. A counted span ("mean inputs over eight years") may only be the period
+the value covers, which its time states, so it still supports a mean over years but does not rule out a treatment
+mean."""
 _RAW = re.compile(
     r"\b(?:individual|single)\s+(?:plot|replicate|rep|sample|plant)s?\b|\braw\s+(?:data|values)\b", re.IGNORECASE
 )
@@ -103,10 +107,22 @@ def scope_statement(scope: EffectScope, factors: Iterable[str], sources: Iterabl
     """The cited text that says what the values are means of. Treatment means need a quote that says "means" while no
     quote pools them; means over factors need a quote that pools them and names every factor."""
     factors, sources = list(factors), list(sources)
-    pooled = [s for s in sources if _says(_POOLED, s)]
     if scope == "treatment_mean":
+        pooled = any(_says(_POOLED_FACTOR, s) for s in sources)
         return None if pooled else next((s for s in sources if _says(_MEANS, s)), None)
-    return next((s for s in pooled if all(contains_loose(s.quote, f) for f in factors)), None)
+    pooled = [s for s in sources if _says(_POOLED, s)]
+    return next((s for s in pooled if all(_names(s.quote, f) for f in factors)), None)
+
+
+PLACES = frozenset({"site", "sites", "location", "locations", "country", "countries", "environment", "environments"})
+"""Words for pooling over places. An Observation has one site, so a mean over several says so in its factor list,
+under any of these names, and a quote may use any of them ("averaged across two environments" for `site`)."""
+
+
+def _names(quote: str, factor: str) -> bool:
+    if factor.lower() in PLACES:
+        return any(contains_loose(quote, place) for place in PLACES)
+    return contains_loose(quote, factor)
 
 
 def scope_reason(scope: EffectScope, factors: Iterable[str], sources: Iterable[Evidence]) -> str:
@@ -128,16 +144,19 @@ class ReplicateLevel(NamedTuple):
 
 
 def replicate_level(
-    value: QuantityValue, value_evidence: list[Evidence], cited: list[Evidence]
+    value: QuantityValue, value_evidence: list[Evidence], cited: list[Evidence], replicate: list[Evidence]
 ) -> ReplicateLevel | None:
     """Whether the paper says a value is a replicate value or a mean, from its own text and the quotes its record
-    cites: a "±" or bracketed dispersion or a letter group in the value, "individual plot" wording, "mean" or "average"
-    wording, or a significance test such as the P value cited as its statistic. None when none of these is there, or
-    when the quotes say both ("means of individual plot values")."""
+    cites: a "±" or bracketed dispersion or a letter group in the value, the replicate it comes from (`replicate`, the
+    evidence of its replicate_id: a plot's mean of subsamples is still that replicate's value), "individual plot"
+    wording, "mean" or "average" wording, or a significance test such as the P value cited as its statistic. None when
+    none of these is there, or when the quotes say both ("means of individual plot values")."""
     cell = parse_cell(value.reported_text)
     letters = cell.letters is not None and cell.letters.lower() != value.reported_units.strip().lower()
     if dispersion(cell) is not None or _SPREAD_SIGN.search(value.reported_text) or letters:
         return ReplicateLevel(raw=False, evidence=value_evidence)
+    if replicate:
+        return ReplicateLevel(raw=True, evidence=replicate)
     quotes = [*value_evidence, *cited]
     raw = next((e for e in quotes if _says(_RAW, e)), None)
     mean = next((e for e in quotes if _says(_MEANS, e)), None) or next((e for e in quotes if _says(_TEST, e)), None)
@@ -148,6 +167,12 @@ def replicate_level(
     if mean is not None:
         return ReplicateLevel(raw=False, evidence=[mean])
     return None
+
+
+def named_replicate(o: Observation) -> list[Evidence]:
+    """The evidence of the replicate an Observation names, if it names one."""
+    rep = o.replicate_id
+    return rep.evidence if rep is not None and rep.value is not None else []
 
 
 def has_dispersion(value: QuantityValue, evidence: Iterable[Evidence]) -> bool:

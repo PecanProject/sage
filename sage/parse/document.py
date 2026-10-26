@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, PrivateAttr
 
-PARSER_VERSION = "pdftext-0.7.1+sage.6"
+PARSER_VERSION = "pdftext-0.7.1+sage.9"
 
 Box = tuple[float, float, float, float]
 """x0, y0, x1, y1 in PDF points, origin at the top left of the page."""
@@ -57,6 +57,11 @@ class Table(BaseModel):
     caption: str
     region: Box
     rotation: int = 0
+    continues: str | None = Field(
+        default=None,
+        description="The table this one carries on, on a later page with no caption of its own; its caption is that "
+        "table's.",
+    )
     notes: str | None = Field(default=None, description="The table's footnotes, from its CSV's `# notes:` lines.")
     notes_anchors: list[str] = Field(
         default_factory=list,

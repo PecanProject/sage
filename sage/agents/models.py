@@ -579,6 +579,26 @@ def _out_of_quota(e: ModelHTTPError) -> bool:
     return e.status_code == 429 and any(w in detail for w in ("quota", "billing", "credit"))
 
 
+def dropped(e: BaseException) -> bool:
+    """Whether the connection to the provider failed mid-call (a reset, a stalled read, a timeout): the next try may
+    well go through, unlike an error the provider answered with."""
+    import anthropic
+    import httpx
+    import httpx2
+    import openai
+
+    # The Anthropic SDK reads its stream through httpx2: a stream that breaks off mid-way raises its errors bare.
+    kinds = (httpx.TransportError, httpx2.TransportError, anthropic.APIConnectionError, openai.APIConnectionError)
+    seen: BaseException | None = e
+    while seen is not None:
+        if isinstance(seen, kinds):
+            return True
+        if isinstance(seen, BaseExceptionGroup):  # a stream's task group wraps what failed inside it
+            return any(dropped(inner) for inner in seen.exceptions)
+        seen = seen.__cause__ or seen.__context__
+    return False
+
+
 def refused(e: Exception) -> bool:
     """Whether every other call with this key and model would fail the same way, so the run should stop at once: a
     rejected key, no access to the model, no such model, or no quota left."""

@@ -1,6 +1,7 @@
 """The boundary every driver passes through. `evaluate` turns the compiled files into findings that point at the
 line to fix; `finish` refuses while anything blocks. Neither reads a file: `pipeline/extraction.py` does the I/O."""
 
+import re
 from dataclasses import dataclass, field
 
 from sage.ir.draft import Draft, Finish, Mark, Strike, Unresolved
@@ -11,6 +12,11 @@ from sage.pipeline.compile import RECORDS, UNRESOLVED, Compiled
 
 SAME_ERROR_LIMIT = 3
 """Strikes after which an error's target is marked `repeated_error`: the agent has tried to fix it this often."""
+BLOCK_CAUSES = frozenset({"ambiguous", "conflict", "schema_limitation"})
+"""The causes that can excuse a Results block's numbers: what else would leave a reported number out is a value to
+record."""
+_LITERAL = re.compile(r"'[^']*'|\"[^\"]*\"|[\w.-]*\d[\w.-]*")
+"""What differs between two findings of one kind: quoted text, and ids, anchors and numbers."""
 
 
 @dataclass(frozen=True)
@@ -25,6 +31,16 @@ class Finding:
     def text(self) -> str:
         where = f"{self.path}:{self.line}"
         return f"{where}  {self.target}: {self.message}" if self.target else f"{where}  {self.message}"
+
+    @property
+    def key(self) -> str:
+        """The same error on the same target, across checks."""
+        return f"{self.target}|{self.message}"
+
+    @property
+    def kind(self) -> str:
+        """The rule it breaks, whatever the target: the message with its literals taken out."""
+        return _LITERAL.sub("…", self.message)
 
 
 @dataclass
@@ -52,10 +68,12 @@ def evaluate(
     code_marks: dict[str, Unresolved],
     strikes: dict[str, Strike],
     changed: frozenset[str],
+    shown: frozenset[str],
 ) -> Evaluation:
-    """Check the compiled draft. `changed` holds the files edited since the last check. An error counts a strike only
-    when the file it points at is one of them, an attempt at a fix, and after `SAME_ERROR_LIMIT` strikes its target is
-    marked `repeated_error`; checking unchanged files again counts nothing. A code mark stands only while its target
+    """Check the compiled draft. `changed` holds the files edited since the last check, and `shown` the errors that
+    check listed. An error counts a strike only when the agent was shown it and edited its file since, an attempt at a
+    fix, and after `SAME_ERROR_LIMIT` strikes its target is marked `repeated_error`; checking unchanged files again
+    counts nothing, and neither does an error the agent never saw. A code mark stands only while its target
     still has a blocking error, so a target fixed after it was marked counts again."""
     draft = compiled.draft
     marks, refused = _agent_marks(compiled, doc)
@@ -71,8 +89,9 @@ def evaluate(
     for issue in issues:
         if issue.target in code_marks:
             continue
-        finding = _finding(issue, compiled)
-        tried = finding.path in changed or (finding.path == RECORDS and bool(changed))
+        finding = finding_at(compiled, issue.target, issue.severity, issue.message)
+        edited = finding.path in changed or (finding.path == RECORDS and bool(changed))
+        tried = edited and finding.key in shown
         if issue.severity == "blocking" and tried and _strike(issue, strikes):
             code_marks[issue.target] = Unresolved(target=issue.target, cause="repeated_error", reason=issue.message)
             newly.append(issue.target)
@@ -91,14 +110,15 @@ def finish(evaluation: Evaluation, summary: str) -> bool:
     return True
 
 
-def _finding(issue: Issue, compiled: Compiled) -> Finding:
-    at = compiled.locate(issue.target)
+def finding_at(compiled: Compiled, target: str, severity: Severity, message: str) -> Finding:
+    """A finding at the line that writes `target`."""
+    at = compiled.locate(target)
     path, line = (at.path, at.line) if at is not None else (RECORDS, 1)
-    return Finding(path, line, issue.target, issue.severity, issue.message)
+    return Finding(path, line, target, severity, message)
 
 
 def _key(issue: Issue) -> str:
-    return f"{issue.target}|{issue.message}"
+    return Finding("", 0, issue.target, issue.severity, issue.message).key
 
 
 def _strike(issue: Issue, strikes: dict[str, Strike]) -> bool:
@@ -127,15 +147,26 @@ def _agent_marks(compiled: Compiled, doc: Document) -> tuple[list[Mark], list[Fi
 def _mark_problem(m: Mark, draft: Draft, doc: Document) -> str | None:
     rid, _, name = m.target.partition(".")
     record = draft.records.get(rid)
-    known = (
-        (record is not None and (not name or name in type(record).model_fields))
-        or doc.table(m.target) is not None
-        or m.target == "results"
-    )
+    if record is None and doc.table(m.target) is not None:
+        if m.cause == "schema_limitation":
+            return None
+        return (
+            f"a table is mapped in records/observations/{m.target}.yaml, or decided there with irrelevant: why when it "
+            "holds no experiment values; mark it here only as schema_limitation, for site-level data the records "
+            "can't hold, such as weather"
+        )
+    if record is None and ".t" not in m.target and doc.resolve(m.target) is not None:
+        if m.cause in BLOCK_CAUSES:
+            return None
+        return (
+            f"a Results block holds numbers the records leave out; mark it {', '.join(sorted(BLOCK_CAUSES))}, and "
+            "record the experiment values it reports"
+        )
+    known = record is not None and (not name or name in type(record).model_fields)
     if not known:
         return (
-            "no such target; a mark names a record id, record_id.attribute, a table anchor, or results. If the "
-            "record failed to compile, fix it first"
+            "no such target; a mark names a record id, record_id.attribute, a table anchor, or a text block a warning "
+            "points at. If the record failed to compile, fix it first"
         )
     if draft.holds_value(m.target):
         return (

@@ -10,7 +10,7 @@ class Issue(BaseModel):
     level: Level
     severity: Severity
     target: str
-    """A record id, "record_id.field", a table anchor, or "results" for the Results-coverage warning."""
+    """A record id, "record_id.field", a table anchor, or a text block's anchor for the Results-coverage warning."""
     message: str
     """What is wrong and what to do next."""
 

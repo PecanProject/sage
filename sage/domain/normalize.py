@@ -5,6 +5,8 @@ import unicodedata
 
 _DASHES = dict.fromkeys(map(ord, "\u2010\u2011\u2012\u2013\u2014\u2015\u2212\ufe58\ufe63\uff0d"), "-")
 _QUOTES = {ord("\u2018"): "'", ord("\u2019"): "'", ord("\u201c"): '"', ord("\u201d"): '"', ord("\u00b4"): "'"}
+_SIGNS = {ord("\u2217"): "*"}
+"""The asterisk operator a typeset footnote mark often is, read as the asterisk anyone types."""
 _INVISIBLE = dict.fromkeys(map(ord, "\u200b\u200c\u200d\ufeff"), None)
 _SPACE = re.compile(r"\s+")
 _SOFT_BREAK = re.compile(r"[\u0002\u00ad]\s*")
@@ -25,7 +27,13 @@ def norm(text: str) -> str:
 
 
 def _fold(text: str) -> str:
-    return unicodedata.normalize("NFKC", text).translate(_DASHES).translate(_QUOTES).translate(_INVISIBLE)
+    return (
+        unicodedata.normalize("NFKC", text)
+        .translate(_DASHES)
+        .translate(_QUOTES)
+        .translate(_SIGNS)
+        .translate(_INVISIBLE)
+    )
 
 
 def squash(text: str) -> str:

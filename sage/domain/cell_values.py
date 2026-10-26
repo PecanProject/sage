@@ -1,6 +1,7 @@
 """One table cell split into its number, qualifier, dispersion and mean-separation letters."""
 
 import re
+from itertools import pairwise
 from typing import Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict
@@ -43,7 +44,9 @@ _FOOTNOTE_MARKS = re.compile(r"[†‡§¶‖#]+")
 
 _MISSING = frozenset({"", "-", "--", "---", "nd", "n.d.", "na", "n.a.", "n/a", "ns", "n.s.", "...", "…"})
 _SIGNIFICANCE = re.compile(r"\s*(?P<sig>\*{1,3}|(?<![a-z])n\.?s\.?)$", re.IGNORECASE)
-_LETTERS = re.compile(r"(?:^|\s)(?P<letters>[a-z]{1,4}|[A-Z]{1,4})$")
+_LETTERS = re.compile(r"(?:^|\s)(?P<letters>[a-z]{1,12}|[A-Z]{1,12})$")
+LAST_LETTER = "n"
+"""The latest letter a mean-separation group uses: fourteen groups is more than any table separates."""
 _UNIT_WORDS = frozenset(
     {"mm", "cm", "km", "ha", "mg", "kg", "ml", "mol", "kpa", "mpa", "ppm", "lb", "ac", "in", "ft", "yr", "min"}
 )
@@ -76,7 +79,7 @@ def _split_tail(tail: str) -> _Tail | None:
     letters = None
     if match := _SIGNIFICANCE.search(tail):
         tail = tail[: match.start()].strip()
-    if (match := _LETTERS.search(tail)) and match["letters"].lower() not in _UNIT_WORDS:
+    if (match := _LETTERS.search(tail)) and _is_letters(match["letters"]):
         letters = match["letters"]
         tail = tail[: match.start()].strip()
     if not tail:
@@ -84,6 +87,13 @@ def _split_tail(tail: str) -> _Tail | None:
     if _UNIT_TAIL.fullmatch(tail):
         return _Tail(tail, letters)
     return None
+
+
+def _is_letters(word: str) -> bool:
+    """Mean-separation letters, which run in alphabetical order from the start of the alphabet ("b", "ab", "abcde"); a
+    word such as "days" or "first", or a unit such as "cm", is not one."""
+    low = word.lower()
+    return low not in _UNIT_WORDS and max(low) <= LAST_LETTER and all(a < b for a, b in pairwise(low))
 
 
 def parse_cell(text: str) -> CellValue:

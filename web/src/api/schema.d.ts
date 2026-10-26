@@ -1059,6 +1059,13 @@ export interface components {
             guidance?: string | null;
             /** Reviews */
             reviews?: string[];
+            /** Flags */
+            flags?: string[];
+            /**
+             * Flag Total
+             * @default 0
+             */
+            flag_total: number;
         };
         /** Citation */
         Citation: {
@@ -1198,7 +1205,7 @@ export interface components {
             sha256: string;
             /**
              * Parser Version
-             * @default pdftext-0.7.1+sage.6
+             * @default pdftext-0.7.1+sage.9
              */
             parser_version: string;
             /** Pages */
@@ -2355,6 +2362,11 @@ export interface components {
              * @default 0
              */
             rotation: number;
+            /**
+             * Continues
+             * @description The table this one carries on, on a later page with no caption of its own; its caption is that table's.
+             */
+            continues?: string | null;
             /**
              * Notes
              * @description The table's footnotes, from its CSV's `# notes:` lines.

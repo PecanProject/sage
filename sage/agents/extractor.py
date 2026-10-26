@@ -53,7 +53,8 @@ You work through tools, not a terminal. The paper's folder is your working direc
 - view_image shows a PNG: `pages/p4.png`, `tables/p7.t1.png`, `figures/p5.f1.png`.
 - check is `sage extract check`, and done is `sage extract done`, with the summary.
 - `paper.md` is below as it was when the run started. Read it again after check grounds a table you transcribed.
-- Write a file whole with write_file the first time, and change it with edit_file after that."""
+- Write a file whole with write_file the first time, and change it with edit_file after that. To remove a file you
+  made, write it empty: SAGE reads an empty file as no file."""
 READ_ONLY = ("paper.md", "*.png", "figures")
 """SAGE writes these for the agent to read."""
 DENIED = (".sage", "paper.pdf")
@@ -153,6 +154,8 @@ async def extract(
         total = models.usage_of(spent)
         return ExtractResult(outcome="budget_exhausted", usage=total, turns=total.requests, message=str(e))
     except AgentRunError as e:
+        if models.dropped(e):
+            raise  # the caller resumes the run from its folder
         return ExtractResult(
             outcome="failed",
             usage=models.usage_of(spent),
@@ -178,10 +181,10 @@ def view_image(ctx: RunContext[Deps], path: str) -> list[str | BinaryContent] | 
     return [path, BinaryContent(data=image, media_type="image/png")]
 
 
-def check(ctx: RunContext[Deps]) -> str:
-    """Check the folder, as `sage extract check` does: every problem as `file:line  target: what to do`, then the
-    totals."""
-    return ctx.deps.workspace.check()
+def check(ctx: RunContext[Deps], all: bool = False) -> str:  # noqa: A002 - the model's name for --all
+    """Check the folder, as `sage extract check` does: each problem as `file:line  target: what to do`, a few of each
+    kind, then the totals. `all` lists every problem, as `--all` does."""
+    return ctx.deps.workspace.check(every=all)
 
 
 def done(ctx: RunContext[Deps], summary: str) -> Finished:

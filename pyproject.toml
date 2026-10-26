@@ -9,6 +9,7 @@ dependencies = [
     "agent-client-protocol==1.0.0rc3",
     "fastapi>=0.143.3",
     "genai-prices>=0.1.13",
+    "httpx2>=2.13.1",
     "pdftext>=0.7.1",
     "pillow>=13.0.0",
     "pydantic>=2.14.1",

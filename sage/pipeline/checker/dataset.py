@@ -7,6 +7,7 @@ from collections.abc import Collection
 from decimal import ROUND_HALF_UP, Decimal
 
 from sage.domain.normalize import contains, norm, numbers_in, read_number, squash
+from sage.domain.stats import PLACES
 from sage.domain.units import normalize_unit
 from sage.ir.draft import Draft, Overwrite
 from sage.ir.schema import (
@@ -45,6 +46,7 @@ def check_dataset(draft: Draft, uncompiled: Collection[str] = ()) -> list[Issue]
     issues += _same_value_other_variable(records, {o for d in draft.tables.values() for o in d.observation_ids})
     issues += _duplicate_names(records)
     issues += _site_against_treatment(records)
+    issues += _pooled_sites(records)
     issues += _scope_against_treatment(records)
     return issues
 
@@ -100,13 +102,12 @@ def _duplicate_observations(records: dict[str, Entity]) -> list[Issue]:
             r.value.value.reported_text,
             r.temporal_info.value.reported_text if r.temporal_info.value else None,
             r.site_id,
+            r.depth.value.reported_text if r.depth is not None and r.depth.value is not None else None,
+            r.replicate_id.value if r.replicate_id is not None else None,
         )
         if key in seen:
-            issues.append(
-                blocking(
-                    "dataset", rid, f"duplicates {seen[key]} (same treatment, variable, time and value); remove one"
-                )
-            )
+            why = "same treatment, variable, time, depth, replicate and value"
+            issues.append(blocking("dataset", rid, f"duplicates {seen[key]} ({why}); remove one"))
         else:
             seen[key] = rid
     return issues
@@ -133,7 +134,7 @@ def _two_values(records: dict[str, Entity]) -> list[Issue]:
             o.method_id,
             o.crop_id,
             o.species_id,
-            o.replicate_id,
+            o.replicate_id.value if o.replicate_id is not None else None,
             o.is_raw_replicate_level.value,
             o.reported_effect_scope.value,
             tuple(sorted(_key(f) for f in over or [])),
@@ -142,13 +143,16 @@ def _two_values(records: dict[str, Entity]) -> list[Issue]:
         text = o.value.value.reported_text
         first, first_text = seen.setdefault(key, (rid, text))
         if squash(first_text) != squash(text):
+            t = o.temporal_info.value
+            when = f"time '{t.reported_text}'" if t is not None else "no time"
             issues.append(
                 blocking(
                     "dataset",
                     rid,
                     f"'{text}' and {first}'s '{first_text}' are two values for {o.treatment_id} with the same "
-                    "variable, site, time and depth. Give each level the table reports its own Treatment, with "
-                    "factor_levels naming it, and point the value at it; tell replicate values apart with replicate",
+                    f"variable, site, depth and {when}. When they differ in time, give each its own; otherwise give "
+                    "each level the table reports its own Treatment, with factor_levels naming it, and point the "
+                    "value at it; tell replicate values apart with replicate",
                 )
             )
     return issues
@@ -249,8 +253,34 @@ def _site_against_treatment(records: dict[str, Entity]) -> list[Issue]:
     return issues
 
 
+def _pooled_sites(records: dict[str, Entity]) -> list[Issue]:
+    """A value averaged over sites belongs to no one of them: it sits on a Site that stands for the sites it pools, with
+    Treatments of its own. A Site other values are measured at is one site."""
+    observations = {rid: o for rid, o in records.items() if isinstance(o, Observation)}
+    pooled = {rid for rid, o in observations.items() if _over_places(o)}
+    single = {o.site_id for rid, o in observations.items() if rid not in pooled}
+    return [
+        blocking(
+            "dataset",
+            f"{rid}.site_id",
+            f"this value is averaged over sites, but '{o.site_id}' is one site other values are measured at. Write a "
+            "Site for the sites it pools, named for them ('Bristol and South Shore, pooled'), with Treatments of its "
+            "own, and put the value there",
+        )
+        for rid, o in observations.items()
+        if rid in pooled and o.site_id in single
+    ]
+
+
+def _over_places(o: Observation) -> bool:
+    agg = o.aggregated_over_factors
+    factors = agg.value if agg is not None and agg.value is not None else []
+    return o.reported_effect_scope.value == "aggregated_mean" and any(_key(f) in PLACES for f in factors)
+
+
 def _scope_against_treatment(records: dict[str, Entity]) -> list[Issue]:
-    """A value averaged over a factor can't belong to a Treatment that fixes that factor. A treatment mean for a
+    """A value averaged over a factor can't belong to a Treatment that fixes that factor, and the factor must be one the
+    Study's Treatments vary: averaging one treatment over time or samples is still its mean. A treatment mean for a
     Treatment that leaves out a factor its Study's other Treatments fix is most likely averaged over that factor,
     unless the value's own text names a level of it (a column header "Arlington")."""
     treatments = {rid: r for rid, r in records.items() if isinstance(r, Treatment)}
@@ -265,10 +295,23 @@ def _scope_against_treatment(records: dict[str, Entity]) -> list[Issue]:
         if not isinstance(o, Observation) or (t := treatments.get(o.treatment_id)) is None:
             continue
         fixed = {_key(f): f"{f}={level}" for f, level in t.factor_levels.items()}
+        factors = by_study[t.study_id.value]
         agg = o.aggregated_over_factors
         if o.reported_effect_scope.value == "aggregated_mean" and agg is not None and agg.value is not None:
             clash = [fixed[_key(f)] for f in agg.value if _key(f) in fixed]
-            if clash:
+            unknown = [f for f in agg.value if _key(f) not in factors and _key(f) not in PLACES]
+            if unknown:
+                named = ", ".join(factors.values()) or "none"
+                issues.append(
+                    blocking(
+                        "dataset",
+                        f"{rid}.aggregated_over_factors",
+                        f"{', '.join(unknown)} is not a factor this Study's Treatments vary (they vary: {named}). A "
+                        "mean over harvests, dates, samples or years of one treatment is a treatment_mean, with the "
+                        "time it covers; aggregated_mean pools over treatment factors, or over sites (name it site)",
+                    )
+                )
+            elif clash:
                 issues.append(
                     blocking(
                         "dataset",
@@ -281,19 +324,21 @@ def _scope_against_treatment(records: dict[str, Entity]) -> list[Issue]:
             said = _own_text(o)
             left_out = [
                 name
-                for key, name in by_study[t.study_id.value].items()
+                for key, name in factors.items()
                 if key not in fixed and not any(_names(said, level) for level in levels[key])
             ]
             if left_out:
                 names = ", ".join(left_out)
                 issues.append(
-                    warning(
+                    blocking(
                         "dataset",
                         f"{rid}.reported_effect_scope",
                         f"{o.treatment_id} fixes only {', '.join(t.factor_levels) or 'no factor'}, while other "
-                        f"Treatments in its Study fix {names}; a value for it is most likely averaged over {names}. "
-                        f"If the paper says so, set scope: aggregated_mean and over: [{names}] on the group, with "
-                        "scope_at pointing at the text that says it",
+                        f"Treatments in its Study fix {names}, so a mean of it is averaged over {names} (a Mean row, a "
+                        f"main effect). Set scope: aggregated_mean and over: [{names}] on its row, column or cell (or "
+                        "the group), with scope_at pointing at what says it: the row's label, the caption. If the "
+                        f"value belongs to no level of {names} (measured before it was applied), give its Treatment "
+                        "that factor with the level none",
                     )
                 )
     return issues
@@ -316,14 +361,18 @@ def _names(text: str, level: str) -> bool:
 
 
 def _duplicate_names(records: dict[str, Entity]) -> list[Issue]:
-    by_name: dict[tuple[str, str], list[str]] = defaultdict(list)
+    """Two records of one type with the same name. A Treatment belongs to its site and study, so the same treatment
+    run at two sites is two Treatments by design, not a duplicate."""
+    by_name: dict[tuple[str, ...], list[str]] = defaultdict(list)
     for rid, r in records.items():
         if isinstance(r, Species | Site | Treatment | Variable | Method):
             value = (r.scientific_name if isinstance(r, Species) else r.name).value
-            if value is not None:
-                by_name[(r.type, value.strip().lower())].append(rid)
+            if value is None:
+                continue
+            where = (r.site_id, str(r.study_id.value)) if isinstance(r, Treatment) else ()
+            by_name[(r.type, value.strip().lower(), *where)].append(rid)
     return [
         warning("dataset", rid, f"same {kind} name as {ids[0]} ('{name}'); merge them unless they really differ")
-        for (kind, name), ids in by_name.items()
+        for (kind, name, *_), ids in by_name.items()
         for rid in ids[1:]
     ]

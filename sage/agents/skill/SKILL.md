@@ -7,7 +7,7 @@ description: Extract experiment records from an agronomy or ecology field-study 
 
 You turn one field-study paper into a dataset for crop-model calibration: sites, treatments, what was measured and how, and every reported value. You write YAML files in the paper's folder, and SAGE checks them. Every value points at where the paper says it. Code reads the quote, the number and the basis from where you point, and decides each record's status. You never mark anything verified.
 
-Capture what the paper reports, as it reports it. Never fill a value the paper doesn't give, never convert units, and never turn one statistic into another.
+Capture what the paper reports, as it reports it. Never fill a value the paper doesn't give, never convert units, and never turn one statistic into another. A table you leave unmapped is lost to the scientist, however large it is. SAGE enforces the budgets, so don't ration your work; if one runs out, SAGE keeps what you wrote.
 
 ## Timeline
 
@@ -18,9 +18,9 @@ Capture what the paper reports, as it reports it. Never fill a value the paper d
    - Each page marked `no text layer`: transcribe the passages you will cite into `pages/pN.md`.
    - Then run check. SAGE grounds them against the PDF and rewrites `paper.md` with the cell anchors.
 4. **Write the context records** in `records/`: citation, studies, sites, species, crops, methods, variables, treatments and managements.
-5. **Map every table** in `records/observations/<table>.yaml`. A table with no experiment values gets `irrelevant: why`. A table of site-level data, such as weather, is marked `schema_limitation` instead (`references/entities.md`, Site-level data).
+5. **Map every table** in `records/observations/<table>.yaml`, however large. A table with no experiment values gets `irrelevant: why`; one whose values you haven't mapped is not irrelevant. A table of site-level data, such as weather, is marked `schema_limitation` in `records/unresolved.yaml` instead (`references/entities.md`, Site-level data).
 6. **Write the values that live only in the text** in `records/observations/text.yaml`.
-7. **Check until nothing blocks.** Run `sage extract check <paper>` after each batch of edits and do what each line says. It lists the first few blocking errors and warnings; `--all` lists every one. If something can't be fixed, mark it in `records/unresolved.yaml`.
+7. **Check until nothing blocks.** Run `sage extract check <paper>` after each batch of edits and do what each line says. It lists a few of each kind of problem and counts the rest; `--all` lists every one. If something can't be fixed, mark it in `records/unresolved.yaml`.
 8. **Finish** with `sage extract done <paper> -m "one-paragraph summary"`. A paper with no primary data (a review or a model study) finishes with "no extractable experiments" and the reason.
 
 Continuing a run is the same loop. Check prints the scientist's guidance and reviews first. Do what they ask without redoing the rest, and say in the summary what you changed.
@@ -51,11 +51,11 @@ elevation: [null, note: no elevation in methods or site description]  # absent: 
 - **Point, don't transcribe.** Write the value as printed and cite where it is. Code finds the quote in the anchor's text. When the words occur twice in a block, pin the quote: `[120 kg N ha-1, {p3.b4: "the second 120 kg N ha-1"}]`.
 - **Quote YAML specials.** Put a value or note that holds a comma, `: `, ` #` or starts with `[ { & * ! | > % @` in quotes, or YAML splits it: `["35, 69 and 95 DAP", p5.b2]`, `[USA, note: "Stephenville, TX"]`.
 - **Value forms.**
-  - Quantity: `"12.4 g m-2"`. Code reads the units after the number. When it splits wrongly, write `{text: "12.4", units: g m-2}`.
+  - Quantity: `"12.4 g m-2"`. Code reads the units after the number. When it splits wrongly, write `{text: "12.4", units: g m-2}`. Every measured value has units: as printed, or `unitless` for a count, ratio or index. Units in a note are not units.
   - Date: as printed, one per field: `"May 18 and 19"`, `"45 days after sowing"`, `"-32 DAP"`. When the text has no year, also cite a sentence that states one.
   - Depth: one layer with its unit, `"0-15 cm"`. Coordinate: as printed, `"38°32′N"`.
   - Statistic: `{statistic: SE, value: "0.2"}`. List: `[[cultivar, year], p5.b9]`.
-- Plain attributes (ids, `site_id`, `species_id`, `factor_levels`, `citation_ids`) are plain YAML, with no shape.
+- Plain attributes (ids, `site_id`, `species_id`, `factor_levels`, `citation_ids`) are plain YAML, with no shape. So is `notes` when it is your own comment.
 - An optional field the paper never prints is left out. A required one the paper doesn't give is `[null, note: …]`.
 
 ## Context records
@@ -117,6 +117,9 @@ The value cells are rows × columns: four Observations, `obs-p6-t2-r2-c1` and so
 - `cells: {p6.t2.r4.c1: {treatment: N60}}` adds a cell or overrides one.
 - `skip: [p6.t2.r3.c2]` leaves a cell out.
 - `scope_at: [p5.b9]` cites a sentence that says what the values are means of, when the table's own text doesn't.
+- `over` names factors your Treatments vary, or `site` for a mean over sites. A mean over harvests, dates, samples or years of one treatment is a `treatment_mean`, with the time it covers.
+- `scope`, `over` and `scope_at` can be set on a row, column or cell too. A Mean row, a main effect or an "Across locations" column is averaged over what the other rows fix: `5: {treatment: high_family, scope: aggregated_mean, over: [parent], scope_at: [p6.t2.r5.c0]}`.
+- A mean over sites belongs to no one site. Write a Site for the sites it pools, named for them ("Bristol and South Shore, pooled"), with Treatments of its own, and put the value there.
 - An empty cell is skipped.
 
 Had you left out `n`, check would answer:
@@ -151,17 +154,18 @@ Record a value the text states about a figure ("peaked at 12.4 g m−2 in July")
 ```yaml
 # records/unresolved.yaml
 soil_N_flux: {cause: figure_only, reason: only Fig. 3 shows it}
-results: {cause: ambiguous, reason: the 44% and 39% gains are not tied to one treatment}
+p6.b46: {cause: ambiguous, reason: the 44% and 39% gains are not tied to one treatment}
 ```
 
-A target is a record id, a `record_id.field` that is null, a table anchor, or the target of an open issue such as `results`. A field that holds a value can't be marked: fix it, or make it `[null, note: …]`. The causes are in `references/causes.md`.
+A target is a record id, a `record_id.field` that is null, a site-level table (`schema_limitation` only), or the Results block a warning names. A field that holds a value can't be marked: fix it, or make it `[null, note: …]`. The causes are in `references/causes.md`.
 
 ## Check
 
 Each line is `file:line  target: what is wrong, and what to do`. Blocking lines come first, then warnings, then `N blocking · M warnings · R records`. The exit code is 0 when nothing blocks, 1 when something does, and 2 when a file isn't valid YAML or CSV.
 - Fix every blocking line, and the warnings that are real.
-- The `results` warning lists Results sentences whose numbers no record cites. Record the experiment values, and mark the rest in `unresolved.yaml`.
-- When the same error keeps surviving your edits of its file, SAGE marks its target `repeated_error` and stops reporting it. Move on; the mark lifts once the error is gone.
+- A Results block's warning lists its numbers that no record cites. Record the experiment values, and mark the block in `unresolved.yaml` only for numbers that aren't one.
+- Once nothing blocks, check lists why values would settle flagged. Fix what you can, usually by citing where the paper says it; a person checks the rest.
+- When an error check showed you survives three edits of its file, SAGE marks its target `repeated_error` and stops reporting it. Move on; the mark lifts once the error is gone.
 - When a table and the text disagree, use the table's value and put the conflict in a note.
 
 `done` runs the check once more and is refused while anything blocks. For how runs, snapshots, statuses and the live UI work, read `references/internals.md`.

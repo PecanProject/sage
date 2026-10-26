@@ -250,8 +250,9 @@ class Settings(BaseSettings):
         default=12,
         ge=1,
         le=100,
-        title="Errors per check",
-        description="A check lists this many blocking errors and this many warnings, then a count of the rest.",
+        title="Kinds of error per check",
+        description="A check groups its findings by kind and lists three of each, for this many kinds of blocking "
+        "error and this many kinds of warning, then a count of the rest.",
         json_schema_extra=_group("Agent"),
     )
     agents_ask: bool = Field(

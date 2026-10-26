@@ -32,6 +32,11 @@ from sage.parse.layout import (
 TABLE_CAPTION = re.compile(r"^\s*Table\s*(\d+|[IVX]+)\b", re.IGNORECASE)
 REFERENCES = {"references", "literaturecited", "bibliography", "referencescited", "citedliterature", "literature"}
 MARGIN = 0.07
+CONTINUED_DIGITS = 100
+CONTINUED_SHARE = 0.14
+"""Digits a captionless page needs, right after a table's page, to be read as that table carried on, and their share
+of its letters and digits. Measured on the test papers: tables with long text labels run 15-25% digits, numeric
+grids over 50%, and pages of body text under 10%."""
 JUNK_TITLE = re.compile(
     r"^(untitled|unbekannt|microsoft word|doi:|\d)|\.(docx?|pdf|tex)$|^[\w-]*\d{4,}[\w-]*$", re.IGNORECASE
 )
@@ -45,7 +50,7 @@ RAISED = 0.25
 """Share of the line height a U+0002's bottom must sit above the character before it to be raised off the line."""
 COVER_SHEET = re.compile(
     r"this article was downloaded by|please scroll down for article|your use of the jstor archive|"
-    r"jstor is a not-for-profit|this content downloaded from",
+    r"jstor is a not-for-profit|this content downloaded from|^downloaded by \[|^downloaded from https?://",
     re.IGNORECASE,
 )
 
@@ -101,6 +106,8 @@ class _RawPage(BaseModel):
     page: int
     width: float
     height: float
+    rotation: int = 0
+    """The page's /Rotate. Boxes are in the page as shown, but a span's rotation is in the page as stored."""
     blocks: list[_RawBlock]
 
 
@@ -117,14 +124,28 @@ def _extract(data: bytes, *, page_range: list[int] | None = None) -> list[_RawPa
     return pages
 
 
+SYMBOL_FONT = re.compile(r"symbol|advpi|mathpi|universalpi|greek", re.IGNORECASE)
+"""Fonts that set Greek letters on Latin codes, with no Unicode map: the text layer reads μ as "m"."""
+SYMBOL_LOWER = str.maketrans("abcdefghijklmnopqrstuvwxyz", "αβχδεφγηιϕκλμνοπθρστυϖωξψζ")
+"""The lowercase letters of the Symbol encoding, which symbol fonts share. Their capitals and other codes differ from
+font to font, so they are left as read."""
+
+
 def _resolve(page: _RawPage) -> None:
-    """pdftext writes U+0002 for two glyphs, told apart by the character's own box against the one before it. Set
+    """Each span's rotation is turned by the page's, so it is the rotation of the text as shown, like the boxes. A
+    symbol font's lowercase letters are read as the Greek they print.
+    pdftext writes U+0002 for two glyphs, told apart by the character's own box against the one before it. Set
     smaller and raised off the line, it is an exponent's minus ("Mg ha" then a raised U+0002 and "1" is "Mg ha-1").
     Otherwise it is the soft hyphen at a line break ("pro\u0002 cessing")."""
     for block in page.blocks:
         prev: Box | None = None
         for line in block.lines:
             for span in line.spans:
+                span.rotation = (span.rotation or 0.0) + math.radians(page.rotation)
+                if span.font.name is not None and SYMBOL_FONT.search(span.font.name):
+                    span.text = span.text.translate(SYMBOL_LOWER)
+                    for ch in span.chars:
+                        ch.char = ch.char.translate(SYMBOL_LOWER)
                 rot = rotation_of(span.rotation)
                 for ch in span.chars:
                     box = to_upright(rounded(ch.bbox), rot, page.width, page.height)
@@ -199,9 +220,12 @@ def parse(data: bytes, *, paper_id: str, sha256: str) -> Document:
     if len(pages) != count:
         raise PdfError("pdftext and pdfium disagree on the page count")
     by_number = {p.number: p for p in pages}
-    blocks = _classify(blocks, by_number)
-    tables = _table_stubs(blocks, by_number)
-    return Document(paper_id=paper_id, sha256=sha256, pages=pages, blocks=blocks, tables=tables)
+    first = _classify(blocks, by_number, [])
+    tables = _table_stubs(first, by_number)
+    tables += _continuations(first, by_number, tables)
+    return Document(
+        paper_id=paper_id, sha256=sha256, pages=pages, blocks=_classify(blocks, by_number, tables), tables=tables
+    )
 
 
 def pages_chars(data: bytes, pages: Sequence[int]) -> dict[int, list[Char]]:
@@ -266,15 +290,20 @@ def _span(s: _RawSpan) -> Span:
     return Span(text=text, bbox=rounded(s.bbox), bold=bold, rotation=rotation_of(s.rotation), chars=chars)
 
 
-def _classify(blocks: list[Block], pages: dict[int, Page]) -> list[Block]:
-    """Mark running heads, footers, page numbers and a download cover sheet on page 1, and everything after the
-    References heading. A running head repeats in the margin at about the same height on several pages; a figure label
-    that repeats does not count."""
-    seen: dict[tuple[str, int], set[int]] = {}
+def _classify(blocks: list[Block], pages: dict[int, Page], tables: list[Table]) -> list[Block]:
+    """Mark running heads, footers, page numbers, publisher stamps and a download cover sheet on page 1, and everything
+    after the References heading. A running head sits at the outer edge of a page's text, in its own reading frame,
+    and repeats there on several pages, at most twice on any one. A figure label, or a table's header or cells
+    repeated on each page it fills, does not count."""
+    edges = _edges(blocks, pages)
+    seen: dict[tuple[str, int], Counter[int]] = {}
     for b in blocks:
-        if _in_margin(b, pages[b.page]) and len(b.text) < 160:
-            seen.setdefault(_furniture_key(b), set()).add(b.page)
+        if _in_table(b, tables):
+            continue
+        if b.kind != "caption" and _at_edge(b, pages[b.page], edges) and len(b.text) < 160:
+            seen.setdefault(_furniture_key(b, pages[b.page]), Counter())[b.page] += 1
     repeats = max(2, round(len(pages) * 0.2))
+    heads = {k for k, on in seen.items() if len(on) >= repeats and max(on.values()) <= 2}
     cover = {1} if any(b.page == 1 and COVER_SHEET.search(b.text) for b in blocks) and len(pages) > 1 else set()
     in_references = False
     out: list[Block] = []
@@ -282,28 +311,106 @@ def _classify(blocks: list[Block], pages: dict[int, Page]) -> list[Block]:
         kind: BlockKind = b.kind
         if b.kind == "text" and len(b.text) < 40 and re.sub(r"[\W\d_]+", "", b.text).lower() in REFERENCES:
             in_references = True
-        if b.page in cover:
+        page = pages[b.page]
+        if b.page in cover or COVER_SHEET.search(b.text) is not None:
             kind = "furniture"
         elif in_references and kind == "text":
             kind = "references"
-        elif _in_margin(b, pages[b.page]) and (
-            len(seen.get(_furniture_key(b), set())) >= repeats
-            or re.fullmatch(r"\d{1,4}", b.text.strip()) is not None
-            or COVER_SHEET.search(b.text) is not None
+        elif (
+            kind != "caption"
+            and not _in_table(b, tables)
+            and _at_edge(b, page, edges)
+            and (
+                _furniture_key(b, page) in heads
+                or (b.rotation == 0 and _in_margin(b, page) and re.fullmatch(r"\d{1,4}", b.text.strip()) is not None)
+            )
         ):
             kind = "furniture"
         out.append(b.model_copy(update={"kind": kind}))
     return out
 
 
-def _furniture_key(b: Block) -> tuple[str, int]:
-    return re.sub(r"\d+", "#", norm(b.text).lower()), round(b.bbox[1] / 20)
+def _in_table(b: Block, tables: list[Table]) -> bool:
+    return any(t.page == b.page and t.rotation == b.rotation and center_in(b.bbox, t.region) for t in tables)
+
+
+def _continuations(blocks: list[Block], pages: dict[int, Page], tables: list[Table]) -> list[Table]:
+    """A table that runs on to the next pages: a page with no caption of its own (a figure's tick labels look like a
+    grid too), right after a table's page, with enough digits in its text. Each such page gets a table of its own that
+    `continues` the first, so it is transcribed, grounded and mapped like any other."""
+    captioned = {t.page for t in tables}
+    out: list[Table] = []
+    last: Table | None = None
+    for number in sorted(pages):
+        if number in captioned:
+            last = [t for t in tables if t.page == number][-1]
+            continue
+        if last is None or number - last.page > 1:
+            last = None
+            continue
+        body = [b for b in blocks if b.page == number and b.kind == "text"]
+        figure = any(b.page == number and b.kind == "caption" for b in blocks)
+        weight = Counter[int]()
+        for b in body:
+            weight[b.rotation] += len(b.text)
+        rot = weight.most_common(1)[0][0] if weight else 0
+        text = "".join(b.text for b in body if b.rotation == rot)
+        digits = sum(c.isdigit() for c in text)
+        if figure or digits < CONTINUED_DIGITS or digits < CONTINUED_SHARE * sum(c.isalnum() for c in text):
+            last = None
+            continue
+        region = union([b.bbox for b in body if b.rotation == rot])
+        head = last if last.continues is None else next(t for t in tables if t.anchor == last.continues)
+        last = Table(
+            anchor=f"p{number}.t1",
+            page=number,
+            label=f"{head.label} (continued)",
+            caption_anchor=head.caption_anchor,
+            caption=head.caption,
+            region=rounded(region),
+            rotation=rot,
+            continues=head.anchor,
+        )
+        out.append(last)
+    return out
+
+
+def _upright(b: Block, page: Page) -> Box:
+    return to_upright(b.bbox, b.rotation, page.width, page.height)
+
+
+def _edges(blocks: list[Block], pages: dict[int, Page]) -> dict[tuple[int, int], tuple[float, float]]:
+    """The top and bottom of each page's text inside the margins, per reading direction, in that direction's upright
+    frame. Blocks in the margin are left out, so a publisher's banner there doesn't move where the running head sits."""
+    edges: dict[tuple[int, int], tuple[float, float]] = {}
+    for b in blocks:
+        if _in_margin(b, pages[b.page]):
+            continue
+        box = _upright(b, pages[b.page])
+        top, bottom = edges.get((b.page, b.rotation), (box[1], box[3]))
+        edges[(b.page, b.rotation)] = (min(top, box[1]), max(bottom, box[3]))
+    return edges
+
+
+def _at_edge(b: Block, page: Page, edges: dict[tuple[int, int], tuple[float, float]]) -> bool:
+    """In the page margin, or in the first or last line of the page's text, read in the block's own direction. That is
+    where a running head sits even when a publisher's banner pushes it down the page."""
+    if _in_margin(b, page):
+        return True
+    box = _upright(b, page)
+    top, bottom = edges[(b.page, b.rotation)]
+    line = 1.5 * max(b.size, 1.0)
+    return box[1] <= top + line or box[3] >= bottom - line
+
+
+def _furniture_key(b: Block, page: Page) -> tuple[str, int]:
+    return re.sub(r"\d+", "#", norm(b.text).lower()), round(_upright(b, page)[1] / 20)
 
 
 def _in_margin(b: Block, page: Page) -> bool:
-    if b.rotation != 0:
-        return False
-    return b.bbox[3] < page.height * MARGIN * 1.6 or b.bbox[1] > page.height * (1 - MARGIN)
+    box = _upright(b, page)
+    height = page.width if b.rotation in (90, 270) else page.height
+    return box[3] < height * MARGIN * 1.6 or box[1] > height * (1 - MARGIN)
 
 
 def _table_stubs(blocks: list[Block], pages: dict[int, Page]) -> list[Table]:
@@ -324,7 +431,7 @@ def _table_stubs(blocks: list[Block], pages: dict[int, Page]) -> list[Table]:
             return to_upright(box, rot, page.width, page.height)
 
         cap = up(b.bbox)
-        x0, x1 = _column(cap, w)
+        x0, x1 = _column(cap, w) if _two_columns(b, blocks, cap, w, up) else (0.0, w)
         stops = [
             up(o.bbox)[1]
             for o in blocks
@@ -361,6 +468,20 @@ def _body_size(blocks: list[Block]) -> float:
 def _stops_region(b: Block, body: float) -> bool:
     """A table's or figure's region ends at another caption or at a paragraph of body text."""
     return b.kind == "caption" or (b.kind == "text" and len(b.text) > 300 and b.size >= 0.95 * body)
+
+
+def _two_columns(cap_block: Block, blocks: list[Block], cap: Box, width: float, up: Callable[[Box], Box]) -> bool:
+    """Whether the page is set in two columns where the caption's table runs: its paragraphs of body text keep to one
+    half of the page, and nothing printed below the caption crosses the middle (a full-width table's rows do). A page
+    of only a table, or of one column, is not."""
+    mid = width / 2
+    mine = [
+        o for o in blocks if o.page == cap_block.page and o.rotation == cap_block.rotation and o.kind != "furniture"
+    ]
+    paragraphs = [up(o.bbox) for o in mine if o.kind == "text" and len(o.text) > 300]
+    below = [up(o.bbox) for o in mine if up(o.bbox)[1] > cap[3]]
+    crosses = [box for box in below if box[0] < mid - 10 and box[2] > mid + 10]
+    return any(box[2] < mid + 10 or box[0] > mid - 10 for box in paragraphs) and not crosses
 
 
 def _column(cap: Box, width: float) -> tuple[float, float]:

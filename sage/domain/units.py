@@ -71,6 +71,8 @@ _CASED = {"l": "L", "ml": "mL"}
 _TEMPERATURE = {"°C", "°F", "K"}
 # Mapped before NFKC, which would turn the masculine ordinal into "o".
 _DEGREE_SIGNS = str.maketrans({"\u00ba": "°", "\u02da": "°"})
+_LOST_MINUS = re.compile(r"(?<=[A-Za-z])2\s+(?=[1-9]\b)")
+"""Some journals' fonts put a superscript minus in the text layer as "2": "kg ha2 1" is kg ha⁻¹."""
 
 
 def _token(raw: str) -> tuple[str, int]:
@@ -90,6 +92,7 @@ def _synonym(word: str) -> str:
 def normalize_unit(text: str) -> str:
     """One spelling per unit: "g/m2", "g m⁻²" and "g m -2" are all "g m-2"; "Mg per ha" is "Mg ha-1"."""
     text = norm(text.translate(_DEGREE_SIGNS)).strip("()[]").strip()
+    text = _LOST_MINUS.sub("-", text)
     text = re.sub(r"\^|\{|\}", "", text)
     text = re.sub(r"\s*[·⋅*]\s*", " ", text)
     text = re.sub(r"°\s+([CF])\b", r"°\1", text)
@@ -102,6 +105,32 @@ def normalize_unit(text: str) -> str:
             exp = -exp if i > 0 else exp
             tokens.append(base if exp == 1 else f"{base}{exp}")
     return " ".join(tokens)
+
+
+def find_unit(text: str, unit: str) -> str | None:
+    """The words in `text` that print `unit`, however they spell it ("kg ha2 1" for "kg ha-1"), so evidence can quote
+    them; None when the text doesn't state it."""
+    want = normalize_unit(unit)
+    if not want:
+        return None
+    words = text.split()
+    size = len(want.split())
+    for width in range(size, size + 3):
+        for i in range(len(words) - width + 1):
+            stretch = " ".join(words[i : i + width]).strip(".,;:()[]")
+            if normalize_unit(stretch) == want:
+                return stretch
+    return None
+
+
+def is_unit(text: str) -> bool:
+    """Whether text reads as a unit ("Mg ha-1", "%", "plants m-2"), not a name in brackets ("Greece", "DM"): at least
+    one token is a known unit or carries a power."""
+    for raw in normalize_unit(text).split():
+        base, exp = _token(raw)
+        if base in _BASE or base in _TEMPERATURE or base == "yr" or exp != 1:
+            return True
+    return False
 
 
 def _decompose(unit: str) -> tuple[float, Counter[str], Counter[str]]:

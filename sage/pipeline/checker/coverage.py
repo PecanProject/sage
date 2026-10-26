@@ -13,6 +13,9 @@ RESULTS = re.compile(r"^\s*(\d+(\.\d+)*\.?\s*)?results(\s+and\s+discussion)?\s*$
 AFTER_RESULTS = re.compile(
     r"^\s*(\d+(\.\d+)*\.?\s*)?(discussion|conclusions?|summary|acknowledg(e)?ments?)\s*$", re.IGNORECASE
 )
+FUSED_RESULTS = re.compile(r"^\s*(\d+(\.\d+)*\.?\s*)?RESULTS(\s+AND\s+DISCUSSION)?\s+\S")
+FUSED_AFTER = re.compile(r"^\s*(\d+(\.\d+)*\.?\s*)?(DISCUSSION|CONCLUSIONS?|SUMMARY|ACKNOWLEDG(E)?MENTS?)\s+\S")
+"""A heading set in capitals that the layout ran into its first paragraph ("RESULTS Succession by site type …")."""
 
 
 def check_coverage(draft: Draft, doc: Document) -> list[Issue]:
@@ -41,7 +44,18 @@ def check_coverage(draft: Draft, doc: Document) -> list[Issue]:
             )
     issues += _studies_without_treatments(draft)
     issues += _unmapped_rows(draft, doc)
-    issues += _uncovered_results_numbers(draft, doc)
+    uncovered = _uncovered_results_numbers(draft, doc)
+    issues += uncovered
+    if uncovered and not observed:
+        first = uncovered[0].target
+        issues.append(
+            blocking(
+                "coverage",
+                first,
+                "the Results report numbers and no record holds an Observation; record the experiment values they "
+                f"report (the warnings list them, from {first})",
+            )
+        )
     return issues
 
 
@@ -98,15 +112,20 @@ def _unmapped_rows(draft: Draft, doc: Document) -> list[Issue]:
 _COUNTS = r"[-+]?\s*\d+(?:\s*(?:,\s*(?:and\s+)?|and\s+|&\s*)[-+]?\s*\d+)*"
 _REFERENCES = re.compile(
     r"(?<![A-Za-z])[Pp]\s*[<>=≤≥]\s*[-+]?\d*[.,]?\d+"
+    r"|\b0?\.\d+(?:\s*(?:,|and|or)\s*0?\.\d+)*\s+(?:probability\s+|significance\s+)?levels?\b"
     r"|\b(?:Figs?|Figures?|Tables?)\.?\s*\d+[a-z]?"
     r"|\b[nN]\s*=\s*\d+"
     rf"|{_COUNTS}\s*(?:DA[PSETH]\b|d(?:ays?)?\s+(?:after|before)\b|w(?:ee)?ks?\s+(?:after|before)\b)"
     rf"|\bDA[PSETH]\s*{_COUNTS}"
     r"|(?<=[A-Za-z])\s*-\s*[1-4]\b"
-    r"|\[\s*\d+(?:\s*,\s*\d+)+\s*\]"
+    r"|\b\d+\s*(?:-|to)\s*\d+[\s-]*(?:cm|mm|m|yrs?|years?|wks?|weeks?|d|days?)\b"
+    r"|\b(?:doi\.org/|doi:\s*)?10\.\d{4,}/\S+"
+    r"|\[\s*\d+(?:\s*[,-]\s*\d+)*\s*\]"
 )
-"""Numbers that point somewhere rather than report a value: a test ("P <0.05"), a figure or table, a sample size, a
-time or a list of times ("77 and 100 DAP", "DAP -110, -32"), a unit's exponent ("m-2"), a citation list ("[24,29]")."""
+"""Numbers that point somewhere rather than report a value: a test ("P <0.05", "the 0.05 and 0.01 levels"), a
+figure or table, a sample size, a time or a list of times ("77 and 100 DAP", "DAP -110, -32"), a unit's exponent
+("m-2"), a depth layer or span of whole numbers ("0-15-cm", "0 to 15 cm", "3-5 yrs", but not "1.2 to 1.5 m", a
+reported value), a citation ("[21]", "[24,29]") or a DOI. The text is normalised first, so every dash is "-"."""
 _SENTENCE = re.compile(r"(?<=[.;!?])\s+(?=[A-Z(])")
 _WORD = re.compile(r"[A-Za-z]{2,}")
 MIN_WORDS = 4
@@ -114,8 +133,8 @@ MIN_WORDS = 4
 
 
 def _uncovered_results_numbers(draft: Draft, doc: Document) -> list[Issue]:
-    """Numbers in the Results section that no record quotes from their own block (or from a table it cites), shown in
-    their sentence. A warning only: many are tests and percentages."""
+    """Numbers in the Results section that no record quotes from their own block (or from a table it cites), one
+    warning per block, which a mark on that block answers. A warning only: many are tests and percentages."""
     by_anchor: dict[str, set[str]] = {}
     tables: set[str] = set()
     for r in draft.records.values():
@@ -125,7 +144,7 @@ def _uncovered_results_numbers(draft: Draft, doc: Document) -> list[Issue]:
                 resolved = doc.resolve(ev.anchor)
                 if resolved is not None and ".t" in ev.anchor:
                     tables.update(numbers_in(resolved.text))
-    found: list[tuple[str, str, list[str]]] = []
+    issues: list[Issue] = []
     in_results = False
     for b in doc.blocks:
         if b.kind in ("furniture", "references", "table", "caption"):
@@ -134,29 +153,32 @@ def _uncovered_results_numbers(draft: Draft, doc: Document) -> list[Issue]:
         if RESULTS.match(text):
             in_results = True
             continue
-        if AFTER_RESULTS.match(text):
+        if AFTER_RESULTS.match(text) or FUSED_AFTER.match(text):
             in_results = False
+        if FUSED_RESULTS.match(text):
+            in_results = True
         if not in_results or len(_WORD.findall(text)) < MIN_WORDS:
             continue
         cited = by_anchor.get(b.anchor, set()) | tables
+        found: list[tuple[str, list[str]]] = []
         for sentence in _SENTENCE.split(text):
             missing = [n for n in numbers_in(_REFERENCES.sub(" ", sentence)) if n not in cited and not _boring(n)]
             if missing:
-                found.append((b.anchor, sentence, list(dict.fromkeys(missing))))
-    if not found:
-        return []
-    total = sum(len(m) for _, _, m in found)
-    shown = "; ".join(f"{a} '{_clip(s)}' ({', '.join(m)})" for a, s, m in found)
-    return [
-        warning(
-            "coverage",
-            "results",
-            f"{total} numbers in {len(found)} Results sentences are cited by no record: {shown}. Record the ones "
-            "that are experiment values; for the rest, add results: {cause, reason} to records/unresolved.yaml, with "
-            "ambiguous when the paper doesn't tie them to one treatment, or schema_limitation when the IR can't hold "
-            "them",
+                found.append((sentence, list(dict.fromkeys(missing))))
+        if not found:
+            continue
+        shown = "; ".join(f"'{_clip(s)}' ({', '.join(m)})" for s, m in found)
+        issues.append(
+            warning(
+                "coverage",
+                b.anchor,
+                f"Results numbers no record cites: {shown}. Record the experiment values in "
+                f"records/observations/text.yaml; mark {b.anchor} in records/unresolved.yaml only for what isn't one, "
+                "with ambiguous when the paper doesn't tie it to one treatment, or schema_limitation when the records "
+                "can't hold it",
+            )
         )
-    ]
+    return issues
 
 
 def _clip(sentence: str, limit: int = 160) -> str:

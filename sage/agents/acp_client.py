@@ -116,6 +116,9 @@ class _Client:
     tools: dict[str, str] = field(default_factory=dict)
     """Each tool call's title, by id, for its result."""
     cost: float = 0.0
+    said: str = ""
+    """The agent's last message this turn. A turn that ends in an error often says why there (a usage limit), while
+    the error says only "Internal error"."""
 
     async def session_update(self, session_id: str, update: object, **_: object) -> None:  # noqa: ARG002 - called by name
         if isinstance(update, AgentMessageChunk):
@@ -168,7 +171,12 @@ class _Client:
             text = "".join(self.text)
             if text.strip():
                 self.emit(LlmText(text=text))
+                self.said = text.strip()
             self.text.clear()
+
+    def last_said(self) -> str:
+        self.flush()
+        return self.said
 
     @staticmethod
     def _chunk(into: list[str], content: object) -> None:
@@ -189,11 +197,15 @@ class Session:
         """Send one prompt and wait for the agent to end its turn."""
         self._turns += 1
         self._client.emit(LlmRequest(turn=self._turns))
+        self._client.said = ""
         try:
             result = await self._conn.prompt(session_id=self._id, prompt=[TextContentBlock(type="text", text=text)])
         except RequestError as e:
-            # The agent's own error, such as a usage limit or a refused model: its message says what to do.
-            raise AgentError(f"the agent stopped with an error: {e}") from e
+            # The agent's own error, such as a usage limit or a refused model. Its message says what to do, or when
+            # it is bare, the agent's last message does.
+            said = self._client.last_said()
+            extra = f"; it said: {said}" if said and said not in str(e) else ""
+            raise AgentError(f"the agent stopped with an error: {e}{extra}") from e
         except (ConnectionError, EOFError) as e:
             raise AgentError(f"the agent exited mid-turn: {e}") from e
         finally:

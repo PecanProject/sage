@@ -19,7 +19,8 @@ def full_view(doc: Document, *, title: str | None) -> str:
 
 
 def _lines(doc: Document) -> list[str]:
-    captions = {t.caption_anchor: t for t in doc.tables}
+    captions = {t.caption_anchor: t for t in doc.tables if t.continues is None}
+    continued = {t.page: t for t in doc.tables if t.continues is not None}
     by_page: dict[int, list[Block]] = {}
     for b in doc.blocks:
         if _shown(b):
@@ -34,8 +35,10 @@ def _lines(doc: Document) -> list[str]:
                 f"as [p{page.number}.b1] …"
             )
             continue
-        if blocks:
+        if blocks or page.number in continued:
             out.append(f"\n--- page {page.number} ---")
+        if page.number in continued:
+            out += _table_lines(continued[page.number])
         for b in blocks:
             table = captions.get(b.anchor)
             if table is not None:
@@ -55,7 +58,13 @@ def _shown(b: Block) -> bool:
 def _table_lines(t: Table) -> list[str]:
     head = f"[{t.anchor}] {t.label} ({_status(t)}). Caption [{t.caption_anchor}]: {t.caption}"
     if not t.rows:
-        return [head, f"  not transcribed: read tables/{t.anchor}.png and write tables/{t.anchor}.csv"]
+        todo = f"  not transcribed: read tables/{t.anchor}.png and write tables/{t.anchor}.csv"
+        if t.continues is not None:
+            todo += (
+                f", with only the rows this page prints (# header_rows: 0); its columns are {t.continues}'s, whose "
+                "header its values cite"
+            )
+        return [head, todo]
     width = max(len(r) for r in t.rows)
     lines = [head, f"  {t.header_rows} header row(s), {len(t.rows) - t.header_rows} data rows, {width} columns"]
     for i, row in enumerate(t.rows):
@@ -82,8 +91,24 @@ def _status(t: Table) -> str:
     )
     match t.status:
         case "grounded":
-            return f"grounded: {counts}" + ("" if exact == len(cells) else "; a value from an inexact cell is flagged")
+            return f"grounded: {counts}" + _unmatched(t)
         case "partial":
             return f"partly grounded: {counts}; check the unmatched cells against tables/{t.anchor}.png"
         case _:
             return f"not grounded: {counts}; check tables/{t.anchor}.csv against tables/{t.anchor}.png"
+
+
+def _unmatched(t: Table) -> str:
+    """The cells the PDF text doesn't hold, by name: a header among them flags every value under it."""
+    missed = [(i, c) for i, row in enumerate(t.rows) for c in row if c.text.strip() and c.match != "exact"]
+    if not missed:
+        return ""
+    shown = ", ".join(f"{c.anchor.removeprefix(t.anchor + '.')} '{c.transcribed.strip()}'" for _, c in missed[:6])
+    more = f" and {len(missed) - 6} more" if len(missed) > 6 else ""
+    header = any(i < t.header_rows for i, _ in missed)
+    why = (
+        "; copy each header row as printed: a header the PDF text doesn't hold flags every value under it"
+        if header
+        else ""
+    )
+    return f"; not matched exactly, so the values they give are flagged: {shown}{more}{why}"

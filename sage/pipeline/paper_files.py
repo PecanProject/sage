@@ -211,7 +211,7 @@ def _csv_tables(home: Home, paper_id: str, base: Document, settings: Settings, i
         data = files.read_bytes(home.pdf(paper_id))
         chars = pdf.pages_chars(data, [stubs[a].page for a in misses])
         pages = {p.number: p for p in base.pages}
-        captions = {b.anchor: b.bbox for b in base.blocks}
+        captions = {b.anchor: b for b in base.blocks}
         for anchor in misses:
             t, (grid, key) = stubs[anchor], grids[anchor]
             page = pages[t.page]
@@ -219,7 +219,7 @@ def _csv_tables(home: Home, paper_id: str, base: Document, settings: Settings, i
                 t,
                 grid,
                 chars.get(t.page, []),
-                caption=captions.get(t.caption_anchor),
+                caption=c.bbox if (c := captions.get(t.caption_anchor)) is not None and c.page == t.page else None,
                 page_size=(page.width, page.height),
                 fuzzy_threshold=settings.grounding_fuzzy_threshold,
                 min_share=settings.table_min_grounded,

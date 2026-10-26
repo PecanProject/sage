@@ -13,7 +13,7 @@ from sage.ir.draft import Draft, Strike, Unresolved
 from sage.ir.settled import Outcome, Settled
 from sage.parse.document import Document
 from sage.pipeline import gate
-from sage.pipeline.compile import compile_records
+from sage.pipeline.compile import Compiled, compile_records
 from sage.pipeline.paper_files import effective_document, refresh_paper_md
 from sage.pipeline.quotes import quote_lines
 from sage.pipeline.review import latest_reviews
@@ -26,6 +26,8 @@ from sage.store.paths import Home, RunPaths
 
 class _Strikes(BaseModel):
     strikes: dict[str, Strike] = Field(default_factory=dict)
+    shown: list[str] = Field(default_factory=list)
+    """The blocking errors the last recorded check listed, by `Finding.key`: only those can count a strike."""
 
 
 class _Marks(BaseModel):
@@ -47,17 +49,25 @@ class CheckReport(BaseModel):
     marked: list[str] = Field(default_factory=list)
     guidance: str | None = None
     reviews: list[str] = Field(default_factory=list)
+    flags: list[str] = Field(default_factory=list)
+    """Once nothing blocks: why values would settle flagged, beyond the warnings, a few of each kind."""
+    flag_total: int = 0
 
     def text(self) -> str:
-        """The check as an agent reads it: the scientist's word first, then what blocks, the warnings, the totals."""
+        """The check as an agent reads it: the scientist's word first, then what blocks, the warnings, the flags, the
+        totals."""
         lines = [f"guidance: {self.guidance}"] if self.guidance is not None else []
         lines += [f"review: {line}" for line in self.reviews]
         lines += self.blocking
         lines += [f"warning {line}" for line in self.warnings]
+        if self.flags:
+            lines.append("These values would settle flagged, for a person to check. Fix the ones you can:")
+            lines += [f"flag {line}" for line in self.flags]
         snapshot = f" · snapshot {self.snapshot}" if self.snapshot is not None else ""
         marked = f" · marked unresolved after repeats: {', '.join(self.marked)}" if self.marked else ""
         warnings = f"{self.warning_total} warning{'' if self.warning_total == 1 else 's'}"
-        lines.append(f"{self.blocking_total} blocking · {warnings} · {self.records} records{snapshot}{marked}")
+        flagged = f" · {self.flag_total} flagged" if self.flag_total else ""
+        lines.append(f"{self.blocking_total} blocking · {warnings}{flagged} · {self.records} records{snapshot}{marked}")
         return "\n".join(lines)
 
 
@@ -100,8 +110,8 @@ class FolderWorkspace:
             return f"no {path}; list pages/, tables/ or figures/ to see what there is"
         return files.read_bytes(target)
 
-    def check(self) -> str:
-        return check(self.home, self.settings, self.info, self.info.paper_id).text()
+    def check(self, *, every: bool = False) -> str:
+        return check(self.home, self.settings, self.info, self.info.paper_id, every=every).text()
 
     def done(self, summary: str) -> Finished:
         report = done(self.home, self.settings, self.info, summary)
@@ -122,7 +132,7 @@ def agent_texts(home: Home, paper_id: str) -> dict[str, str]:
 def check(home: Home, settings: Settings, info: RunInfo | None, paper_id: str, *, every: bool = False) -> CheckReport:
     """Check the folder. With an open run, the check is recorded: a snapshot when the files changed, the same-error
     count, the draft the UI shows while the run is open, and a `check.ran` event. `every` lists every finding rather
-    than the first `error_list_cap` of each severity."""
+    than a few of each kind, for the first `error_list_cap` kinds of each severity."""
     return _check(home, settings, info, paper_id, record=info is not None, every=every).report
 
 
@@ -242,35 +252,40 @@ def _check(
         code_marks=marks.marks if marks is not None else {},
         strikes=strikes.strikes if strikes is not None else {},
         changed=edited if record and changed and not compiled.unreadable else frozenset(),
+        shown=frozenset(strikes.shown) if strikes is not None else frozenset(),
     )
     review_lines, review_findings = _reviews(home, paper_id, evaluation.draft)
     evaluation.findings = sorted(
         [*evaluation.findings, *review_findings], key=lambda f: (f.severity != "blocking", f.path, f.line)
     )
+    kinds = None if every else settings.error_list_cap
+    blocking, shown = _listed(evaluation.blocking, kinds)
+    warnings, _ = _listed(evaluation.warnings, kinds)
+    flagged = [] if evaluation.blocking else _flags(compiled, evaluation, doc)
+    flags, _ = _listed(flagged, kinds)
     snapshot = None
     if record and paths is not None:
         if changed and texts and not compiled.unreadable:
             snapshot = workspace.take_snapshot(snaps, texts)
-        files.write_model(paths.strikes, _Strikes(strikes=evaluation.strikes))
+        files.write_model(paths.strikes, _Strikes(strikes=evaluation.strikes, shown=shown))
         files.write_model(paths.marks, _Marks(marks=evaluation.code_marks))
         files.write_model(paths.draft, evaluation.draft)
         files.write_text_if_changed(paths.document, doc.model_dump_json(indent=1))
-    cap = len(evaluation.findings) if every else settings.error_list_cap
-    blocking = [f.text for f in evaluation.blocking]
-    warnings = [f.text for f in evaluation.warnings]
     report = CheckReport(
         paper_id=paper_id,
         run_id=info.id if info is not None else None,
         records=len(evaluation.draft.records),
-        blocking=_capped(blocking, cap),
-        warnings=_capped(warnings, cap),
-        blocking_total=len(blocking),
-        warning_total=len(warnings),
+        blocking=blocking,
+        warnings=warnings,
+        blocking_total=len(evaluation.blocking),
+        warning_total=len(evaluation.warnings),
         unreadable=compiled.unreadable,
         snapshot=snapshot,
         marked=evaluation.newly_marked,
         guidance=info.guidance if info is not None else None,
         reviews=review_lines,
+        flags=flags,
+        flag_total=len(flagged),
     )
     if record and paths is not None:
         _emit(
@@ -282,10 +297,22 @@ def _check(
                 changed=snapshot is not None,
                 snapshot=snapshot,
                 marked=report.marked,
-                lines=blocking[:5],
+                lines=[f.text for f in evaluation.blocking[:5]],
             ),
         )
     return _Checked(report=report, evaluation=evaluation, doc=doc)
+
+
+def _flags(compiled: Compiled, evaluation: gate.Evaluation, doc: Document) -> list[gate.Finding]:
+    """Why each field would settle flagged, for the fields no listed warning already explains: what code had to infer,
+    and evidence the PDF's text layer doesn't hold."""
+    warned = {f.target for f in evaluation.warnings}
+    return [
+        gate.finding_at(compiled, target, "warning", f.reason)
+        for r in settle(evaluation.draft, doc, run_id="check", outcome="finished").records
+        for f in r.fields
+        if f.status == "flagged" and f.reason is not None and (target := f"{r.record.id}.{f.field}") not in warned
+    ]
 
 
 def _reviews(home: Home, paper_id: str, draft: Draft) -> tuple[list[str], list[gate.Finding]]:
@@ -364,5 +391,28 @@ def _emit(paths: RunPaths, event: Event) -> None:
     files.append_jsonl(paths.events, event)
 
 
-def _capped(lines: list[str], cap: int) -> list[str]:
-    return lines if len(lines) <= cap else [*lines[:cap], f"… and {len(lines) - cap} more"]
+PER_KIND = 3
+"""Findings check lists of each kind; the rest of that kind are counted."""
+
+
+def _listed(findings: list[gate.Finding], kinds: int | None) -> tuple[list[str], list[str]]:
+    """The lines check prints, and the keys of the findings they show. Findings are grouped by kind, so a thousand of
+    one kind can't hide a second kind: up to `PER_KIND` of each of the first `kinds` kinds, then counts of the rest.
+    With `kinds` None, every finding."""
+    if kinds is None:
+        return [f.text for f in findings], [f.key for f in findings]
+    groups: dict[str, list[gate.Finding]] = {}
+    for f in findings:
+        groups.setdefault(f.kind, []).append(f)
+    lines: list[str] = []
+    shown: list[str] = []
+    listed = list(groups.values())
+    for group in listed[:kinds]:
+        lines += [f.text for f in group[:PER_KIND]]
+        shown += [f.key for f in group[:PER_KIND]]
+        if len(group) > PER_KIND:
+            lines.append(f"  … and {len(group) - PER_KIND} more like this")
+    rest = listed[kinds:]
+    if rest:
+        lines.append(f"… and {sum(len(g) for g in rest)} more, of {len(rest)} other kinds; check --all lists them")
+    return lines, shown

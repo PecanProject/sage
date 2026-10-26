@@ -23,8 +23,8 @@ class Workspace(Protocol):
         """A PNG in the folder, or why it can't be read."""
         ...
 
-    def check(self) -> str:
-        """The check as `sage extract check` prints it."""
+    def check(self, *, every: bool = False) -> str:
+        """The check as `sage extract check` prints it; with `every`, as `--all` does."""
         ...
 
     def done(self, summary: str) -> Finished: ...

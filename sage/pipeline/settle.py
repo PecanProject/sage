@@ -60,6 +60,7 @@ class _Context:
         return SettledRecord(record=record, status=status, fields=fields, issues=[i.line for i in own])
 
     def field(self, target: str, f: Field[object]) -> FieldStatus:
+        """A note is commentary on the record, not a value, so the agent's own note doesn't flag it."""
         name = target.split(".", 1)[1]
         unsettled = self.attribute(target)
         if unsettled is not None:
@@ -67,7 +68,7 @@ class _Context:
         if f.value is None:
             return FieldStatus(field=name, status="unresolved", cause="absent", reason=f.note)
         reasons = [i.message for i in self.by_target.get(target, [])]
-        if f.basis == "inferred":
+        if f.basis == "inferred" and name != "notes":
             reasons.append(f"inferred: {f.note}")
         for ev in f.evidence:
             cell = self.cells.get(ev.anchor)

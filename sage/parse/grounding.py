@@ -13,10 +13,10 @@ from statistics import median
 
 from sage.domain.normalize import norm
 from sage.parse.document import Block, Box, Cell, CellMatch, Document, Table, TableStatus, union
-from sage.parse.layout import center_in, from_upright, same_line, spaced, to_upright
-from sage.parse.pdf import Char
+from sage.parse.layout import center_in, from_upright, spaced, to_upright
+from sage.parse.pdf import EXPONENT, RAISED, Char
 
-GROUNDER_VERSION = "3"
+GROUNDER_VERSION = "7"
 """Bump when grounding changes what a cell matches, so cached tables are grounded again from their transcription."""
 OUT_OF_ORDER = 40.0
 """Points of geometric distance a candidate before the reading cursor must beat to win anyway."""
@@ -85,12 +85,18 @@ def _ground(
     row_y: dict[int, list[float]] = {}
     col_x: dict[int, list[float]] = {}
     cursor = 0
+    certain = _certain(stream, used, grid)
     for i, row in enumerate(grid.rows):
         cells: list[Cell] = []
         for j, raw in enumerate(row):
             anchor = f"{table.anchor}.r{i}.c{j}"
             key = _despace(raw)
-            hit = _find(stream, used, key, cursor, row_y.get(i), col_x.get(j), inside, fuzzy_threshold) if key else None
+            if (i, j) in certain:
+                hit = (*certain[(i, j)], "exact")
+            elif key:
+                hit = _find(stream, used, key, cursor, row_y.get(i), col_x.get(j), inside, fuzzy_threshold)
+            else:
+                hit = None
             if hit is None:
                 cells.append(Cell(anchor=anchor, text=raw.strip(), transcribed=raw))
                 continue
@@ -100,6 +106,8 @@ def _ground(
                 reserved[k] = reserved[k] or not _label(raw, header=i < grid.header_rows)
             cursor = end
             picked = sorted({stream.owner[k] for k in range(start, end)})
+            if match == "fuzzy" and _despace(_text(inside, plain := _without_calls(inside, picked))) == key:
+                picked, match = plain, "exact"
             bbox = union([inside[k].bbox for k in picked])
             row_y.setdefault(i, []).append((bbox[1] + bbox[3]) / 2)
             col_x.setdefault(j, []).append((bbox[0] + bbox[2]) / 2)
@@ -122,6 +130,50 @@ def _ground(
             "grounded_share": round(share, 3),
         }
     )
+
+
+BRACKETS = "()[]"
+"""Brackets a transcription puts around a unit when it joins a header to the unit row under it ("Yield (Mg ha-1)" for
+"Yield" over "Mg ha-1"). A header's words are looked for without them."""
+ONE_LINE = 1.6
+"""How tall a run of text may be, in heights of its tallest character, and still be one line: a superscript raises
+it a little, a second line doubles it."""
+CERTAIN = 12
+"""Characters a cell's text needs before a single place on the page is taken as certainly its own."""
+
+
+def _certain(stream: _Stream, used: list[bool], grid: Grid) -> dict[tuple[int, int], tuple[int, int]]:
+    """Cells whose text is long and printed exactly once in the table, claimed before any other is matched, longest
+    first, so a short cell ("Date") can't take its characters from inside a spanning header ("… by Treatment and
+    Date (µmole …)"). Marks the claimed characters used."""
+    cells = [(len(key), i, j, key) for i, row in enumerate(grid.rows) for j, raw in enumerate(row)
+             if len(key := _despace(raw)) >= CERTAIN]  # fmt: skip
+    claimed: dict[tuple[int, int], tuple[int, int]] = {}
+    for _, i, j, key in sorted(cells, reverse=True):
+        found = [(a, b) for a, b in _occurrences(stream, key) if not any(used[a:b])]
+        if len(found) == 1:
+            start, end = found[0]
+            claimed[(i, j)] = (start, end)
+            for k in range(start, end):
+                used[k] = True
+    return claimed
+
+
+CALLS = frozenset("*†‡§¶#")
+"""Footnote calls besides letters. A raised digit or minus is a unit's exponent, never dropped."""
+
+
+def _without_calls(chars: list[Char], picked: list[int]) -> list[int]:
+    """The characters without footnote calls: letters or call symbols set smaller than the text and raised off its line
+    ("2001ᵃ"), which a transcription leaves out."""
+    tallest = max(chars[k].bbox[3] - chars[k].bbox[1] for k in picked)
+    line = max(chars[k].bbox[3] for k in picked if chars[k].bbox[3] - chars[k].bbox[1] >= EXPONENT * tallest)
+
+    def call(c: Char) -> bool:
+        small = c.bbox[3] - c.bbox[1] < EXPONENT * tallest and line - c.bbox[3] > RAISED * tallest
+        return small and (c.text.isalpha() or c.text in CALLS)
+
+    return [k for k in picked if not call(chars[k])]
 
 
 def _in_caption(b: Box, caption: Box | None) -> bool:
@@ -211,8 +263,13 @@ class _Governing:
     def compose(self, i: int, j: int, raw: str, *, header: bool) -> list[_Piece] | None:
         """The cell's words as runs of page text, each the longest run printed where it governs the cell, top to
         bottom: over the column, above the body for a header, and at or above its row for a row label. None when a
-        word is not there."""
-        words = [w for w in map(_despace, norm(raw).split()) if w]
+        word is not there. Words as written first; then without brackets the page may not print."""
+        written = [w for w in map(_despace, norm(raw).split()) if w]
+        bare = [w for w in (word.strip(BRACKETS) for word in written) if w]
+        found = self.runs(i, j, written, header=header)
+        return found if found is not None or bare == written else self.runs(i, j, bare, header=header)
+
+    def runs(self, i: int, j: int, words: list[str], *, header: bool) -> list[_Piece] | None:
         if not words:
             return None
         pieces: list[_Piece] = []
@@ -272,21 +329,33 @@ class _Governing:
         return any(self.reserved[span[0] : span[1]])
 
     def one_line(self, span: _Piece) -> bool:
-        """Printed as one run: left to right on one line, no gap wider than the line is high. The stream's reading
-        order can jump between headers, so a run of it is not always one."""
-        ks = sorted({self.stream.owner[k] for k in range(*span)})
-        for a, b in pairwise(ks):
-            x, y = self.chars[a].bbox, self.chars[b].bbox
-            ahead = x[0] <= y[0] and y[0] - x[2] <= max(x[3] - x[1], y[3] - y[1])
-            if not (ahead and same_line(x, y)):
-                return False
-        return True
+        """Printed as one run: left to right, no gap wider than the line is high, and no taller than one line with its
+        superscripts ("kg ha⁻¹"). The stream's reading order can jump between headers, so a run of it is not always
+        one."""
+        boxes = [self.chars[k].bbox for k in sorted({self.stream.owner[k] for k in range(*span)})]
+        line = max(b[3] - b[1] for b in boxes)
+        if max(b[3] for b in boxes) - min(b[1] for b in boxes) > ONE_LINE * line:
+            return False
+        return all(x[0] <= y[0] and y[0] - x[2] <= line for x, y in pairwise(boxes))
 
     def box(self, span: _Piece) -> Box:
         return union([self.chars[self.stream.owner[k]].bbox for k in range(*span)])
 
 
+_EXPONENT_MINUS = re.compile(r"(?<=[^\W\d_])-(?=\d)")
+"""The minus of a unit's exponent ("ha-1"), which some text layers drop from a superscript ("ha 1")."""
+
+
 def _occurrences(stream: _Stream, key: str) -> list[_Piece]:
+    """Where the key is printed, at word boundaries. When it isn't, and it has an exponent's minus, where it is printed
+    without the minus."""
+    found = _exact(stream, key)
+    if not found and _EXPONENT_MINUS.search(key):
+        found = _exact(stream, _EXPONENT_MINUS.sub("", key))
+    return found
+
+
+def _exact(stream: _Stream, key: str) -> list[_Piece]:
     out: list[_Piece] = []
     pos = stream.text.find(key)
     while pos != -1:

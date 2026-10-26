@@ -4,7 +4,7 @@ words) is in the cited text."""
 from difflib import SequenceMatcher
 
 from sage.domain.normalize import contains, contains_loose, count_in, norm, number_in, numbers_in, read_number, squash
-from sage.domain.stats import replicate_level, scope_reason, scope_statement
+from sage.domain.stats import named_replicate, replicate_level, scope_reason, scope_statement
 from sage.domain.units import normalize_unit, number_text
 from sage.ir.schema import (
     FIELD_REFERENCES,
@@ -20,7 +20,7 @@ from sage.ir.schema import (
 from sage.parse.document import ANCHOR, Document
 from sage.pipeline.checker.issues import Issue, blocking, warning
 
-UNITLESS = {"", "-", "unitless", "dimensionless", "none", "n/a", "ratio", "index", "count", "number"}
+UNITLESS = {"-", "unitless", "dimensionless", "none", "n/a", "ratio", "index", "count", "number"}
 
 
 def check_evidence(record: Entity, doc: Document) -> list[Issue]:
@@ -65,8 +65,23 @@ def check_evidence(record: Entity, doc: Document) -> list[Issue]:
         if f.value is not None and f.basis == "stated" and quotes:
             issues += _stated_content(target, f.value, quotes, words=_holds_words(record, name, f))
     if isinstance(record, Observation):
-        issues += _observation_scope(record)
+        issues += _observation_scope(record) + _observation_unit(record)
     return issues
+
+
+def _observation_unit(o: Observation) -> list[Issue]:
+    """A measured value has a unit, or says it has none: an empty unit is one nobody gave."""
+    q = o.value.value
+    if q is None or q.reported_units.strip():
+        return []
+    return [
+        blocking(
+            "evidence",
+            f"{o.id}.value",
+            "the value has no unit; give the units as printed (units: [unit, anchor] on the group, the row or the "
+            "Variable), or units: unitless for a count, ratio or index",
+        )
+    ]
 
 
 def _observation_scope(o: Observation) -> list[Issue]:
@@ -76,7 +91,9 @@ def _observation_scope(o: Observation) -> list[Issue]:
     issues: list[Issue] = []
     scope, agg = o.reported_effect_scope, o.aggregated_over_factors
     factors = agg.value if agg is not None and agg.value is not None else []
-    claimed = scope.basis != "inferred" and bool(scope.evidence)
+    level = o.is_raw_replicate_level
+    one_replicate = level.value is True and level.basis == "derived"  # a single replicate's value is of one treatment
+    claimed = scope.basis != "inferred" and bool(scope.evidence) and not one_replicate
     if claimed and scope.value is not None and scope_statement(scope.value, factors, scope.evidence) is None:
         reason = scope_reason(scope.value, factors, scope.evidence)
         issues.append(
@@ -106,10 +123,9 @@ def _observation_scope(o: Observation) -> list[Issue]:
                 "says it to scope_at on the group",
             )
         )
-    level = o.is_raw_replicate_level
     if level.value is not None and level.basis != "inferred" and o.value.value is not None:
         cited = [e for name, f in fields_of(o).items() if name != "value" for e in f.evidence]
-        found = replicate_level(o.value.value, o.value.evidence, cited)
+        found = replicate_level(o.value.value, o.value.evidence, cited, named_replicate(o))
         if found is None or found.raw != level.value:
             kind = "individual replicate values" if level.value else "means"
             issues.append(
@@ -178,7 +194,7 @@ def _stated_content(target: str, value: object, quotes: list[str], *, words: boo
     elif isinstance(value, QuantityValue):
         issues.extend(_missing_number(target, n) for n in _claimed_numbers(value) if not _written(joined, n))
         unit = value.reported_units.strip()
-        if unit.lower() not in UNITLESS and not _unit_in(joined, unit):
+        if unit and unit.lower() not in UNITLESS and not _unit_in(joined, unit):
             issues.append(
                 blocking(
                     "evidence",

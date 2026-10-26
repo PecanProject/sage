@@ -89,6 +89,9 @@ class Reader:
         """One of the five shapes as a `Field` dict, or None after reporting why it isn't one."""
         if isinstance(node, MappingNode) and _keys(node) == ["at"]:
             return self._at(node.value[0][1], kind, where=where)
+        if where.endswith(".notes") and isinstance(node, ScalarNode) and not is_null(node):
+            # A note is commentary, not a value the paper reports: written plainly, it is the agent's own words.
+            return {"value": scalar(node).strip(), "basis": "inferred", "evidence": [], "note": "the agent's note"}
         if not isinstance(node, SequenceNode) or not node.value:
             self.issue(node, f"{where}: {SHAPES}")
             return None

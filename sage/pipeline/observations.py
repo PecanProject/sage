@@ -39,7 +39,7 @@ from sage.domain.stats import (
     scope_reason,
     scope_statement,
 )
-from sage.domain.units import normalize_unit
+from sage.domain.units import find_unit, is_unit, normalize_unit
 from sage.ir.draft import TableDecision
 from sage.ir.schema import (
     DateRange,
@@ -64,10 +64,13 @@ REFS = ("variable", "site", "method", "crop", "species", "citation", "treatment"
 CLAIMS = ("time", "depth", "n", "units", "statistic", "letters", "notes", "replicate")
 """Keys that are claims about the value, written as field shapes (or, for time, depth, units, statistic and letters in
 a table, as bare text code looks for in the table's own text)."""
-GROUP = (*REFS, *CLAIMS, "scope", "over", "scope_at", "raw")
+SCOPE = ("scope", "over", "scope_at")
+"""What the values are means of. A group says it for all its values; a row, column, cell or text value may say it for
+its own, such as a table's Mean row averaged over a factor the other rows fix."""
+GROUP = (*REFS, *CLAIMS, *SCOPE, "raw")
 TABLE_GROUP = (*GROUP, "table", "irrelevant", "rows", "columns", "cells", "skip")
 TEXT_GROUP = (*GROUP, "text", "values")
-PER_VALUE = (*REFS, *CLAIMS)
+PER_VALUE = (*REFS, *CLAIMS, *SCOPE)
 
 
 @dataclass
@@ -227,6 +230,14 @@ class _Value:
         return value if isinstance(value, str) and value else None
 
 
+def _scoped(reader: Reader, group: _Group, v: _Value) -> _Group | None:
+    """The group as this value sees it: with the scope, over and scope_at its row, column or cell sets."""
+    own = {k: n for k, n in v.nodes.items() if k in SCOPE}
+    if all(group.keys.get(k) is n for k, n in own.items()):
+        return group
+    return _group(reader, {**group.keys, **own})
+
+
 def _merged(group: _Group, layers: list[MappingNode], reader: Reader) -> _Value:
     nodes = {k: v for k, v in group.keys.items() if k in PER_VALUE}
     for layer in layers:
@@ -268,7 +279,11 @@ def _table_value(
         reader.issue_at(at, f"{anchor} '{cell.text}' holds no number; leave it out, or fix tables/{table.anchor}.csv")
         return None
     v = _merged(group, layers, reader)
-    heads = [r[col] for r in table.rows[: table.header_rows] if col < len(r) and r[col].text.strip()]
+    scoped = _scoped(reader, group, v)
+    if scoped is None:
+        return None
+    group = scoped
+    heads = _heads(reader, table, col)
     head_ev = [_ev(h) for h in heads]
     caption = [Evidence(anchor=table.caption_anchor, quote=table.caption)] if table.caption.strip() else []
     notes = [Evidence(anchor=r.anchor, quote=r.text) for a in table.notes_anchors if (r := reader.doc.resolve(a))]
@@ -292,6 +307,18 @@ def _table_value(
     )
 
 
+def _heads(reader: Reader, table: Table, col: int) -> list[Cell]:
+    """The header cells over a value's column. A table carried on from an earlier page prints no header of its own:
+    the first page's header governs its columns, and a header the agent copied onto it, which the page doesn't print,
+    is left out."""
+    own = [r[col] for r in table.rows[: table.header_rows] if col < len(r) and r[col].text.strip()]
+    head = reader.doc.table(table.continues) if table.continues is not None else None
+    if head is None:
+        return own
+    first = [r[col] for r in head.rows[: head.header_rows] if col < len(r) and r[col].text.strip()]
+    return [*first, *(c for c in own if c.match != "none")]
+
+
 def _text_value(
     reader: Reader,
     oid: str,
@@ -306,6 +333,10 @@ def _text_value(
         return None
     value = Field[QuantityValue].model_validate(raw)
     v = _Value({**{k: n for k, n in group.keys.items() if k in PER_VALUE}, **entries})
+    scoped = _scoped(reader, group, v)
+    if scoped is None:
+        return None
+    group = scoped
     text = value.value.reported_text if value.value is not None else ""
     here = value.evidence[0] if value.evidence else Evidence(anchor="", quote=text)
     obs = _observation(
@@ -373,6 +404,11 @@ def _observation(
         return None
     variable = records.get(vid) if vid is not None else None
     var = variable if isinstance(variable, Variable) else None
+    if value is not None and value.value is not None and not value.value.reported_units:
+        units, unit_ev = _units(reader, v, var, [], sources)
+        if units:
+            q = value.value.model_copy(update={"reported_units": units})
+            value = value.model_copy(update={"value": q, "evidence": [*value.evidence, *unit_ev]})
     if value is None:
         units, unit_ev = _units(reader, v, var, unit_places, sources)
         value = Field[QuantityValue](
@@ -385,6 +421,7 @@ def _observation(
     label = next((_ev(c) for c in unit_places if contains_loose(c.text, name)), None)
     name_ev = [label] if label is not None else (var.name.evidence if var is not None else []) or head_ev or [here]
     scope, aggregated = _scope(group, sources)
+    replicate = _valid(Field[str], _claim(reader, v, "replicate", str, oid))
     try:
         return Observation(
             id=oid,
@@ -403,8 +440,8 @@ def _observation(
             n=_valid(Field[int], _claim(reader, v, "n", int, oid)),
             temporal_info=_time(reader, v, sources, oid),
             depth=_depth(reader, v, sources, oid),
-            replicate_id=_valid(Field[str], _claim(reader, v, "replicate", str, oid)),
-            is_raw_replicate_level=_replicate_level(group, parsed, here),
+            replicate_id=replicate,
+            is_raw_replicate_level=_replicate_level(group, parsed, here, replicate),
             notes=_valid(Field[str], _claim(reader, v, "notes", str, oid)) or _letters(v, parsed, here, sources),
         )
     except ValueError as e:
@@ -420,21 +457,34 @@ def _units(
     node = v.nodes.get("units")
     if node is not None:
         if isinstance(node, ScalarNode):
-            said = next((e for e in sources if contains_loose(e.quote, node.value)), None)
-            return str(node.value), [said] if said is not None else []
+            return str(node.value), _unit_said(reader, str(node.value), sources)
         raw = reader.field(node, str, where="units")
         if raw is not None:
             f = Field[str].model_validate(raw)
             return f.value or "", f.evidence
     for c in places:
         m = UNIT_IN_LABEL.search(c.text)
-        if m is not None:
+        if m is not None and is_unit(m.group(1)):
             return str(m.group(1)).strip(), [_ev(c)]
     if var is not None and var.units is not None and var.units.value is not None:
         unit = var.units.value
         named = [e for e in sources if squash(normalize_unit(unit)) in squash(normalize_unit(e.quote))]
         return unit, named[:1] or var.units.evidence
     return "", []
+
+
+def _unit_said(reader: Reader, unit: str, sources: list[Evidence]) -> list[Evidence]:
+    """Where the cited text prints a unit the group gives as plain text: the words in a quote, or else in the whole
+    block a quote comes from, since a value from the text cites only its number."""
+    for e in sources:
+        if contains_loose(e.quote, unit):
+            return [e]
+    for e in sources:
+        block = reader.doc.resolve(e.anchor)
+        printed = find_unit(block.text, unit) if block is not None else None
+        if printed is not None:
+            return [Evidence(anchor=e.anchor, quote=printed)]
+    return []
 
 
 def _statistic(
@@ -508,9 +558,11 @@ def _scope(group: _Group, sources: list[Evidence]) -> tuple[Field[EffectScope], 
     return claimed, Field[list[str]](value=None, basis="stated", note="over: say which factors it is averaged over")
 
 
-def _replicate_level(group: _Group, parsed: CellValue, here: Evidence) -> Field[bool]:
+def _replicate_level(group: _Group, parsed: CellValue, here: Evidence, replicate: Field[str] | None) -> Field[bool]:
     if dispersion(parsed) is not None or parsed.letters is not None:
         return Field[bool](value=False, basis="derived", evidence=[here])
+    if replicate is not None and replicate.value is not None and replicate.evidence:
+        return Field[bool](value=True, basis="derived", evidence=replicate.evidence)  # as replicate_level reads it
     said = group.scope_at
     unsaid = "nothing cited says whether these are replicate values or means"
     if not said:
