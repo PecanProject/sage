@@ -1,0 +1,165 @@
+#!/bin/sh
+# Drive every sage command with --json against the instance and check each output parses and exits as expected.
+# Usage: sweep <root> <pdf>
+# With no API key saved, a fake key is set so the run fails fast at the first model call; every command still runs.
+# With a real key, `extract run` is a real extraction (minutes, real money) and review gets real records.
+set -u
+root=$1 pdf=$2
+. "$root/instance.env"
+unset ANTHROPIC_API_KEY SAGE_ANTHROPIC_API_KEY OPENAI_API_KEY SAGE_OPENAI_API_KEY GOOGLE_API_KEY GEMINI_API_KEY \
+  SAGE_GOOGLE_API_KEY AWS_BEARER_TOKEN_BEDROCK SAGE_BEDROCK_API_KEY SAGE_EXTRACT_WITH
+cd "$SAGE_VERIFY_REPO" || exit 2
+log="$root/evidence/sweep.txt"
+: >"$log"
+sage() { uv run --quiet sage "$@"; }
+pass=0 fail=0
+
+# check <label> <want: 0|nonzero|any> -- command...
+check() {
+  label=$1 want=$2
+  shift 3
+  out=$("$@" 2>"$root/evidence/sweep.stderr")
+  code=$?
+  if printf '%s' "$out" | jq -e . >/dev/null 2>&1; then parsed=json; else parsed=NOT-JSON; fi
+  case $want in
+    0) [ $code -eq 0 ] ;;
+    nonzero) [ $code -ne 0 ] ;;
+    *) true ;;
+  esac && okcode=1 || okcode=0
+  if [ $parsed = json ] && [ $okcode -eq 1 ]; then
+    pass=$((pass + 1))
+    line=$(printf 'ok    %-26s exit=%s %s' "$label" "$code" "$(printf '%s' "$out" | tr -s ' \n' ' ' | head -c 110)")
+  else
+    fail=$((fail + 1))
+    line=$(printf 'FAIL  %-26s exit=%s %s: %s %s' "$label" "$code" "$parsed" "$(printf '%s' "$out" | head -c 200)" "$(head -c 300 "$root/evidence/sweep.stderr")")
+  fi
+  echo "$line" | tee -a "$log"
+}
+
+# fails_as <code> <kind> command...: the command exits with <code> and prints an error of that kind as JSON.
+fails_as() {
+  want_code=$1 kind=$2
+  shift 2
+  out=$("$@")
+  code=$?
+  printf '%s' "$out"
+  [ "$code" -eq "$want_code" ] && printf '%s' "$out" | jq -e --arg k "$kind" '.error.kind == $k' >/dev/null
+}
+
+check "add" 0 -- sage add "$pdf" --json
+paper=$(sage add "$pdf" --json | jq -r '.[0].paper.id')
+check "add again (no duplicate)" 0 -- sh -c "uv run --quiet sage add '$pdf' --json | jq -e '.[0].new == false'"
+printf 'not a pdf\n' >"$root/evidence/notes.txt"
+check "add with a non-PDF (exit 1)" nonzero -- sage add "$pdf" "$root/evidence/notes.txt" --json
+check "add reports each file" 0 -- sh -c "uv run --quiet sage add '$pdf' '$root/evidence/notes.txt' --json | jq -e 'length == 2 and .[0].new == false and .[1].error.kind == \"invalid\"'"
+check "usage error (exit 2)" 0 -- fails_as 2 invalid sage papers --no-such-option --json
+check "papers" 0 -- sh -c "uv run --quiet sage papers --json | jq -e 'any(.[]; .paper.id == \"$paper\" and has(\"to_check\") and has(\"looks_good\") and has(\"live_stage\"))'"
+check "config list" 0 -- sage config list --json
+check "config set max_turns" 0 -- sage config set max_turns 30 --json
+check "config get max_turns" 0 -- sh -c "uv run --quiet sage config get max_turns --json | jq -e '.max_turns == 30'"
+check "config get (bare JSON)" 0 -- sh -c "uv run --quiet sage config get max_turns | jq -e '. == 30'"
+check "models" 0 -- sh -c "uv run --quiet sage models --json | jq -e 'length >= 1 and all(.[]; .input_usd > 0)'"
+check "models add" 0 -- sh -c "uv run --quiet sage models add openai:gpt-5.1 --json | jq -e 'any(.[]; .id == \"openai:gpt-5.1\")'"
+check "models add unpriced" nonzero -- sage models add openai:gpt-nope --json
+check "config set model not yours" nonzero -- sage config set extract_with google:gemini-2.5-flash --json
+check "models remove" 0 -- sh -c "uv run --quiet sage models remove openai:gpt-5.1 --json | jq -e 'all(.[]; .id != \"openai:gpt-5.1\")'"
+check "models available (no key)" nonzero -- sage models available openai --json
+check "api models" 0 -- sh -c "curl -fs '$SAGE_VERIFY_URL/api/models' | jq -e 'length >= 1'"
+check "api providers" 0 -- sh -c "curl -fs '$SAGE_VERIFY_URL/api/providers' | jq -e '[.[] | select(.builtin) | .id] == [\"anthropic\",\"openai\",\"google\",\"bedrock\"]'"
+check "api provider kinds" 0 -- sh -c "curl -fs '$SAGE_VERIFY_URL/api/provider-kinds' | jq -e 'length == 6'"
+check "api provider models (no key)" 0 -- sh -c "curl -fs '$SAGE_VERIFY_URL/api/providers/openai/models' | jq -e '.ok == false and .models == []'"
+check "config set unpriced model" nonzero -- sage config set extract_with openai:gpt-nope --json
+check "config set an unknown key" nonzero -- sage config set anthropic_api_key x --json
+check "providers kinds" 0 -- sage providers kinds --json
+check "providers add" 0 -- sh -c "uv run --quiet sage providers add verify-local openai --name 'Verify local' --json | jq -e '.id == \"verify-local\" and .kind == \"openai\"'"
+check "providers add taken" nonzero -- sage providers add verify-local openai --json
+check "providers add bad id" nonzero -- sage providers add Verify_Local openai --json
+check "providers set endpoint" 0 -- sh -c "uv run --quiet sage providers set verify-local base_url http://127.0.0.1:9/v1 --json | jq -e '.missing == []'"
+check "providers available (unreachable)" nonzero -- sage models available verify-local --json
+check "models add unpriced (custom)" nonzero -- sage models add verify-local:some-model --json
+check "models add with your price" 0 -- sh -c "uv run --quiet sage models add verify-local:some-model --price 0 0 --json | jq -e 'any(.[]; .id == \"verify-local:some-model\" and .your_price)'"
+check "providers remove (in use)" nonzero -- sage providers remove verify-local --json
+check "models remove (custom)" 0 -- sage models remove verify-local:some-model --json
+check "providers remove" 0 -- sh -c "uv run --quiet sage providers remove verify-local --json | jq -e 'all(.[]; .id != \"verify-local\")'"
+check "providers remove built-in" nonzero -- sage providers remove openai --json
+fake=""
+anthropic_key() { sage providers --json | jq -r '.[] | select(.id == "anthropic") | .values.api_key // empty'; }
+key=$(anthropic_key)
+if [ -z "$key" ]; then
+  check "run without key" nonzero -- sage extract run "$paper" --no-follow --json
+  sage providers set anthropic api_key sk-ant-verify-fake --json >/dev/null
+fi
+# The key shows masked; this sweep's own fake one ends in "fake", from an earlier sweep on this instance or just now.
+key=$(anthropic_key)
+if [ "${key%fake}" != "$key" ]; then
+  fake=1
+  check "models available (fake key)" nonzero -- sage models available anthropic --json
+else
+  check "models available (real key)" 0 -- sage models available anthropic --json
+fi
+check "run without PAPER" nonzero -- sage extract run --no-follow --json
+check "run --no-follow" 0 -- sage extract run "$paper" --no-follow --json
+run=$(sage runs --json | jq -r '.[0].id')
+check "logs --follow" 0 -- sh -c "uv run --quiet sage logs $run --follow --json | jq -s ."
+check "stop with no open run" nonzero -- sage extract stop "$paper" --json
+check "stop without PAPER" nonzero -- sage extract stop --json
+check "stop --all (nothing live)" 0 -- sh -c "uv run --quiet sage extract stop --all --json | jq -e 'length == 0'"
+if [ -n "$fake" ]; then
+  # The fake key failed the run, so the paper has no data and --all takes it again.
+  check "run --all" 0 -- sh -c "uv run --quiet sage extract run --all --no-follow --json | jq -e 'length == 1 and .[0].status == \"queued\"'"
+  check "logs --follow (run --all)" 0 -- sh -c "uv run --quiet sage logs \$(uv run --quiet sage runs --json | jq -r '.[0].id') --follow --json | jq -s ."
+fi
+check "run --resume unknown run" nonzero -- sage extract run --resume no-such-run --no-follow --json
+check "run --continue unknown run" nonzero -- sage extract run --continue no-such-run --guidance x --no-follow --json
+if [ -n "$fake" ]; then
+  check "run --resume (fake key)" 0 -- sage extract run --resume "$run" --guidance "verify resume" --no-follow --json
+  check "logs --follow (resumed)" 0 -- sh -c "uv run --quiet sage logs $run --follow --json | jq -s ."
+fi
+check "runs" 0 -- sage runs --json
+check "runs unknown paper" 0 -- fails_as 1 not_found sage runs no-such-paper --json
+check "runs end in a final status" 0 -- sh -c "uv run --quiet sage runs --json | jq -e 'all(.[]; .status != \"running\" and .status != \"queued\")'"
+check "api run document" 0 -- sh -c "curl -fs '$SAGE_VERIFY_URL/api/runs/$run/document' | jq -e '.paper_id == \"$paper\" and (.parser_version | startswith(\"pdftext-\")) and (.pages | length > 0)'"
+check "show" 0 -- sage show "$run" --json
+check "export json" 0 -- sage export "$run" --format json
+check "queue needs a run" nonzero -- sage queue --json
+records=$(sage show "$run" --json | jq '.settled.records | length')
+check "queue RUN (every record)" 0 -- sh -c "uv run --quiet sage queue $run --json | jq -e 'length == $records and all(.[]; has(\"label\") and has(\"review\"))'"
+check "queue unknown run" nonzero -- sage queue no-such-run --json
+if [ "$records" -gt 0 ]; then
+  check "run keeps its own document" 0 -- jq -e ".paper_id == \"$paper\"" "$SAGE_HOME/papers/$paper/.sage/runs/$run/document.json"
+fi
+check "export xlsx -o" 0 -- sage export "$run" -o "$root/evidence/workbook.xlsx" --json
+check "export csv -o" 0 -- sage export "$run" --format csv -o "$root/evidence/workbook-csv.zip" --json
+record=$(sage show "$run" --json | jq -r '[.settled.records[]?.record.id][0] // empty')
+if [ -n "$record" ]; then
+  check "review accept" 0 -- sage review "$run" "$record" accept --json
+else
+  check "review (no records)" nonzero -- sage review "$run" no-such-record accept --json
+fi
+check "review without RECORD" nonzero -- sage review "$run" --json
+check "accept-looks-good with RECORD" nonzero -- sage review "$run" no-such-record accept --accept-looks-good --json
+good=$(sage queue "$run" --json | jq '[.[] | select(.status == "verified" and .review == null)] | length')
+check "review --accept-looks-good" 0 -- sh -c "uv run --quiet sage review $run --accept-looks-good --json | jq -e 'type == \"array\" and length == $good and all(.[]; .action == \"accept\")'"
+check "accept-looks-good again (none left)" 0 -- sh -c "uv run --quiet sage review $run --accept-looks-good --json | jq -e 'length == 0'"
+check "api accept-looks-good" 0 -- curl -fs -X POST "$SAGE_VERIFY_URL/api/runs/$run/accept-looks-good"
+check "openapi" 0 -- sage openapi --json
+check "show unknown run" nonzero -- sage show no-such-run --json
+ui_banner() {
+  SAGE_HOME="$2" uv run --quiet sage ui --port "$1" --json >"$root/evidence/ui-banner.json" 2>&1 &
+  pid=$!
+  i=0
+  until curl -fs "http://127.0.0.1:$1/api/settings" >/dev/null 2>&1 || [ $i -ge 80 ]; do i=$((i + 1)); sleep 0.25; done
+  kill "$(lsof -t -iTCP:"$1" -sTCP:LISTEN | head -1)" "$pid" 2>/dev/null
+  wait "$pid" 2>/dev/null
+  cat "$root/evidence/ui-banner.json"
+}
+spare=$(python3 -I -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
+# A data folder has one `sage ui`, so the banner and the port check run on folders of their own.
+other=$(mktemp -d)
+check "ui --json" 0 -- ui_banner "$spare" "$other/a"
+check "ui on a port in use" 0 -- env SAGE_HOME="$other/b" sh -c "uv run --quiet sage ui --port $SAGE_VERIFY_PORT --json; test \$? -eq 1"
+check "second ui on this data" 0 -- fails_as 1 conflict sage ui --port "$spare" --json
+check "ui serves /api/papers" 0 -- curl -fs "$SAGE_VERIFY_URL/api/papers"
+
+echo "passed=$pass failed=$fail run=$run log=$log" | tee -a "$log"
+[ $fail -eq 0 ]

@@ -1,0 +1,263 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+
+@custom-variant dark (&:is(.dark *));
+
+/* The tokens in docs/design/04-ui.md. Sage is only on the primary button, the logo, focus rings, the progress bar,
+ * the active card border, links, the current page's top-bar icon, "looks good" and the usage meters, never on a
+ * background. */
+:root {
+  --canvas: #fafafa;
+  --surface: #ffffff;
+  --surface-2: #f4f4f5;
+  --line: #e4e4e7;
+  --ink: #18181b;
+  --muted-ink: #71717a;
+  --sage: #4f6f52;
+  --sage-hover: #45624a;
+  --on-sage: #ffffff;
+  --good: #4f6f52;
+  --good-tint: #e6eee6;
+  --check: #d97706;
+  --check-tint: #fef3c7;
+  --danger: #dc2626;
+  --paper-canvas: #f4f4f5;
+  /* Usage meters: a track one step off the sage ramp, and where input came from as one sage ramp, darkest for
+   * tokens read back from the cache. Validated as an ordinal ramp against the surface in both themes. */
+  --meter-track: var(--good-tint);
+  --input-read: #3f5c42;
+  --input-write: #6b8d6d;
+  --input-fresh: #9cb99d;
+  /* Highlights sit on the white PDF page in both themes, so they keep their light values. */
+  --hl-check: #fde68a;
+  --hl-check-line: #d97706;
+  --hl-good: #cfdfcf;
+  --hl-good-line: #4f6f52;
+  --hl-missing: #a1a1aa;
+  --hl-ink: #3f3f46;
+  /* A hovered border, and the off track of a switch. */
+  --line-strong: color-mix(in srgb, var(--line), var(--ink) 14%);
+  /* A drop zone's border under the pointer. */
+  --line-accent: color-mix(in srgb, var(--line), var(--sage) 45%);
+  /* The pressed segment of a segmented control. */
+  --surface-raised: var(--surface);
+  /* The PDF page is white in both themes. */
+  --page: #ffffff;
+  --scrim: rgb(0 0 0 / 0.25);
+  --scrim-soft: rgb(0 0 0 / 0.1);
+  --elevation-low: 0 1px 3px rgb(0 0 0 / 0.08);
+  --elevation-high: 0 8px 24px rgb(0 0 0 / 0.08), 0 1px 3px rgb(0 0 0 / 0.06);
+}
+
+.dark {
+  --canvas: #0f0f10;
+  --surface: #17171a;
+  --surface-2: #1f1f23;
+  --line: #2a2a2f;
+  --ink: #ececee;
+  --muted-ink: #9a9aa3;
+  --sage: #9cc09a;
+  --sage-hover: #acccaa;
+  --on-sage: #0f0f10;
+  --good: #9cc09a;
+  --good-tint: rgba(156, 192, 154, 0.16);
+  --check: #fbbf24;
+  --check-tint: rgba(251, 191, 36, 0.16);
+  --danger: #f87171;
+  --paper-canvas: #17171a;
+  --input-read: #b3d1b1;
+  --input-write: #7fa47d;
+  --input-fresh: #557553;
+  --surface-raised: color-mix(in srgb, var(--surface), var(--ink) 8%);
+  --scrim: rgb(0 0 0 / 0.5);
+  --scrim-soft: rgb(0 0 0 / 0.3);
+  --elevation-low: none;
+  --elevation-high: none;
+}
+
+@theme inline {
+  --color-*: initial;
+  --text-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-raised: var(--surface-raised);
+  --color-page: var(--page);
+  --color-scrim: var(--scrim);
+  --color-scrim-soft: var(--scrim-soft);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-line-accent: var(--line-accent);
+  --color-ink: var(--ink);
+  --color-muted-ink: var(--muted-ink);
+  --color-sage: var(--sage);
+  --color-sage-hover: var(--sage-hover);
+  --color-on-sage: var(--on-sage);
+  --color-good: var(--good);
+  --color-good-tint: var(--good-tint);
+  --color-check: var(--check);
+  --color-check-tint: var(--check-tint);
+  --color-danger: var(--danger);
+  --color-paper-canvas: var(--paper-canvas);
+  --color-meter-track: var(--meter-track);
+  --color-input-read: var(--input-read);
+  --color-input-write: var(--input-write);
+  --color-input-fresh: var(--input-fresh);
+  --color-hl-check: var(--hl-check);
+  --color-hl-check-line: var(--hl-check-line);
+  --color-hl-good: var(--hl-good);
+  --color-hl-good-line: var(--hl-good-line);
+  --color-hl-missing: var(--hl-missing);
+  --color-hl-ink: var(--hl-ink);
+
+  /* Nothing smaller than 12px. */
+  /* The "sage" beside the logo. */
+  --text-wordmark: 17px;
+  --text-wordmark--line-height: 1;
+  --text-wordmark--font-weight: 600;
+  --text-wordmark--letter-spacing: -0.01em;
+  /* The one heading of a screen ("Papers"). */
+  --text-display: 22px;
+  --text-display--line-height: 28px;
+  --text-display--font-weight: 600;
+  --text-display--letter-spacing: -0.01em;
+  /* A dialog, drawer or popover title, and a big number. */
+  --text-title: 16px;
+  --text-title--line-height: 24px;
+  --text-title--font-weight: 600;
+  /* An item's label and an extracted value. */
+  --text-value: 14px;
+  --text-value--line-height: 20px;
+  --text-value--font-weight: 500;
+  /* The name a list row leads with: a paper's title on Home. */
+  --text-name: 14px;
+  --text-name--line-height: 20px;
+  --text-name--font-weight: 600;
+  /* Running text. */
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  /* A field label, a tab, a toggle: text that names a control. */
+  --text-label: 13px;
+  --text-label--line-height: 20px;
+  --text-label--font-weight: 500;
+  /* Text inside a control (input, menu item, table cell) and dense secondary text. */
+  --text-control: 13px;
+  --text-control--line-height: 20px;
+  /* Field hints, sources, times, table headers, the status line. */
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+
+  /* From the edge of a bar, list, dialog or side panel to its content. */
+  --spacing-inset: 24px;
+  /* From the edge of the paper screen's panes to their content. */
+  --spacing-gutter: 32px;
+  /* Buttons, inputs, selects, menu items and segmented controls. */
+  --spacing-control: 36px;
+  /* Buttons inside a card or a row. */
+  --spacing-control-sm: 32px;
+  /* An icon in a full-size control. Icons beside text are `size-4`, in captions `size-3.5`. */
+  --spacing-icon: 18px;
+
+  /* A circle or a pill is `rounded-full`. */
+  --radius-control: 8px;
+  --radius-card: 10px;
+  --radius-page: 4px;
+  /* A text button's focus ring, a disclosure trigger, a cell inside a card. */
+  --radius-inline: 6px;
+  /* A bar: a loading text line, a chart column. */
+  --radius-bar: 4px;
+  /* Marked text, a legend swatch, an outline drawn on the paper. */
+  --radius-mark: 3px;
+  /* A highlight box over the paper's text. */
+  --radius-highlight: 2px;
+
+  --shadow-card: var(--elevation-low);
+  --shadow-page: var(--elevation-low);
+  --shadow-float: var(--elevation-high);
+  /* A focused input. */
+  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--sage) 18%, transparent);
+  /* The keyboard cursor's bar on the left edge of a focused row. */
+  --shadow-cursor: inset 2px 0 0 var(--sage);
+
+  /* The highlight a selection lands on flashes once so the eye finds it. */
+  --animate-flash: flash 700ms ease-out 1;
+}
+
+@layer base {
+  * {
+    border-color: var(--line);
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--ink) 18%, transparent) transparent;
+  }
+  html {
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  /* Home, Models and Settings scroll the document. Keeping its scrollbar's room whether or not one shows stops the
+     page shifting sideways between a short one and a long one. The Paper screen scrolls its own panes, so it doesn't. */
+  html:has([data-scroll="document"]) {
+    scrollbar-gutter: stable;
+  }
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 20px;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Inter's tabular figures also widen hyphens, so only tables get them everywhere; counts add `tabular-nums`. */
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--ink) 14%, transparent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--sage);
+    outline-offset: 2px;
+  }
+}
+
+@utility scroll-shadow-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+  background:
+    linear-gradient(var(--surface), var(--surface)) right / 16px 100% no-repeat local,
+    linear-gradient(to left, color-mix(in srgb, var(--ink) 10%, transparent), transparent) right / 16px 100%
+    no-repeat scroll;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@keyframes flash {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  30% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--hl-check-line) 40%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion has to beat every component's own timing */
+    animation-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: as above */
+    transition-duration: 0.01ms !important;
+  }
+}

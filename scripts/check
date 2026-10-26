@@ -1,0 +1,40 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")/.."
+
+step() { printf '\n== %s\n' "$1"; }
+
+step "ruff check"
+uv run ruff check
+step "ruff format"
+uv run ruff format --check
+step "ty"
+uv run ty check
+step "ast-grep"
+uv run ast-grep scan
+
+step "gitleaks"
+command -v gitleaks >/dev/null 2>&1 || { echo "install gitleaks: brew install gitleaks"; exit 1; }
+gitleaks dir . --no-banner --redact
+
+cd web
+step "biome"
+pnpm run --silent lint
+step "tsc"
+pnpm exec tsc -b
+step "react-doctor"
+pnpm run --silent doctor
+step "knip"
+pnpm run --silent knip
+
+step "API types match the server"
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+uv run --project .. sage openapi > "$tmp/openapi.json"
+pnpm exec openapi-typescript "$tmp/openapi.json" -o "$tmp/schema.d.ts" >/dev/null
+if ! diff -q "$tmp/schema.d.ts" src/api/schema.d.ts >/dev/null; then
+  echo "web/src/api/schema.d.ts is stale; run: cd web && pnpm gen:api"
+  exit 1
+fi
+
+printf '\nall checks passed\n'

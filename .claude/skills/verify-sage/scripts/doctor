@@ -1,0 +1,35 @@
+#!/bin/sh
+# Read-only: is this instance ours, up, on the right data dir, and serving the current UI build?
+# Usage: doctor <root> [--key]   (--key also asks each provider with a saved key whether it works; free)
+set -u
+root=$1
+. "$root/instance.env"
+unset ANTHROPIC_API_KEY SAGE_ANTHROPIC_API_KEY OPENAI_API_KEY SAGE_OPENAI_API_KEY GOOGLE_API_KEY GEMINI_API_KEY \
+  SAGE_GOOGLE_API_KEY AWS_BEARER_TOKEN_BEDROCK SAGE_BEDROCK_API_KEY SAGE_EXTRACT_WITH
+cd "$SAGE_VERIFY_REPO"
+bad=0
+say() { printf "%-6s %s\n" "$1" "$2"; [ "$1" = FAIL ] && bad=1; return 0; }
+
+kill -0 "$SAGE_VERIFY_PID" 2>/dev/null && say ok "launcher pid $SAGE_VERIFY_PID alive" || say FAIL "launcher pid $SAGE_VERIFY_PID gone"
+owner=$(lsof -t -iTCP:"$SAGE_VERIFY_PORT" -sTCP:LISTEN 2>/dev/null | head -1)
+[ "$owner" = "$SAGE_VERIFY_LISTENER" ] && say ok "port $SAGE_VERIFY_PORT held by our server (pid $owner)" \
+  || say FAIL "port $SAGE_VERIFY_PORT held by '${owner:-nobody}', expected $SAGE_VERIFY_LISTENER"
+home=$(curl -fs "$SAGE_VERIFY_URL/api/settings" | jq -r '.values.home')
+[ "$home" = "$SAGE_HOME" ] && say ok "API reads SAGE_HOME $home" || say FAIL "API reads home '$home', expected $SAGE_HOME"
+curl -fs "$SAGE_VERIFY_URL/" | grep -q '<div id="root">' && say ok "app shell served" || say FAIL "no app shell at /"
+stale=$(find web/src web/index.html -type f -newer sage/web_dist/index.html | head -3)
+[ -z "$stale" ] && say ok "UI build is newer than web/src" || say FAIL "UI build is stale (rebuild: cd web && pnpm build): $stale"
+settings=$(curl -fs "$SAGE_VERIFY_URL/api/settings")
+providers=$(curl -fs "$SAGE_VERIFY_URL/api/providers")
+for p in $(printf '%s' "$providers" | jq -r '.[].id'); do
+  needs=$(printf '%s' "$providers" | jq -r --arg p "$p" '.[] | select(.id == $p) | .missing | join(" and ")')
+  if [ -z "$needs" ]; then say ok "$p set up"; else say info "$p needs $needs: its models fail with missing_key"; fi
+  if [ "${2:-}" = "--key" ] && [ -z "$needs" ]; then
+    r=$(curl -fs "$SAGE_VERIFY_URL/api/providers/$p/models")
+    [ "$(printf '%s' "$r" | jq -r '.ok')" = true ] && say ok "$p answers: $(printf '%s' "$r" | jq -r '.message')" || say FAIL "$p check: $(printf '%s' "$r" | jq -r '.message // .error.message')"
+  fi
+done
+say info "extracts with: $(printf '%s' "$settings" | jq -r '.values.extract_with // .values.models[0].id')"
+runner=$(cat "$SAGE_HOME/runner.pid" 2>/dev/null || true)
+if [ -n "$runner" ] && kill -0 "$runner" 2>/dev/null; then say info "runner pid $runner alive"; else say info "no runner (it starts with the next run)"; fi
+exit $bad
