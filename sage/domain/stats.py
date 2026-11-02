@@ -8,13 +8,29 @@ from sage.domain.cell_values import CellValue, parse_cell
 from sage.domain.normalize import contains_loose, norm
 from sage.ir.schema import EffectScope, Evidence, Observation, QuantityValue
 
+_NOT_OF_DIFFERENCE = r"(?![\s.]*d\b)(?!\s+of\s+(?:the\s+|a\s+)?(?:mean\s+)?differences?)"
+"""A standard error of a difference (SED, "S.E.D.", "standard error of the difference") is not the SE of a mean."""
 _DISPERSION_NAMES = (
-    ("SE", re.compile(r"±\s*s\.?e\.?(?:m\.?)?\b|\bs\.?e\.?m?\b|standard errors?", re.IGNORECASE)),
+    (
+        "SE",
+        re.compile(
+            rf"±\s*s\.?e\.?(?:m\.?)?\b{_NOT_OF_DIFFERENCE}|\bs\.?e\.?m?\b{_NOT_OF_DIFFERENCE}"
+            rf"|standard errors?{_NOT_OF_DIFFERENCE}",
+            re.IGNORECASE,
+        ),
+    ),
     ("SD", re.compile(r"±\s*s\.?d\.?\b|\bs\.?d\.?\b|standard deviations?", re.IGNORECASE)),
     ("95% CI", re.compile(r"95\s*%\s*(?:confidence (?:intervals?|limits?)|c\.?i\.?)", re.IGNORECASE)),
     ("CI", re.compile(r"confidence (?:intervals?|limits?)", re.IGNORECASE)),
 )
-_LETTERS_MEANING = re.compile(r"(?:different|same) letters?[^.]{0,120}(?:significant|differ)\w*", re.IGNORECASE)
+_CLAUSE = r"(?:[^.;]|\.(?=\d))"
+"""A character of one clause: a full stop ends it, the point of a number ("P < 0.05") doesn't."""
+_LETTERS_MEANING = re.compile(
+    rf"(?:[^\s.;]{_CLAUSE}*?)?\bletters?\b{_CLAUSE}*?\b(?:significan|differ)\w*{_CLAUSE}*", re.IGNORECASE
+)
+"""The clause that says what mean-separation letters mean, however the paper words it: "means followed by different
+letters differ", "Letters indicate significant differences between treatments on a given day (P < 0.05)", "values
+with no letter in common", "different superscript letters denote significance"."""
 _MEANS = re.compile(r"\b(?:means?|averages?|averaged)\b", re.IGNORECASE)
 _COUNT = r"(?:all|both|each|the|two|three|four|five|six|seven|eight|nine|ten|\d+)"
 _ACROSS = rf"(?:over|across|regardless of|irrespective of|(?:for|of) (?:all|both|the {_COUNT}))"
@@ -55,7 +71,7 @@ _STATNAMES = (
     ("SD", re.compile(r"^(?:s\.?d\.?|standard deviations?)$", re.IGNORECASE)),
     ("MSE", re.compile(r"^(?:mse|mean squared? errors?)$", re.IGNORECASE)),
     ("CI", re.compile(r"\bc\.?i\.?\b|confidence (?:intervals?|limits?)", re.IGNORECASE)),
-    ("LSD", re.compile(r"^(?:lsd|least significant difference)(?![a-z])", re.IGNORECASE)),
+    ("LSD", re.compile(r"(?:^|fisher'?s?\s+)(?:l\.?s\.?d\.?|least significant differences?)(?![a-z])", re.IGNORECASE)),
     ("HSD", re.compile(r"\bhsd\b|^tukey", re.IGNORECASE)),
     ("MSD", re.compile(r"^(?:msd|minimum significant difference)(?![a-z])", re.IGNORECASE)),
     ("P", re.compile(r"^p(?:[\s-]*values?)?$", re.IGNORECASE)),
@@ -76,22 +92,25 @@ def dispersion(cell: CellValue) -> float | str | None:
 
 
 def dispersion_statistic(cell: CellValue, sources: Iterable[Evidence]) -> tuple[str, Evidence] | None:
-    """What the cell's "±" or bracketed value is, from the first header, caption or note that states it. The returned
-    Evidence quotes just the statement within its source. An interval pairs only with a CI name and a "±" or
-    parenthetical only with SE or SD; otherwise the dispersion stays unnamed."""
+    """What the cell's "±" or bracketed value is, from the first header, caption or note that states it, and within
+    it the name written first: "means ± SD" is SD even when a later note mentions an SE. The returned Evidence quotes
+    just the statement within its source. An interval pairs only with a CI name and a "±" or parenthetical only with
+    SE or SD; otherwise the dispersion stays unnamed."""
     if cell.interval is not None:
         wanted = ("95% CI", "CI")
     elif cell.plus_minus is not None or cell.parenthetical is not None:
         wanted = ("SE", "SD")
     else:
         return None
-    sources = list(sources)
-    for name, pattern in _DISPERSION_NAMES:
-        if name not in wanted:
-            continue
-        for source in sources:
-            if match := pattern.search(source.quote):
-                return name, Evidence(anchor=source.anchor, quote=match[0])
+    for source in sources:
+        found = [
+            (match.start(), name, match)
+            for name, pattern in _DISPERSION_NAMES
+            if name in wanted and (match := pattern.search(source.quote)) is not None
+        ]
+        if found:
+            _, name, match = min(found, key=lambda f: f[0])
+            return name, Evidence(anchor=source.anchor, quote=match[0])
     return None
 
 
@@ -99,7 +118,7 @@ def letters_meaning(sources: Iterable[Evidence]) -> Evidence | None:
     """The note that says what the mean-separation letters mean ("means followed by different letters differ ...")."""
     for source in sources:
         if match := _LETTERS_MEANING.search(source.quote):
-            return Evidence(anchor=source.anchor, quote=match[0])
+            return Evidence(anchor=source.anchor, quote=match[0].strip())
     return None
 
 

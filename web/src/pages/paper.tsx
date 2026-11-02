@@ -2,9 +2,10 @@ import { CaretDownIcon, ClockCounterClockwiseIcon, DownloadSimpleIcon } from "@p
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { errorMessage } from "@/api/client"
+import { type AskRun, AskSage } from "@/components/paper/ask"
 import { PaperCanvas } from "@/components/paper/canvas"
 import { DataMode, DataModeSkeleton } from "@/components/paper/data-mode"
-import { ContinueDialog, EndedCard, ExtractDialog, NewCard, StopDialog } from "@/components/paper/extract"
+import { EndedCard, ExtractDialog, NewCard, StopDialog } from "@/components/paper/extract"
 import { HistoryMenu } from "@/components/paper/history"
 import type { Filter, ReviewActions } from "@/components/paper/margin"
 import { DetailsDrawer, RunDock } from "@/components/paper/run-details"
@@ -21,16 +22,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Segmented } from "@/components/ui/segmented"
+import { runUsing } from "@/lib/agents"
 import { useDismissed } from "@/lib/dismissed"
 import { carryOnLabel, endedAlert, type RunInfo, startsOver } from "@/lib/format"
 import { type Item, nextOpen } from "@/lib/items"
 import { type KeyHint, useKeyHint } from "@/lib/key-hint"
 import { useKeys } from "@/lib/keys"
 import { useMedia, wide } from "@/lib/media"
-import { type PaperState, useCarryOn } from "@/lib/paper-state"
+import { type PaperState, useCarryOn, useContinueRun } from "@/lib/paper-state"
 import { usePaperView, useRunFinished } from "@/lib/paper-view"
-import { useReview } from "@/lib/review"
+import { reasonsOf, useReview } from "@/lib/review"
+import { useRunChoice } from "@/lib/run-choice"
 import { buildUnits, type Direction, gridMove, type Unit, visibleUnits } from "@/lib/units"
+import { TAB_OF, useWorkbook, type Workbook } from "@/lib/workbook"
 import { type PaperSearch, paperRoute } from "@/router"
 
 type Mode = "check" | "data" | "read"
@@ -44,8 +48,15 @@ function useSetSearch() {
 
 /** The review actions, each of which moves on at once to the next item in `order` that still needs a look. The
  * review shows before the server answers; a failed save toasts and comes back as open. */
-function useActions(view: View, order: Item[], activate: (id: string | null) => void): ReviewActions {
-  const review = useReview(view.viewId ?? "")
+function useActions(
+  view: View,
+  paperId: string,
+  order: Item[],
+  activate: (id: string | null) => void,
+  comment: string | undefined,
+  setSearch: (patch: Partial<PaperSearch>) => void,
+): ReviewActions {
+  const review = useReview(view.viewId ?? "", paperId)
   const advance = (from: Item, done: Item[] = [from]) =>
     activate(nextOpen(order, from.id, new Set(done.map((i) => i.id)))?.id ?? null)
   return {
@@ -59,17 +70,25 @@ function useActions(view: View, order: Item[], activate: (id: string | null) => 
       review.edit(item, edits)
       advance(item)
     },
-    reject: (item, note) => {
-      review.reject(item, note)
-      advance(item)
+    reject: (items, note) => {
+      const last = items.at(-1)
+      if (!last) return
+      review.reject(items, note)
+      advance(last, items)
     },
+    comment: review.comment,
+    editComment: review.editComment,
+    removeComment: review.removeComment,
+    commentOpen: comment ?? null,
+    openComment: (item, id) => setSearch({ item: item.id, comment: id }),
+    closeComment: () => setSearch({ comment: undefined }),
     acceptMany: (items) => {
       const last = items.at(-1)
       if (!last) return
       review.acceptMany(items)
       advance(last, items)
     },
-    acceptLooksGood: review.acceptLooksGood,
+    reasons: reasonsOf(view.items),
   }
 }
 
@@ -101,7 +120,7 @@ function useCheckKeys(
     {
       j: key(() => on.activate(order[Math.min(at + 1, order.length - 1)]?.id ?? null)),
       k: key(() => on.activate(order[Math.max(at - 1, 0)]?.id ?? null)),
-      "Shift+A": key(() => unit && on.actions.acceptMany(unit.items.filter((i) => i.review === null))),
+      "Shift+A": key(() => unit && on.actions.acceptMany(unit.all.filter((i) => i.review === null))),
       "/": key(on.filter),
       ArrowUp: move("up"),
       ArrowDown: move("down"),
@@ -122,11 +141,61 @@ function useSelection(view: View, search: PaperSearch) {
   const visible = visibleUnits(units, filter, picked?.id ?? null)
   const order = visible.flatMap((u) => u.items)
   const active = mode === "check" ? (picked ?? nextOpen(order, null)) : picked
-  // Where a review moves on from: the margin in Check mode, the open item's table in Data mode.
-  const next = mode === "data" ? view.items.filter((i) => i.type === picked?.type) : order
-  return { hasData, itemsComing, mode, filter, units, picked, visible, order, next, active, tab: search.type }
+  // Where a review moves on from: the margin in Check mode, the open item's tab in Data mode.
+  const tabOf = picked ? TAB_OF[picked.type] : undefined
+  const next = mode === "data" ? view.items.filter((i) => TAB_OF[i.type] === tabOf) : order
+  const allColumns = search.cols === "all"
+  return {
+    hasData,
+    itemsComing,
+    mode,
+    filter,
+    units,
+    picked,
+    visible,
+    order,
+    next,
+    active,
+    tab: search.tab,
+    allColumns,
+  }
 }
 type Selection = ReturnType<typeof useSelection>
+
+/** Ask SAGE: a request about some records starts a new pass on the run in view, with what the composer shows it runs
+ * with. `ask=1` puts the cursor in it. */
+function useAsk(view: View, focus: boolean, setSearch: (patch: Partial<PaperSearch>) => void): AskRun {
+  const shown = view.runs.find((r) => r.id === view.viewId) ?? null
+  const choice = useRunChoice(shown ? runUsing(shown) : null, shown?.effort)
+  const proceed = useContinueRun()
+  const disabled =
+    view.state?.kind === "live"
+      ? "SAGE is extracting this paper…"
+      : !shown
+        ? "No extraction yet"
+        : choice.blocker.blocked
+          ? (choice.blocker.line ?? "Set up on the Manage page")
+          : null
+  return {
+    disabled,
+    choice,
+    pending: proceed.isPending,
+    focus,
+    onFocused: () => setSearch({ ask: undefined }),
+    send: (a) => {
+      if (!shown || disabled) return
+      proceed.mutate({
+        params: { path: { run_id: shown.id } },
+        body: {
+          guidance: a.text,
+          using: choice.using,
+          effort: choice.effortAsked,
+          records: a.items.length ? a.items.map((i) => i.id) : null,
+        },
+      })
+    },
+  }
+}
 
 export function PaperPage() {
   const { paperId } = paperRoute.useParams()
@@ -140,11 +209,20 @@ export function PaperPage() {
   const activate = (id: string | null) =>
     setSearch(
       sel.mode === "data"
-        ? { item: id ?? undefined, type: sel.picked?.type ?? search.type }
-        : { item: id ?? undefined },
+        ? {
+            item: id ?? undefined,
+            tab: sel.picked ? TAB_OF[sel.picked.type] : search.tab,
+            comment: undefined,
+          }
+        : { item: id ?? undefined, comment: undefined },
     )
-  const actions = useActions(view, sel.next, activate)
-  const carryOn = useCarryOn((r) => setSearch(dialogFor(r)))
+  const actions = useActions(view, paperId, sel.next, activate, search.comment, setSearch)
+  const workbook = useWorkbook(sel.hasData ? view.viewId : null)
+  const ask = useAsk(view, search.ask === 1, setSearch)
+  const carryOn = useCarryOn({
+    startOver: () => setSearch({ extract: 1, details: undefined }),
+    guide: () => setSearch({ ask: 1, mode: sel.mode === "data" ? "data" : "check", details: undefined }),
+  })
   useRunFinished(view.latest, (run) => setSearch(afterRun(run)), carryOn)
   useCheckKeys(sel.units, sel.order, sel.active, sel.mode === "check" && !actions.busy, {
     activate,
@@ -195,6 +273,8 @@ export function PaperPage() {
         paperId={paperId}
         pdf={pdf}
         actions={actions}
+        workbook={workbook}
+        ask={ask}
         hint={hint}
         dock={dock}
         zoom={search.zoom ?? 1}
@@ -227,10 +307,6 @@ function afterRun(r: RunInfo): Partial<PaperSearch> {
     : { stop: undefined }
 }
 
-function dialogFor(r: RunInfo): Partial<PaperSearch> {
-  return startsOver(r) ? { extract: 1, details: undefined } : { continue: r.id, details: undefined }
-}
-
 function RunDialogs({
   view,
   search,
@@ -253,10 +329,6 @@ function RunDialogs({
         startTestid="start-extraction"
         onClose={() => onSearch({ extract: undefined })}
       />
-      <ContinueDialog
-        run={view.runs.find((r) => r.id === search.continue) ?? null}
-        onClose={() => onSearch({ continue: undefined })}
-      />
       <StopDialog
         body={search.stop === 1 && live ? { run_ids: [live.id] } : null}
         title="Stop this extraction?"
@@ -276,6 +348,8 @@ function PaperBody({
   paperId,
   pdf,
   actions,
+  workbook,
+  ask,
   hint,
   dock,
   zoom,
@@ -288,6 +362,8 @@ function PaperBody({
   paperId: string
   pdf: string
   actions: ReviewActions
+  workbook: Workbook
+  ask: AskRun
   hint: KeyHint
   dock: RunInfo | null
   zoom: number
@@ -299,16 +375,19 @@ function PaperBody({
   if (sel.mode === "data" && (sel.hasData || sel.itemsComing))
     return (
       <div className="min-h-0 flex-1">
-        {sel.hasData ? (
+        {sel.hasData && !workbook.loading ? (
           <DataMode
             items={view.items}
-            doc={view.doc}
+            tabs={workbook.tabs}
             boxes={view.boxes}
             actions={actions}
             selected={sel.picked}
             tab={sel.tab}
+            allColumns={sel.allColumns}
+            ask={ask}
             onSelect={onActivate}
-            onTab={(type) => onSearch({ type, item: undefined })}
+            onTab={(tab) => onSearch({ tab, item: undefined })}
+            onColumns={(all) => onSearch({ cols: all ? "all" : undefined })}
             onShow={(id) => onSearch({ mode: "check", item: id })}
           />
         ) : (
@@ -341,8 +420,18 @@ function PaperBody({
                   filter: sel.filter,
                   active: sel.active,
                   boxes: view.boxes,
+                  tabs: workbook.tabs,
                   actions,
                   hint,
+                  ask: (
+                    <AskSage
+                      items={view.items}
+                      tabs={workbook.tabs}
+                      ask={ask}
+                      actions={actions}
+                      onOpen={onActivate}
+                    />
+                  ),
                   done: <ExportMenu runId={view.viewId} testid="done-export" />,
                   onFilter: (f) => onSearch({ filter: f === "all" ? "all" : undefined, item: undefined }),
                   onActivate,
@@ -507,9 +596,7 @@ function RunsMenu({
               onClick={() => shown && onContinue(shown)}
               data-testid="menu-continue"
             >
-              {shown && !startsOver(shown)
-                ? carryOnLabel(shown, "Continue with guidance…")
-                : "Continue with guidance…"}
+              {shown && !startsOver(shown) ? carryOnLabel(shown) : "Continue with guidance…"}
             </DropdownMenuItem>
           </>
         )}

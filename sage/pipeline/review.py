@@ -45,6 +45,9 @@ class QueueItem(BaseModel):
     reason: str | None = None
     """The first field that is not verified, and why."""
     review: Review | None = None
+    """The latest decision: accept, edit or reject."""
+    comments: list[Review] = []
+    """Every comment on the record, oldest first, whatever the decision."""
 
 
 def standing(reviews: list[Review], settled: Settled, ancestors: list[Settled]) -> list[Review]:
@@ -56,13 +59,24 @@ def standing(reviews: list[Review], settled: Settled, ancestors: list[Settled]) 
 
 
 def latest_reviews(reviews: list[Review]) -> dict[str, Review]:
-    return {r.record_id: r for r in sorted(reviews, key=lambda r: r.ts)}
+    """Each record's latest decision. Comments are not decisions."""
+    return {r.record_id: r for r in sorted(reviews, key=lambda r: r.ts) if r.action != "comment"}
+
+
+def comments(reviews: list[Review]) -> dict[str, list[Review]]:
+    """Each record's comments, oldest first."""
+    out: dict[str, list[Review]] = {}
+    for r in sorted(reviews, key=lambda r: r.ts):
+        if r.action == "comment":
+            out.setdefault(r.record_id, []).append(r)
+    return out
 
 
 def queue(settled: Settled, reviews: list[Review]) -> list[QueueItem]:
     """Every record: unresolved first, then flagged, then verified, each by type. Reviewed items stay in the queue
     with their latest review, so the scientist can revisit them."""
     last = latest_reviews(reviews)
+    said = comments(reviews)
     names = _names(settled)
     ordered = sorted(settled.records, key=lambda r: (QUEUE_RANK[r.status], _type_rank(r.record.type)))
     return [
@@ -73,6 +87,7 @@ def queue(settled: Settled, reviews: list[Review]) -> list[QueueItem]:
             label=label(r.record, names),
             reason=reason(r),
             review=last.get(r.record.id),
+            comments=said.get(r.record.id, []),
         )
         for r in ordered
     ]

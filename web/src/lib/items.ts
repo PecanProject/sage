@@ -29,11 +29,14 @@ export type Item = {
   type: string
   status: Status
   label: string
+  /** The latest decision. */
   review: Review | null
+  /** Every comment, oldest first, whatever the decision. */
+  comments: Review[]
   rows: FieldRow[]
   /** The first problem, in a few words. */
   problem: string | null
-  /** The same problem short enough for a review row: "Year guessed". */
+  /** The same problem short enough for a review row: "Year is a guess". */
   brief: string | null
   /** The anchor the card lines up with and the highlight that stands for the item, if the PDF can draw one. */
   primary: string | null
@@ -44,7 +47,7 @@ export type Item = {
 
 const HIDDEN = new Set(["id", "type"])
 /** `site_id`, `treatment_ids`, `treatment_id_1`. */
-const LINK = /_ids?(_\d+)?$/
+export const LINK = /_ids?(_\d+)?$/
 
 /** A record's fields, in schema order. Links to other records are left out; their names are in the label. */
 function fieldRows(rec: SettledRecord): FieldRow[] {
@@ -97,18 +100,22 @@ function problemOf(rec: SettledRecord, rows: FieldRow[]): { problem: string; bri
   const row = open.find((r) => r.cause !== "absent") ?? (rec.status === "unresolved" ? open[0] : undefined)
   if (row)
     return {
-      problem: problemWords(row.cause, row.reason),
+      problem: problemWords(row.cause, row.reason) ?? "Needs a look",
       brief: problemBrief(row.name, row.cause, row.reason),
     }
   return rec.issues?.length ? { problem: "Failed a check", brief: "Failed a check" } : null
 }
 
-export function editText(row: FieldRow): string {
-  return row.value === null ? "" : friendlyValue(row.name, row.value)
+/** The words a record rests on, for its card to lead with: its value's first quote, else its first. */
+export function leadQuote(item: Item): { row: FieldRow; quote: FieldRow["quotes"][number] } | null {
+  const row =
+    item.rows.find((r) => r.name === "value" && r.quotes.length) ?? item.rows.find((r) => r.quotes.length)
+  const quote = row?.quotes[0]
+  return row && quote ? { row, quote } : null
 }
 
-export function firstProblemField(item: Item): string | null {
-  return item.rows.find((r) => r.status !== "verified" && r.cause !== "absent")?.name ?? null
+export function editText(row: FieldRow): string {
+  return row.value === null ? "" : friendlyValue(row.name, row.value)
 }
 
 export function buildItems(view: RecordsView, queue: QueueItem[]): Item[] {
@@ -130,6 +137,7 @@ export function buildItems(view: RecordsView, queue: QueueItem[]): Item[] {
       status: q.status,
       label: q.label,
       review: q.review ?? null,
+      comments: q.comments ?? [],
       rows,
       problem: problem?.problem ?? null,
       brief: problem?.brief ?? null,

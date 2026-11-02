@@ -29,22 +29,26 @@ Columns in the order the curators use, then what SAGE adds. "SAGE source" names 
 | `sitename` | Site key | `site_id` |
 | `variable` | Variable key (was `trait`) | `variable_id` |
 | `method` | Method key | `method_id` |
-| `value` | The value in reported units (was `mean`) | `value.reported_numeric_value`, or the text ("<0.1") |
+| `value` | The value in reported units (was `mean`), a number | `value.reported_numeric_value`; blank when the text isn't one number ("<0.1"), which `notes` then quotes |
 | `n` | Replicates the value summarises; 1 for a replicate row | `n` |
-| `statname`, `stat` | SE, SD, MSE, CI, LSD, HSD, MSD or P, and its value | `statistical_encoding` |
+| `statname`, `stat` | SE, SD, MSE, CI, LSD, HSD, MSD or P, and its value as a number | `statistical_encoding`; a CI's bounds go in `attributes_json` |
 | `treatment_id` | Treatment key | `treatment_id` |
 | `replicate_id` | Plot or block label | `replicate_id` |
 | `study_year` | Experimental year, when a dataset counts them | left blank |
 | `min_depth`, `max_depth` | Sampling depth, cm; required for soil carbon | `depth` |
 | `citation` | DOI of the row's source | the Citation's DOI |
-| `fill_status` | Where the value came from | `PAPER_TABLE` or `PAPER_TEXT` |
+| `fill_status` | Where the value came from | `FILLED_PUBLICATION_TABLE` or `FILLED_PUBLICATION_TEXT` |
 | `notes` | Caveats a second curator needs | `notes`, plus date notes |
 | `dataset_id` | The source packet | `authorYYYYabc` of the paper |
-| `reported_units` | Units as printed | `value.reported_units` |
+| `reported_units` | Units as printed, in plain ASCII (`g m-2`, `ug C g-1`, `degC`) | `value.reported_units`, through `ascii_unit` |
 | `observation_level` | `replicate`, `treatment_mean`, `aggregated_mean` | `is_raw_replicate_level`, else `reported_effect_scope` |
-| `attributes_json` | Overflow | the statistic as printed when `statname` differs, and the value's `converted_value`, `converted_units` and `conversion_formula` when code converted it |
+| `citation_id` | Citation key | `authorYYYYabc` |
+| `data_origin` | Where in the source | `publication_table` or `publication_text` |
+| `flags` | Provenance flags | `SOURCE_REPORTED` |
+| `attributes_json` | Overflow | the statistic as printed when `statname` differs; a CI's `ci_lower` and `ci_upper`; the `letters` and `letters_compare`; the units as printed when they differ; and the value's `converted_value`, `converted_units` and `conversion_formula` when code converted it |
+| `source_table` | The table the value came from | the table's label ("Table 3") |
 
-SAGE adds `reported_effect_scope`, `aggregated_over_factors` (protocol §16.1), `relative_timing`, `relative_timing_days` (§10.2), the printed time, depth, variable and value, `source` ("Table 3, p. 6"), `quote`, `sage_id`, `status`, `review` and `status_reason`.
+These are cal-val-data's 27 columns, in the order its `datapackage.json` declares them. SAGE adds `letters`, `reported_effect_scope`, `aggregated_over_factors` (protocol §16.1), `relative_timing`, `relative_timing_days` (§10.2), the printed time, depth, variable and value, `source` ("Table 3, p. 6"), `quote`, `sage_id`, `status`, `review` and `status_reason`.
 
 ### managements
 
@@ -77,7 +81,10 @@ SAGE leaves these to a person, because the paper alone doesn't decide them: `use
 
 From the protocol's open TODOs and the IR spec's "Remaining mentor decisions":
 
-- No controlled vocabulary for variable names yet. The two MAGiC workbooks disagree (`total_C_pct` and `total_carbon_pct`), so SAGE only asks for the `<quantity>_<units>` style.
+- No controlled vocabulary for variable names yet. The two MAGiC workbooks disagree (`total_C_pct` and `total_carbon_pct`), so SAGE only asks for the `<quantity>_<units>` style, with the organism in `crop` rather than the name. cal-val-data's newest rows use PEcAn `standard_vars` names with no units (`N2O_flux`); which style wins is open.
+- cal-val-data's `observation_level` enum doesn't list `aggregated_mean`, which SAGE writes for a mean over factors (protocol §7.3 names it).
+- BETYdb's own `statname` check allows `SD, SE, MSE, 95%CI, LSD, MSD, HSD`; the protocol and SAGE use `CI` and allow `P`.
+- Whether soil, flux and weather rows name the system's crop. The repo does both; SAGE names the crop only when the paper ties the value to one.
 - Whether `citation_id` or the DOI is the canonical citation key. SAGE writes both.
 - A design tab versus a README section (§7.1, §16.2). SAGE writes the design in the README.
 - How to encode repeated measures and plot hierarchy (§7.2, §18).

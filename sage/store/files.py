@@ -1,10 +1,11 @@
-"""All filesystem access. JSON files are rewritten atomically; JSONL files are append-only."""
+"""All filesystem access. JSON files are rewritten atomically; JSONL files are appended to, and rewritten atomically
+only to change a line already written."""
 
 import fcntl
 import os
 import tempfile
 import tomllib
-from collections.abc import Generator, Iterator
+from collections.abc import Generator, Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -77,6 +78,10 @@ def append_jsonl(path: Path, model: BaseModel) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as fh:
         fh.write(model.model_dump_json(exclude_none=True) + "\n")
+
+
+def rewrite_jsonl(path: Path, models: Sequence[BaseModel]) -> None:
+    write_text(path, "".join(m.model_dump_json(exclude_none=True) + "\n" for m in models))
 
 
 def read_jsonl[T](path: Path, adapter: TypeAdapter[T], *, offset: int = 0) -> tuple[list[T], int]:

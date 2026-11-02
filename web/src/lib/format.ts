@@ -54,20 +54,22 @@ export function startsOver(run: RunInfo): boolean {
   return !isResumable(run) && !run.counts?.records
 }
 
-export function carryOnLabel(run: RunInfo, withGuidance: string): string {
-  if (isResumable(run)) return "Resume…"
+/** What carrying a run on does: resume it, extract again, ask for guidance in Ask SAGE when it finished, else continue
+ * it as it was. */
+export function carryOnLabel(run: RunInfo): string {
+  if (isResumable(run)) return "Resume"
   if (startsOver(run)) return "Extract again…"
-  return run.status === "budget_exhausted" ? "Continue" : withGuidance
+  return run.status === "finished" ? "Continue with guidance…" : "Continue"
 }
 
 export const STATUS_LABEL: Record<Status, string> = {
-  verified: "Looks good",
+  verified: "SAGE checked",
   flagged: "Check this",
   unresolved: "Missing",
 }
 
+/** How a value was arrived at, when it wasn't quoted. */
 export const BASIS_LABEL: Record<string, string> = {
-  stated: "Quoted",
   derived: "Calculated",
   inferred: "Inferred",
 }
@@ -90,7 +92,22 @@ const BASIS_SHORT: Record<string, string> = {
   derived: "Calculated, not quoted",
 }
 
-const BASIS_BRIEF: Record<string, string> = { inferred: "guessed", derived: "calculated" }
+const BASIS_BRIEF: Record<string, string> = { inferred: "is a guess", derived: "is calculated" }
+
+const CAUSE_HELP: Record<string, string> = {
+  absent: "Type it in if the paper gives it, or leave it empty.",
+  ambiguous: "Check the quote, then fix the value or comment.",
+  conflict: "Pick the value the paper means.",
+  grounding_failure: "Check the value against the page.",
+  validation_failure: "Check the value against the page.",
+  schema_limitation: "Comment on what it should be.",
+  figure_only: "Read it off the figure, or leave it empty.",
+}
+
+const BASIS_HELP: Record<string, string> = {
+  inferred: "The paper doesn't say it outright. Check SAGE's guess.",
+  derived: "SAGE worked it out from other values. Check the arithmetic.",
+}
 
 /** Checker reasons start with the basis: "inferred: from the table layout". */
 function reasonBasis(reason: string | null): string {
@@ -105,9 +122,23 @@ export function problemBrief(field: string, cause: string | null, reason: string
   return verb ? `${name} ${verb}` : "Needs a look"
 }
 
-export function problemWords(cause: string | null, reason: string | null): string {
-  if (cause) return CAUSE_SHORT[cause] ?? "Needs a look"
-  return BASIS_SHORT[reasonBasis(reason)] ?? "Needs a look"
+export function reasonText(reason: string | null): string | null {
+  const text = (reason ?? "")
+    .replace(/^(inferred|derived)\s*:\s*/, "")
+    .replace(/\b(treatment_mean|aggregated_mean)\b/g, (code) => (SCOPE_TEXT[code] ?? code).toLowerCase())
+    .trim()
+  return text ? capital(text) : null
+}
+
+export function problemHelp(cause: string | null, reason: string | null): string | null {
+  if (cause) return CAUSE_HELP[cause] ?? null
+  return BASIS_HELP[reasonBasis(reason)] ?? null
+}
+
+/** What is wrong with a field, or null when there is nothing more to say than that it needs a look. */
+export function problemWords(cause: string | null, reason: string | null): string | null {
+  if (cause) return CAUSE_SHORT[cause] ?? null
+  return BASIS_SHORT[reasonBasis(reason)] ?? null
 }
 
 const RUN_STATUS_LABEL: Record<Exclude<RunInfo["status"], "budget_exhausted">, string> = {
@@ -122,28 +153,12 @@ export function runStatusLabel(run: RunInfo): string {
   return run.status === "budget_exhausted" ? limitTitle(run) : RUN_STATUS_LABEL[run.status]
 }
 
-export const REVIEW_LABEL: Record<"accept" | "edit" | "reject", string> = {
+export const REVIEW_LABEL: Record<"accept" | "edit" | "reject" | "comment", string> = {
   accept: "Accepted",
   edit: "Edited",
-  reject: "Not in the paper",
+  reject: "Rejected",
+  comment: "Commented",
 }
-
-export const TYPE_PLURAL: Record<string, string> = {
-  Citation: "Citation",
-  Study: "Studies",
-  Site: "Sites",
-  Species: "Species",
-  Crop: "Crops",
-  Treatment: "Treatments",
-  Variable: "Variables",
-  Method: "Methods",
-  Management: "Management",
-  TreatmentPair: "Comparisons",
-  Observation: "Observations",
-  Coverage: "Coverage",
-}
-
-export const TYPE_ORDER = Object.keys(TYPE_PLURAL)
 
 /** Only the first clause. The details drawer shows the whole error. */
 function shortError(error: string | null | undefined): string {
@@ -191,7 +206,7 @@ export function limitTitle(run: RunInfo): string {
 /** The alert for a run that ended short; its action is the one the details drawer offers. */
 export function endedAlert(run: RunInfo): EndedAlert | null {
   const found = run.counts?.records ? `${itemCount(run.counts.records)} so far` : "Nothing found yet"
-  const action = carryOnLabel(run, "Continue")
+  const action = carryOnLabel(run)
   switch (run.status) {
     case "failed":
       return { title: "Extraction failed", reason: shortError(run.error), action }
@@ -247,30 +262,6 @@ export function when(iso: string | null | undefined): string {
   return d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })
 }
 
-const CELL = /^p(\d+)\.t(\d+)(?:\.r(\d+)(?:\.c(\d+))?)?$/
-const BLOCK = /^p(\d+)\.b\d+$/
-
-export function anchorLabel(anchor: string, doc: Doc | undefined): string {
-  const cell = CELL.exec(anchor)
-  if (cell) {
-    const table = doc?.tables?.find((t) => t.anchor === `p${cell[1]}.t${cell[2]}`)
-    const name = table?.label ?? `Table on page ${cell[1]}`
-    if (cell[3] === undefined) return name
-    const row = Number(cell[3])
-    const header = table?.header_rows ?? 1
-    const col = cell[4] === undefined ? null : Number(cell[4])
-    const heads =
-      col === null ? [] : (table?.rows ?? []).slice(0, header).map((r) => (r[col]?.text ?? "").trim())
-    const head = heads.filter(Boolean).at(-1) ?? ""
-    const column = head ? `, ${head.length > 24 ? `${head.slice(0, 23)}…` : head}` : ""
-    if (row < header) return `${name}, header${column}`
-    return `${name}, row ${row - header + 1}${column}`
-  }
-  const block = BLOCK.exec(anchor)
-  if (block) return `Page ${block[1]}`
-  return anchor
-}
-
 type FieldLike = {
   value: unknown
   basis: string
@@ -285,7 +276,7 @@ export function isField(v: unknown): v is FieldLike {
 /** Papers write the degree sign with look-alikes (˚, º), which the unit parser reads as °. */
 const degrees = (text: string) => text.replace(/[\u00ba\u02da]/g, "°")
 
-export function showValue(value: unknown): string {
+function showValue(value: unknown): string {
   if (value === null || value === undefined) return "–"
   if (typeof value === "string") return value
   if (typeof value === "number" || typeof value === "boolean") return String(value)
@@ -306,10 +297,10 @@ export function showValue(value: unknown): string {
 export function fieldTitle(name: string): string {
   const special: Record<string, string> = {
     persistent_identifier: "DOI",
-    reported_effect_scope: "What the value is",
+    reported_effect_scope: "Kind of mean",
     aggregated_over_factors: "Averaged over",
     temporal_info: "When",
-    is_raw_replicate_level: "Single replicate",
+    is_raw_replicate_level: "Per-replicate value",
     statistical_encoding: "Statistic",
     variable_name: "Variable",
     study_id: "Study",

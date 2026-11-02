@@ -1,14 +1,16 @@
 import type { Doc, DocTable } from "@/lib/format"
 import { type Box, type Item, needsLook } from "@/lib/items"
+import { typeName } from "@/lib/workbook"
 
 /** One card in the Check margin: a single item, the items on one table, or every item the paper can't place. */
 export type Unit = {
   key: string
   kind: "item" | "table" | "unlocated"
+  /** The items the filter shows. */
   items: Item[]
+  /** Every item on the card, which a table's reading reads whatever the filter. */
+  all: Item[]
   table: DocTable | null
-  /** A table cluster's leading columns that name a row (a key, then the label), pinned while its values scroll. */
-  stub: number
   /** Where the card pins: the top of its own highlight, or of the table. Null for "Not located". */
   at: { page: number; y: number; x: number } | null
 }
@@ -18,20 +20,6 @@ const CLUSTER = 3
 const TABLE_OF = /^(p\d+\.t\d+)\.r\d+\.c\d+$/
 
 const tableOf = (anchor: string | null) => (anchor ? (TABLE_OF.exec(anchor)?.[1] ?? null) : null)
-
-/** At most a row key and a label stay pinned, so the values keep room. */
-const MAX_STUB = 2
-
-const COLUMN = /\.c(\d+)$/
-
-/** The columns left of the first one holding a value name the row. */
-function stubOf(items: Item[]): number {
-  const values = items.flatMap((i) => {
-    const m = COLUMN.exec(i.primary ?? "")
-    return m ? [Number(m[1])] : []
-  })
-  return Math.min(values.length ? Math.min(...values) : 1, MAX_STUB)
-}
 
 const spot = (b: Box) => ({ page: b.page, y: b.bbox[1] ?? 0, x: b.bbox[0] ?? 0 })
 
@@ -71,37 +59,52 @@ export function buildUnits(items: Item[], doc: Doc | undefined, boxes: Record<st
     if (!table || list.length < CLUSTER) continue
     for (const i of list) clustered.add(i.id)
     const [x0 = 0, y0 = 0] = table.region
+    const cells = cellOrder(table, list)
     units.push({
       key: anchor,
       kind: "table",
-      items: cellOrder(table, list),
+      items: cells,
+      all: cells,
       table,
-      stub: stubOf(list),
       at: { page: table.page, y: y0, x: x0 },
     })
   }
   for (const { item, box } of placed)
     if (!clustered.has(item.id))
-      units.push({ key: item.id, kind: "item", items: [item], table: null, stub: 0, at: spot(box) })
+      units.push({ key: item.id, kind: "item", items: [item], all: [item], table: null, at: spot(box) })
   units.sort(byPlace)
   return unlocated.length
-    ? [{ key: "unlocated", kind: "unlocated", items: unlocated, table: null, stub: 0, at: null }, ...units]
+    ? [
+        { key: "unlocated", kind: "unlocated", items: unlocated, all: unlocated, table: null, at: null },
+        ...units,
+      ]
     : units
 }
 
-/** The cards the filter shows. "To check" keeps a card with anything left to check, plus the open one; a table
- * stays whole, since its grid is the paper's table, and other clusters list only what is left. */
+/** The cards the filter shows. "To check" keeps a card with anything left to check, plus the open one, and lists
+ * only what is left on it; a table's reading still reads every cell. */
 export function visibleUnits(units: Unit[], filter: "check" | "all", keep: string | null): Unit[] {
   if (filter === "all") return units
   const shown = (i: Item) => needsLook(i) || i.id === keep
   return units.flatMap((u) => {
     if (!u.items.some(shown)) return []
-    return [u.kind === "table" ? u : { ...u, items: u.items.filter(shown) }]
+    return [{ ...u, items: u.items.filter(shown) }]
   })
 }
 
+const PLURAL: Record<string, string> = { Species: "species", Study: "studies", Coverage: "coverage rows" }
+
+/** "22 observations": the table's values, its most common kind of record. Others on it are listed in the card. */
+function counted(items: Item[]): string {
+  const count = new Map<string, number>()
+  for (const i of items) count.set(i.type, (count.get(i.type) ?? 0) + 1)
+  const [type, n] = [...count].toSorted((a, b) => b[1] - a[1])[0] ?? ["", 0]
+  const word = typeName(type).toLowerCase()
+  return `${n} ${n === 1 ? word : (PLURAL[type] ?? `${word}s`)}`
+}
+
 export function cardTitle(unit: Unit): string {
-  if (unit.kind === "table") return `${unit.table?.label ?? "Table"} · ${unit.items.length} values`
+  if (unit.kind === "table") return `${unit.table?.label ?? "Table"} · ${counted(unit.all)}`
   if (unit.kind === "unlocated") return "Not located"
   return unit.items[0]?.label ?? ""
 }
@@ -110,7 +113,7 @@ export type Direction = "up" | "down" | "left" | "right"
 
 export function gridMove(unit: Unit, from: string, dir: Direction): string | null {
   const rows = unit.table?.rows ?? []
-  const byAnchor = new Map(unit.items.flatMap((i) => (i.primary ? [[i.primary, i.id] as const] : [])))
+  const byAnchor = new Map(unit.all.flatMap((i) => (i.primary ? [[i.primary, i.id] as const] : [])))
   const cells: { r: number; c: number; id: string }[] = []
   for (const [r, row] of rows.entries())
     for (const [c, cell] of row.entries()) {

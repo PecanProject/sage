@@ -316,14 +316,16 @@ def _flags(compiled: Compiled, evaluation: gate.Evaluation, doc: Document) -> li
 
 
 def _reviews(home: Home, paper_id: str, draft: Draft) -> tuple[list[str], list[gate.Finding]]:
-    """A scientist's reviews of records the folder still holds as they were reviewed. A rejected record blocks until it
-    is changed or deleted; an edit is a warning carrying the scientist's value until the record changes."""
+    """A scientist's reviews of records the folder still holds as they were reviewed: each record's latest decision and
+    every comment. A rejected record blocks until it is changed or deleted; an edit is a warning carrying the
+    scientist's value until the record changes; a comment is a line to read."""
     found, _ = files.read_jsonl(home.reviews(paper_id), ReviewAdapter)
-    latest = latest_reviews(found)
+    shown = [*latest_reviews(found).values(), *(r for r in found if r.action == "comment")]
     reviewed: dict[str, Settled | None] = {}
     lines: list[str] = []
     findings: list[gate.Finding] = []
-    for rid, review in latest.items():
+    for review in shown:
+        rid = review.record_id
         if review.action == "accept" and review.note is None:
             continue
         record = draft.records.get(rid)
@@ -354,7 +356,7 @@ def _reviews(home: Home, paper_id: str, draft: Draft) -> tuple[list[str], list[g
 
 def _review_line(r: Review) -> str:
     what = f"{r.record_id}.{r.field}" if r.field is not None else r.record_id
-    said = {"reject": "rejected", "edit": "edited", "accept": "accepted"}[r.action]
+    said = {"reject": "rejected", "edit": "edited", "accept": "accepted", "comment": "commented on"}[r.action]
     value = f" to {r.value!r}" if r.action == "edit" and r.value is not None else ""
     note = f": {r.note}" if r.note is not None else ""
     return f"a scientist {said} {what}{value}{note}"

@@ -1,21 +1,25 @@
 import { CheckIcon } from "@phosphor-icons/react"
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react"
-import { Grid, ItemLine, Line, ReviewMark } from "@/components/paper/card-parts"
-import { ItemFields, ItemFooter, ItemPanel } from "@/components/paper/item-panel"
+import { ItemLine, Line } from "@/components/paper/card-parts"
+import { ItemExcerpt, ItemFields, ItemFooter, ItemPanel, ItemTitle } from "@/components/paper/item-panel"
+import { TableRows } from "@/components/paper/table-rows"
 import { StatusShape } from "@/components/status-mark"
 import { Button } from "@/components/ui/button"
+import { Fold } from "@/components/ui/fold"
 import { Segmented } from "@/components/ui/segmented"
 import { Skeleton, TextSkeleton } from "@/components/ui/skeleton"
 import { Tip } from "@/components/ui/tooltip"
-import type { Status } from "@/lib/format"
+import { type Status, several } from "@/lib/format"
 import { type Box, type Item, needsLook } from "@/lib/items"
 import type { KeyHint } from "@/lib/key-hint"
 import { GAP, layout } from "@/lib/margin"
 import { useSize } from "@/lib/media"
 import type { PageTops } from "@/lib/pages"
+import { type Reading, readTable } from "@/lib/reading"
 import type { Edits } from "@/lib/review"
 import { cardTitle, type Unit } from "@/lib/units"
 import { cn } from "@/lib/utils"
+import { placementOf, type Tab } from "@/lib/workbook"
 
 export const MARGIN_WIDTH = 380
 /** A collapsed card's height before it has been measured. */
@@ -27,9 +31,20 @@ export type ReviewActions = {
   busy: boolean
   accept: (item: Item) => void
   edit: (item: Item, edits: Edits) => void
-  reject: (item: Item, note: string) => void
+  /** Rejects with a reason. */
+  reject: (items: Item[], note: string) => void
+  /** A comment on the items, or on one field of them; it changes no decision. */
+  comment: (items: Item[], note: string, field: string | null) => void
+  /** Change or remove a comment, by its id, on every item it was left on. */
+  editComment: (id: string, note: string) => void
+  removeComment: (id: string) => void
+  /** The comment open for editing, and opening one on an item it was left on, or closing it. */
+  commentOpen: string | null
+  openComment: (item: Item, id: string) => void
+  closeComment: () => void
   acceptMany: (items: Item[]) => void
-  acceptLooksGood: () => void
+  /** Reasons to offer when rejecting, latest first. */
+  reasons: string[]
 }
 
 /** Everything the margin shows that doesn't come from the PDF's geometry. */
@@ -39,10 +54,14 @@ export type MarginProps = {
   filter: Filter
   active: Item | null
   boxes: Record<string, Box>
+  /** The workbook, whose row for an item is what its card shows. */
+  tabs: Tab[]
   actions: ReviewActions
   hint: KeyHint
   /** What to offer once nothing is left to check: the Export menu. */
   done: ReactNode
+  /** Ask SAGE, kept at the margin's foot. */
+  ask: ReactNode
   onFilter: (f: Filter) => void
   onActivate: (id: string) => void
   onSource: () => void
@@ -142,14 +161,14 @@ export function Margin({
         ))}
       </div>
       <span className="flex-1" />
-      {props.hint.show ? (
-        <p
-          className="sticky bottom-0 z-30 bg-paper-canvas py-2.5 text-caption text-muted-ink"
-          data-testid="key-hint"
-        >
-          j k move · a accept · e edit · r not in paper
-        </p>
-      ) : null}
+      <div className="sticky bottom-0 z-30 space-y-2 bg-paper-canvas pt-2 pb-3">
+        {props.ask}
+        {props.hint.show ? (
+          <p className="text-caption text-muted-ink" data-testid="key-hint">
+            j k move · a accept · e edit · r reject · m comment
+          </p>
+        ) : null}
+      </div>
     </aside>
   )
 }
@@ -206,6 +225,7 @@ function MarginHeader({ items, filter, actions, done, onFilter }: MarginProps) {
           data-reviewed={reviewed}
         >
           {reviewed} of {items.length} reviewed
+          {left ? ` · ${left} need you` : null}
         </p>
       </div>
       {left === 0 ? (
@@ -234,32 +254,52 @@ function MarginHeader({ items, filter, actions, done, onFilter }: MarginProps) {
   )
 }
 
-/** Accepts every "looks good" item with no review yet, in one call. Shown only while there is one. */
+/** Accepts every item SAGE checked that has no review yet, in one call. Shown only while there is one. */
 export function AcceptGood({ items, actions }: { items: Item[]; actions: ReviewActions }) {
-  const good = items.filter((i) => i.review === null && i.status === "verified").length
-  if (good === 0) return null
+  const good = items.filter((i) => i.review === null && i.status === "verified")
+  if (good.length === 0) return null
   return (
-    <Button
-      variant="text"
-      className="shrink-0 text-label"
-      disabled={actions.busy}
-      onClick={actions.acceptLooksGood}
-      data-testid="accept-looks-good"
-    >
-      Accept {good} good
-    </Button>
+    <Tip label={`Accept the ${several(good.length, "item")} SAGE matched to the paper`}>
+      <Button
+        variant="text"
+        className="shrink-0 text-label"
+        disabled={actions.busy}
+        onClick={() => actions.acceptMany(good)}
+        data-testid="accept-looks-good"
+      >
+        Accept {good.length} SAGE checked
+      </Button>
+    </Tip>
   )
 }
 
-function Review({ item, props }: { item: Item; props: MarginProps }) {
+/** An item's review in a card: its title, when the card has none above it, then its facts and buttons. */
+function Review({
+  item,
+  props,
+  title,
+  own,
+  excerpt,
+}: {
+  item: Item
+  props: MarginProps
+  title?: ReactNode
+  /** The columns to show up front; see `ItemPanel`. */
+  own?: string[]
+  excerpt?: boolean
+}) {
   return (
     <ItemPanel
       item={item}
+      placement={placementOf(item, props.tabs)}
+      own={own}
+      excerpt={excerpt}
       boxes={props.boxes}
       actions={props.actions}
       onShow={props.onSource}
       onKey={props.hint.used}
     >
+      {title}
       <div
         className="-mx-3 border-t border-line"
         style={{ "--panel-x": "12px" } as CSSProperties}
@@ -303,25 +343,41 @@ function Card({
   )
 }
 
-function UnitCard({ unit, hovered, ...props }: MarginProps & { unit: Unit; hovered: boolean }) {
-  const open = props.active && unit.items.includes(props.active) ? props.active : null
-  if (unit.kind === "item") {
-    const item = unit.items[0] as Item
-    if (!open)
-      return (
-        <Card unit={unit} hovered={hovered}>
-          <ItemLine item={item} onClick={() => props.onActivate(item.id)} />
-        </Card>
-      )
+type CardProps = MarginProps & { unit: Unit; hovered: boolean }
+
+function UnitCard(props: CardProps) {
+  return props.unit.kind === "item" ? <ItemCard {...props} /> : <ClusterCard {...props} />
+}
+
+function ItemCard({ unit, hovered, ...props }: CardProps) {
+  const item = unit.items[0] as Item
+  if (props.active?.id !== item.id)
     return (
-      <Card unit={unit} open>
-        <div className="-mx-2 -mt-1">
-          <ItemLine item={item} onClick={() => props.onActivate(item.id)} />
-        </div>
-        <Review item={item} props={props} />
+      <Card unit={unit} hovered={hovered}>
+        <ItemLine item={item} onClick={() => props.onActivate(item.id)} />
       </Card>
     )
-  }
+  return (
+    <Card unit={unit} open>
+      <Review
+        item={item}
+        props={props}
+        excerpt
+        title={
+          <>
+            <ItemTitle />
+            <ItemExcerpt />
+          </>
+        }
+      />
+    </Card>
+  )
+}
+
+/** A table's or the unplaced items' card. Open, a table shows how SAGE read it, then the cells left to check, each
+ * opening in place; Accept table takes the rest. */
+function ClusterCard({ unit, hovered, ...props }: CardProps) {
+  const open = props.active && unit.items.includes(props.active) ? props.active : null
   const head = <ClusterLine unit={unit} onOpen={props.onActivate} />
   if (!open)
     return (
@@ -329,7 +385,10 @@ function UnitCard({ unit, hovered, ...props }: MarginProps & { unit: Unit; hover
         {head}
       </Card>
     )
-  const unreviewed = unit.items.filter((i) => i.review === null)
+  const table = unit.kind === "table"
+  const unreviewed = unit.all.filter((i) => i.review === null)
+  const reading = table ? readTable(unit, props.tabs) : null
+  const cells = reading ? unit.all.filter((i) => mapped(reading).has(i.id)) : []
   return (
     <Card unit={unit} open>
       <div className="-mx-2 -mt-1 flex items-center gap-2">
@@ -342,44 +401,83 @@ function UnitCard({ unit, hovered, ...props }: MarginProps & { unit: Unit; hover
               className="h-7"
               disabled={props.actions.busy}
               onClick={() => props.actions.acceptMany(unreviewed)}
-              data-testid={unit.kind === "table" ? "accept-table" : "accept-cluster"}
+              data-testid={table ? "accept-table" : "accept-cluster"}
             >
-              {unit.kind === "table" ? "Accept table" : "Accept all"}
+              {table ? "Accept table" : "Accept all"}
             </Button>
           </Tip>
         ) : null}
       </div>
-      {unit.kind === "table" ? (
-        <>
-          <Grid unit={unit} active={open.id} onActivate={props.onActivate} />
-          <div className="space-y-2 pt-1">
-            <p className="flex items-center gap-2.5">
-              <ReviewMark item={open} />
-              <span className="min-w-0 flex-1 truncate text-value">{open.label}</span>
-            </p>
-            <Review item={open} props={props} />
-          </div>
-        </>
-      ) : (
-        <ul className="-mx-2">
-          {unit.items.map((item) => (
-            <li key={item.id}>
-              <ItemLine item={item} onClick={() => props.onActivate(item.id)} />
-              {item.id === open.id ? (
-                <div className="mx-2 space-y-2 pt-1 pb-2" data-testid="cluster-open">
-                  <Review item={item} props={props} />
-                </div>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
+      {reading && unit.table && cells.includes(open) ? (
+        <TableRows
+          table={unit.table}
+          reading={reading}
+          open={open}
+          quiet={props.filter === "check"}
+          cell={(item, own) => <Review item={item} props={props} own={own} />}
+          onActivate={props.onActivate}
+          onAccept={props.actions.acceptMany}
+        />
+      ) : null}
+      <ClusterList unit={unit} skip={mapped(reading)} open={open} props={props} />
     </Card>
   )
 }
 
+/** The items a table's rows show, which the list under them leaves out. */
+const mapped = (reading: Reading | null) =>
+  new Set(reading?.rows.flatMap((r) => r.cells.flatMap((c) => (c ? [c.item.id] : []))) ?? [])
+
+/** A cluster's items, one line each, the open one with its review under it. Under a table's map, these are the
+ * table's other records, like the variables its rows name. */
+function ClusterList({
+  unit,
+  skip,
+  open,
+  props,
+}: {
+  unit: Unit
+  skip: Set<string>
+  open: Item
+  props: MarginProps
+}) {
+  const items = unit.items.filter((i) => !skip.has(i.id))
+  if (items.length === 0) return null
+  const list = (
+    <ul className="-mx-2">
+      {items.map((item) => (
+        <li key={item.id}>
+          <ItemLine item={item} onClick={() => props.onActivate(item.id)} />
+          {item.id === open.id ? (
+            <div className="mx-2 space-y-2 pt-1 pb-2" data-testid="cluster-open">
+              <Review item={item} props={props} />
+            </div>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  )
+  if (skip.size === 0) return list
+  // Under a table, its other records wait behind a fold unless one needs a look or is open.
+  const quiet = !items.some((i) => needsLook(i) || i.id === open.id)
+  return (
+    <section className="space-y-1 border-t border-line pt-3">
+      {quiet ? (
+        <Fold label={`Also on this table (${items.length})`} className="pt-1.5">
+          {list}
+        </Fold>
+      ) : (
+        <>
+          <h4 className="text-caption text-muted-ink">Also on this table</h4>
+          {list}
+        </>
+      )}
+    </section>
+  )
+}
+
 function ClusterLine({ unit, onOpen }: { unit: Unit; onOpen: (id: string) => void }) {
-  const left = unit.items.filter(needsLook)
+  const left = unit.all.filter(needsLook)
   const status: Status = left.some((i) => i.status === "flagged")
     ? "flagged"
     : left.length

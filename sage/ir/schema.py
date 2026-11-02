@@ -268,6 +268,13 @@ class Observation(Model):
     depth: Field[DepthRange] | None = pd.Field(default=None, description="The soil depth sampled, when there is one.")
     replicate_id: Field[str] | None = None
     is_raw_replicate_level: Field[bool]
+    letters: Field[str] | None = pd.Field(
+        default=None,
+        description=(
+            'The mean-separation letter group printed with the value ("a", "ab"). Its evidence cites the cell and the '
+            "sentence that says what the letters compare."
+        ),
+    )
     notes: Field[str] | None = None
 
     @model_validator(mode="after")

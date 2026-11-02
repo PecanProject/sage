@@ -110,12 +110,17 @@ export type PaperSearch = {
   item?: string
   /** Check mode lists every item, not only those still to check. */
   filter?: "all"
-  /** Data mode's tab: the record type its table shows. */
-  type?: string
+  /** Data mode's tab: the workbook tab it shows ("observations"). */
+  tab?: string
+  /** Data mode shows every workbook column, not only the ones a reviewer reads first. */
+  cols?: "all"
   run?: string
   details?: 1
   extract?: 1
-  continue?: string
+  /** Puts the cursor in Ask SAGE, to continue the extraction with guidance. */
+  ask?: 1
+  /** The comment open for editing, on the open item. */
+  comment?: string
   stop?: 1
   /** The PDF's zoom, a multiple of Fit page. Undefined at Fit page. */
   zoom?: number
@@ -134,11 +139,13 @@ export const paperRoute = createRoute({
     mode: s.mode === "check" || s.mode === "data" || s.mode === "read" ? s.mode : undefined,
     item: text(s.item),
     filter: s.filter === "all" ? "all" : undefined,
-    type: text(s.type),
+    tab: text(s.tab),
+    cols: s.cols === "all" ? "all" : undefined,
     run: text(s.run),
     details: one(s.details),
     extract: one(s.extract),
-    continue: text(s.continue),
+    ask: one(s.ask),
+    comment: text(s.comment),
     stop: one(s.stop),
     zoom: zoomFrom(s.zoom),
   }),

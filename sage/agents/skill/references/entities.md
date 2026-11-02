@@ -74,6 +74,8 @@ How a variable was measured: instrument, sampling and protocol. Depth is not par
 
 One measured quantity, named and with its units as printed. One per quantity, not per value, depth or date: soil carbon at four depths is one Variable. Reuse it when the text restates a table's quantity in other words.
 
+Name the quantity, never whose it is. Cover crop biomass and weed biomass are both `biomass_g_m2`: the observations say whose with `crop` or `species`, and the treatment says the condition. Rye yield and vetch yield are one `grain_yield_Mg_ha`, with each crop on its own values. A group of organisms that no Species can stand for (weeds counted together, mixed vegetation) may keep the group in the name (`weed_biomass_g_m2`). Check warns when a variable names a crop, a species or "cover crop".
+
 | Attribute | Required | |
 |---|---|---|
 | `name` | yes | |
@@ -135,13 +137,13 @@ Observations are written as groups in `records/observations/`, never one by one.
 
 | Key | What it gives each value |
 |---|---|
-| `treatment`, `variable`, `site`, `method`, `crop`, `species`, `citation` | the record ids it refers to; treatment, site and variable are needed |
+| `treatment`, `variable`, `site`, `method`, `crop`, `species`, `citation` | the record ids it refers to; treatment, site and variable are needed. `crop` or `species` is the organism the value is about: the cover crop for cover crop biomass, the weeds for weed biomass, never the cash crop of the plot. |
 | `time` | when it was measured, as printed. Bare text (`time: "2019"`) is stated when the table's header, caption or notes hold it; otherwise use a field shape. |
 | `depth` | the soil layer sampled, for a soil value; bare text or a field shape, like `time` |
 | `n` | how many replicates the value summarises. A value with a ± or letters needs it. |
 | `units` | only when the header, the row label and the Variable all miss it |
 | `statistic` | `statistic: SE`, only when no header, caption or note names the ± (it is then inferred) |
-| `letters` | `letters: Tukey HSD at P<0.05`, only when no text says what the letters mean |
+| `letters` | `letters: Tukey HSD at P<0.05`, only when no text says what the letters mean. Code reads each cell's letter group itself. |
 | `notes` | anything a reviewer should know |
 | `replicate` | the plot or block a raw value comes from, as labelled |
 

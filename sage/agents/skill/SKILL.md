@@ -60,7 +60,7 @@ elevation: [null, note: no elevation in methods or site description]  # absent: 
 
 ## Context records
 
-One file per entity, each a map of `id: attributes`. Ids are letters, digits, `-` and `_`, unique across all files, and a curator must recognise them: the paper's own label (`N120`, `arlington`), and for variables the quantity with its units (`grain_yield_Mg_ha`). With one citation, `citation_id` can be left out everywhere.
+One file per entity, each a map of `id: attributes`. Ids are letters, digits, `-` and `_`, unique across all files, and a curator must recognise them: the paper's own label (`N120`, `arlington`), and for variables the quantity with its units (`grain_yield_Mg_ha`), never the crop it was measured on. With one citation, `citation_id` can be left out everywhere.
 
 ```yaml
 # records/treatments.yaml

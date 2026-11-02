@@ -138,7 +138,8 @@ BUILTIN_AGENTS: dict[str, AgentConfig] = {
         args=["-y", "@agentclientprotocol/codex-acp@2.2.2"],
         requires=["npx"],
         install="install Node 20+, then npm install -g @openai/codex",
-        login_check=["npx", "-y", "@openai/codex@latest", "login", "status"],
+        # Pinned, as the adapter is: with @latest, npx asks the registry on every check and fetches each new release.
+        login_check=["npx", "-y", "@openai/codex@0.166.0", "login", "status"],
         login="run `codex login`",
         mode="agent",
     ),

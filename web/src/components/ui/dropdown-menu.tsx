@@ -7,7 +7,8 @@ import { cn } from "@/lib/utils"
 const DropdownMenu = MenuPrimitive.Root
 const DropdownMenuTrigger = MenuPrimitive.Trigger
 
-const popup =
+/** The surface every floating menu and popover shares. */
+export const popup =
   "min-w-48 origin-(--transform-origin) rounded-card border border-line bg-surface p-1.5 text-ink shadow-float transition-[opacity,scale] duration-150 ease-out outline-none data-ending-style:opacity-0 data-starting-style:scale-98 data-starting-style:opacity-0"
 
 function DropdownMenuContent({ className, ...props }: MenuPrimitive.Popup.Props) {

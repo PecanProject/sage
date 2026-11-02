@@ -20,22 +20,23 @@ function touched(c: Change): QueryKey[] {
       return [
         ...paper,
         ["get", "/api/papers/{paper_id}/document", paperPath(c.paper_id)],
-        ...run("/records", "/queue", "/document"),
+        ...run("/records", "/queue", "/workbook", "/document"),
       ]
     case "files":
       // Only an open run compiles the files as they are; an ended one shows what it settled.
-      return runId ? [...paper, ...run("/records", "/queue")] : []
+      return runId ? [...paper, ...run("/records", "/queue", "/workbook")] : []
     case "reviews":
       return [
         ...paper,
         ["get", "/api/papers/{paper_id}/reviews", paperPath(c.paper_id)],
         ["get", "/api/runs/{run_id}/queue"],
+        ["get", "/api/runs/{run_id}/workbook"],
       ]
     case "run":
       return [
         ...paper,
         ["get", "/api/runs", { params: { query: { paper_id: c.paper_id } } }],
-        ...run("", "/records", "/queue", "/document"),
+        ...run("", "/records", "/queue", "/workbook", "/document"),
       ]
     case "log":
       return paper

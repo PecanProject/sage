@@ -250,6 +250,8 @@ class ContinueRun(BaseModel):
     using: str | None = None
     """An agent or a model; omit for the one the earlier run used."""
     effort: str | None = None
+    records: list[str] | None = None
+    """Records the scientist picked, for the agent to start with."""
 
 
 @app.post("/api/runs/{run_id}/resume", responses=_errors)
@@ -259,7 +261,7 @@ def resume_run(run_id: str, body: ResumeRun | None = None) -> core.RunInfo:
 
 @app.post("/api/runs/{run_id}/continue", responses=_errors)
 def continue_run(run_id: str, body: ContinueRun) -> core.RunInfo:
-    return core.continue_run(run_id, body.guidance, using=body.using, effort=body.effort)
+    return core.continue_run(run_id, body.guidance, using=body.using, effort=body.effort, records=body.records)
 
 
 app.get("/api/runs/{run_id}/events", responses=_errors)(core.events)
@@ -302,7 +304,11 @@ async def changes() -> AsyncIterable[list[core.Change] | ServerSentEvent]:
 
 app.get("/api/runs/{run_id}/records", responses=_errors)(core.records)
 app.get("/api/runs/{run_id}/queue", responses=_errors)(core.review_queue)
+app.get("/api/runs/{run_id}/workbook", responses=_errors)(core.workbook_view)
 app.post("/api/reviews", responses=_errors)(core.add_review)
+app.post("/api/reviews/batch", responses=_errors)(core.review_many)
+app.patch("/api/papers/{paper_id}/comments/{comment_id}", responses=_errors)(core.edit_comment)
+app.delete("/api/papers/{paper_id}/comments/{comment_id}", responses=_errors)(core.remove_comment)
 app.post("/api/runs/{run_id}/accept-looks-good", responses=_errors)(core.accept_looks_good)
 
 

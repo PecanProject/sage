@@ -180,7 +180,7 @@ function RunDetails({
       {onContinue && !live ? (
         <footer className="flex h-14 shrink-0 items-center justify-end border-t border-line px-inset">
           <Button variant="outline" size="compact" onClick={() => onContinue(run)} data-testid="resume-run">
-            {carryOnLabel(run, "Continue…")}
+            {carryOnLabel(run)}
           </Button>
         </footer>
       ) : null}

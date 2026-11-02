@@ -340,6 +340,10 @@ def extract_run(
     guidance: Annotated[
         str | None, typer.Option(help="What the agent should add or fix, with --continue or --resume.")
     ] = None,
+    records: Annotated[
+        str | None,
+        typer.Option(help="With --continue: the records to start with, comma-separated, as `sage queue` lists them."),
+    ] = None,
     follow: Annotated[
         bool, typer.Option(help="Stream the run's log until it ends. Ctrl-C stops watching only.")
     ] = True,
@@ -347,10 +351,12 @@ def extract_run(
 ) -> None:
     """Have SAGE extract papers. Runs go in the background, `parallel_runs` at a time, the rest queued. One is
     followed to its end; several print a line as each ends."""
+    if records is not None and continue_from is None:
+        raise core.SageError("invalid", "--records goes with --continue")
     if resume is not None:
         info = core.resume_run(resume, guidance=guidance)
     elif continue_from is not None:
-        info = core.continue_run(continue_from, guidance, using=using, effort=effort)
+        info = core.continue_run(continue_from, guidance, using=using, effort=effort, records=_ids(records))
     elif (paper_ids is None) == (not every):
         raise core.SageError("invalid", "give paper ids or --all, or --resume or --continue <run id>")
     else:
@@ -710,17 +716,24 @@ def queue(
 @app.command()
 def review(
     run_id: str,
-    record_id: Annotated[str | None, typer.Argument(help="The record. Omit it with --accept-looks-good.")] = None,
-    action: Annotated[core.ReviewAction | None, typer.Argument(help="accept, edit or reject.")] = None,
-    field: Annotated[str | None, typer.Option(help="The field an edit corrects.")] = None,
+    record_id: Annotated[
+        str | None,
+        typer.Argument(
+            help="The record, or several comma-separated to accept, reject or comment on them together. "
+            "Omit it with --accept-looks-good."
+        ),
+    ] = None,
+    action: Annotated[core.ReviewAction | None, typer.Argument(help="accept, edit, reject or comment.")] = None,
+    field: Annotated[str | None, typer.Option(help="The field an edit corrects, or a comment is about.")] = None,
     value: Annotated[str | None, typer.Option(help="The corrected value, as JSON or plain text.")] = None,
-    note: Annotated[str | None, typer.Option(help="Why.")] = None,
+    note: Annotated[str | None, typer.Option(help="Why; for a comment, its text.")] = None,
     accept_looks_good: Annotated[
         bool, typer.Option("--accept-looks-good", help="Accept every unreviewed record that looks good.")
     ] = False,
     as_json: JsonOpt = False,
 ) -> None:
-    """Record a review of one record, or accept every record that looks good, like Check mode on the Paper screen."""
+    """Record a decision on a record (accept, edit or reject) or a comment, or accept every record that looks good,
+    like Check and Data mode on the Paper screen. A comment never changes the decision."""
     if accept_looks_good:
         if record_id is not None or action is not None or field is not None or value is not None or note is not None:
             raise core.SageError("invalid", "--accept-looks-good takes only RUN; drop RECORD, ACTION and options")
@@ -728,13 +741,73 @@ def review(
         emit(accepted) if as_json else out.print(f"accepted {len(accepted)} that look good")
         return
     if record_id is None or action is None:
-        raise core.SageError("invalid", "give RECORD and ACTION (accept, edit or reject), or --accept-looks-good")
+        raise core.SageError(
+            "invalid", "give RECORD and ACTION (accept, edit, reject or comment), or --accept-looks-good"
+        )
+    picked = _ids(record_id) or []
+    if len(picked) > 1:
+        saved_many = core.review_many(
+            core.ReviewBatch(run_id=run_id, record_ids=picked, action=action, field=field, note=note)
+        )
+        emit(saved_many) if as_json else out.print(f"{action} {len(saved_many)} records")
+        return
     saved = core.add_review(
         core.Review(
             run_id=run_id, record_id=record_id, action=action, field=field, value=_json_or_text(value), note=note
         )
     )
     emit(saved) if as_json else out.print(f"{action} {record_id}")
+
+
+@app.command()
+def comment(
+    paper_id: str,
+    comment_id: Annotated[str, typer.Argument(help="The comment's id, as `sage queue RUN --json` lists it.")],
+    text: Annotated[str | None, typer.Argument(help="Its new text.")] = None,
+    remove: Annotated[bool, typer.Option("--remove", help="Take it off every record it is on.")] = False,
+    as_json: JsonOpt = False,
+) -> None:
+    """Change a comment's text, or remove it, on every record it was left on. `sage review ... comment` leaves one."""
+    if remove == (text is not None):
+        raise core.SageError("invalid", "give the comment's new TEXT, or --remove")
+    if text is None:
+        changed = core.remove_comment(paper_id, comment_id)
+        emit(changed) if as_json else out.print(f"removed the comment from {len(changed)} records")
+        return
+    changed = core.edit_comment(paper_id, comment_id, core.CommentEdit(note=text))
+    emit(changed) if as_json else out.print(f"changed the comment on {len(changed)} records")
+
+
+def _ids(text: str | None) -> list[str] | None:
+    """Ids written comma-separated."""
+    if text is None:
+        return None
+    return [i.strip() for i in text.split(",") if i.strip()]
+
+
+@app.command()
+def workbook(
+    run_id: str,
+    tab: Annotated[str, typer.Option(help="The tab to show, as the workbook names it.")] = "observations",
+    every_column: Annotated[
+        bool, typer.Option("--all-columns", help="Every column, not just the ones a reviewer reads first.")
+    ] = False,
+    as_json: JsonOpt = False,
+) -> None:
+    """A run's workbook as the Data screen shows it: the export's rows, rejected records included. `--json` gives
+    every tab, with the record each row shows and the field each column reads."""
+    tabs = core.workbook_view(run_id)
+    if emitted(tabs, as_json):
+        return
+    found = next((t for t in tabs if t.name == tab), None)
+    if found is None:
+        raise core.SageError("not_found", f"no tab '{tab}'; the tabs are {', '.join(t.name for t in tabs)}")
+    shown = found.columns if every_column or not found.review else found.review
+    at = [found.columns.index(c) for c in shown]
+    table = Table(*shown)
+    for row in found.rows:
+        table.add_row(*("" if row[i] is None else str(row[i]) for i in at))
+    out.print(table)
 
 
 def _json_or_text(value: str | None) -> JsonValue:

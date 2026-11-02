@@ -377,7 +377,8 @@ export interface paths {
         };
         /**
          * Agents
-         * @description Each configured agent and whether it can run: installed, and signed in where it says how to tell.
+         * @description Each configured agent and whether it can run: installed, and signed in where it says how to tell. The agents
+         *     are asked at once, since each sign-in check starts its own CLI.
          */
         get: operations["agents_api_agents_get"];
         put?: never;
@@ -673,6 +674,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/workbook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Workbook View
+         * @description The run's workbook as the Data screen shows it: the export's tabs and rows, with the record each row shows and
+         *     the field each column reads. Unlike the export, rejected records stay, so a scientist can change their mind.
+         */
+        get: operations["workbook_view_api_runs__run_id__workbook_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/reviews": {
         parameters: {
             query?: never;
@@ -688,6 +710,50 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/reviews/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Review Many
+         * @description The same review of each record, all checked before any is saved.
+         */
+        post: operations["review_many_api_reviews_batch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/papers/{paper_id}/comments/{comment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Comment
+         * @description Take a comment off every record it was left on.
+         */
+        delete: operations["remove_comment_api_papers__paper_id__comments__comment_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit Comment
+         * @description Change a comment's text on every record it was left on.
+         */
+        patch: operations["edit_comment_api_papers__paper_id__comments__comment_id__patch"];
         trace?: never;
     };
     "/api/runs/{run_id}/accept-looks-good": {
@@ -1081,6 +1147,11 @@ export interface components {
             title: components["schemas"]["Field_str_"];
             persistent_identifier: components["schemas"]["Field_str_"];
         };
+        /** CommentEdit */
+        CommentEdit: {
+            /** Note */
+            note: string;
+        };
         /** ContinueRun */
         ContinueRun: {
             /** Guidance */
@@ -1089,6 +1160,8 @@ export interface components {
             using?: string | null;
             /** Effort */
             effort?: string | null;
+            /** Records */
+            records?: string[] | null;
         };
         /** Counts */
         Counts: {
@@ -1757,6 +1830,8 @@ export interface components {
             depth?: components["schemas"]["Field_DepthRange_"] | null;
             replicate_id?: components["schemas"]["Field_str_"] | null;
             is_raw_replicate_level: components["schemas"]["Field_bool_"];
+            /** @description The mean-separation letter group printed with the value ("a", "ab"). Its evidence cites the cell and the sentence that says what the letters compare. */
+            letters?: components["schemas"]["Field_str_"] | null;
             notes?: components["schemas"]["Field_str_"] | null;
         };
         /** Overwrite */
@@ -1875,6 +1950,11 @@ export interface components {
             /** Reason */
             reason?: string | null;
             review?: components["schemas"]["Review"] | null;
+            /**
+             * Comments
+             * @default []
+             */
+            comments: components["schemas"]["Review"][];
         };
         /** RecordSettled */
         RecordSettled: {
@@ -1922,6 +2002,8 @@ export interface components {
         };
         /** Review */
         Review: {
+            /** Id */
+            id?: string;
             /**
              * Ts
              * Format: date-time
@@ -1937,8 +2019,27 @@ export interface components {
              * Action
              * @enum {string}
              */
-            action: "accept" | "edit" | "reject";
+            action: "accept" | "edit" | "reject" | "comment";
             value?: components["schemas"]["JsonValue"];
+            /** Note */
+            note?: string | null;
+        };
+        /**
+         * ReviewBatch
+         * @description One decision or comment on several records at once: Accept, Reject or Comment on a selection.
+         */
+        ReviewBatch: {
+            /** Run Id */
+            run_id: string;
+            /** Record Ids */
+            record_ids: string[];
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "accept" | "edit" | "reject" | "comment";
+            /** Field */
+            field?: string | null;
             /** Note */
             note?: string | null;
         };
@@ -2338,6 +2439,35 @@ export interface components {
             /** @description When the experiment ran, as printed, e.g. "2003-2011" or "1993 to 2012". */
             period?: components["schemas"]["Field_DateRange_"] | null;
         };
+        /**
+         * Tab
+         * @description One sheet of the workbook. `fields` names, per column, the record field the column reads, so a screen can show
+         *     that field's status and evidence; `review` is the columns a reviewer reads first, in reading order; `ids` is the
+         *     record each row shows (a Management applied to several treatments is a row per treatment, one record).
+         */
+        Tab: {
+            /** Name */
+            name: string;
+            /** Columns */
+            columns: string[];
+            /** Rows */
+            rows: components["schemas"]["Value"][][];
+            /**
+             * Fields
+             * @default []
+             */
+            fields: (string | null)[];
+            /**
+             * Review
+             * @default []
+             */
+            review: string[];
+            /**
+             * Ids
+             * @default []
+             */
+            ids: (string | null)[];
+        };
         /** Table */
         Table: {
             /** Anchor */
@@ -2545,6 +2675,7 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        Value: string | number | null;
         /** Variable */
         Variable: {
             /**
@@ -5592,6 +5723,82 @@ export interface operations {
             };
         };
     };
+    workbook_view_api_runs__run_id__workbook_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Tab"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     add_review_api_reviews_post: {
         parameters: {
             query?: never;
@@ -5612,6 +5819,242 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Review"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    review_many_api_reviews_batch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewBatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    remove_comment_api_papers__paper_id__comments__comment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paper_id: string;
+                comment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Precondition Failed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    edit_comment_api_papers__paper_id__comments__comment_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paper_id: string;
+                comment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review"][];
                 };
             };
             /** @description Bad Request */

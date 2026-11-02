@@ -1,7 +1,7 @@
 import { WarningIcon, XIcon } from "@phosphor-icons/react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { type ReactNode, useState } from "react"
+import type { ReactNode } from "react"
 import type { Schemas } from "@/api/client"
 import { AgentEffortSelect, ModelEffortSelect } from "@/components/effort-select"
 import { ExtractWithSelect } from "@/components/extract-with"
@@ -14,13 +14,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Fold } from "@/components/ui/fold"
-import { Textarea } from "@/components/ui/input"
-import { agentConfigs, agentOffer, offeredEfforts, runUsing, useSettingsValues } from "@/lib/agents"
-import { type Blocker, useBlocker } from "@/lib/blockers"
-import { endedAlert, isResumable, type RunInfo } from "@/lib/format"
+import { agentConfigs, agentOffer, offeredEfforts, useSettingsValues } from "@/lib/agents"
+import type { Blocker } from "@/lib/blockers"
+import { endedAlert, type RunInfo } from "@/lib/format"
 import { useModels } from "@/lib/models"
-import { useContinueRun, useResumeRun, useStartRuns, useStopRuns } from "@/lib/paper-state"
+import { useStartRuns, useStopRuns } from "@/lib/paper-state"
 import { limitLine, type RunChoice, useRunChoice } from "@/lib/run-choice"
 
 /** What the Manage page has to fix before the run can start: an agent that isn't ready, a missing key, or a model
@@ -38,9 +36,9 @@ function SetupNeeded({ blocker }: { blocker: Blocker }) {
   )
 }
 
-/** The picker and, under More options, the effort, when what it picked has levels to choose from. An agent's are
+/** The picker and, on its own line, the effort, when what it picked has levels to choose from. An agent's are
  * asked when the list opens, so until then the fold shows, since only the agent knows whether its model has any. */
-function ChoiceFields({ choice: c, testid }: { choice: RunChoice; testid: string }) {
+export function ChoiceFields({ choice: c, testid }: { choice: RunChoice; testid: string }) {
   const id = `${testid}-effort`
   const configs = agentConfigs(useSettingsValues())
   const chosen = c.chosen
@@ -56,7 +54,7 @@ function ChoiceFields({ choice: c, testid }: { choice: RunChoice; testid: string
       <ExtractWithSelect value={c.using} onChange={c.pick} testid={testid} />
       <SetupNeeded blocker={c.blocker} />
       {none ? null : (
-        <Fold label="More options" className="grid grid-cols-[1fr_200px] items-center gap-3">
+        <div className="grid grid-cols-[1fr_200px] items-center gap-3">
           <label htmlFor={id} className="text-label">
             Thinking effort
           </label>
@@ -73,7 +71,7 @@ function ChoiceFields({ choice: c, testid }: { choice: RunChoice; testid: string
               testid={id}
             />
           )}
-        </Fold>
+        </div>
       )}
     </>
   )
@@ -236,128 +234,6 @@ function StartForm({ paperId }: { paperId: string }) {
       </div>
       <SetupNeeded blocker={c.blocker} />
     </div>
-  )
-}
-
-export function ContinueDialog({ run, onClose }: { run: RunInfo | null; onClose: () => void }) {
-  return (
-    <Dialog open={run !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[480px]" data-testid="continue-dialog">
-        {run === null ? null : isResumable(run) ? (
-          <ResumeForm key={run.id} run={run} onClose={onClose} />
-        ) : (
-          <ContinueForm key={run.id} run={run} onClose={onClose} />
-        )}
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function GuidanceField({
-  text,
-  onText,
-  placeholder,
-  onSubmit,
-}: {
-  text: string
-  onText: (t: string) => void
-  placeholder: string
-  onSubmit: () => void
-}) {
-  return (
-    <div className="space-y-2">
-      <label htmlFor="continue-guidance" className="text-label">
-        What should it add or fix?
-      </label>
-      <Textarea
-        id="continue-guidance"
-        value={text}
-        onChange={(e) => onText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onSubmit()
-        }}
-        placeholder={placeholder}
-        data-testid="continue-guidance"
-      />
-    </div>
-  )
-}
-
-function ResumeForm({ run, onClose }: { run: RunInfo; onClose: () => void }) {
-  const [text, setText] = useState("")
-  const resume = useResumeRun(onClose)
-  const blocker = useBlocker(run.extraction_model ?? null)
-  const submit = () => {
-    if (resume.isPending || blocker.blocked) return
-    resume.mutate({ params: { path: { run_id: run.id } }, body: { guidance: text.trim() || null } })
-  }
-  return (
-    <>
-      <DialogHeader>
-        <DialogTitle>Resume extraction</DialogTitle>
-      </DialogHeader>
-      <DialogBody className="space-y-4">
-        <p className="text-caption text-muted-ink">It picks up from what it had found.</p>
-        <GuidanceField text={text} onText={setText} placeholder="Optional" onSubmit={submit} />
-        <SetupNeeded blocker={blocker} />
-      </DialogBody>
-      <DialogFooter>
-        <Button
-          disabled={resume.isPending || blocker.blocked}
-          pending={resume.isPending}
-          onClick={submit}
-          data-testid="continue-start"
-        >
-          Resume
-        </Button>
-      </DialogFooter>
-    </>
-  )
-}
-
-/** A new run on the folder as this one left it, with its own budget. It defaults to this run's own agent or model;
- * a terminal's run, which SAGE can't start, defaults to what Extract uses. The scientist's reviews reach it through
- * check. */
-function ContinueForm({ run, onClose }: { run: RunInfo; onClose: () => void }) {
-  const c = useRunChoice(runUsing(run), run.effort)
-  const [text, setText] = useState("")
-  const proceed = useContinueRun(onClose)
-  const guidance = text.trim()
-  const needsGuidance = run.status === "finished"
-  const ready = !proceed.isPending && !c.blocker.blocked && (guidance !== "" || !needsGuidance)
-  const submit = () => {
-    if (!ready) return
-    proceed.mutate({
-      params: { path: { run_id: run.id } },
-      body: { guidance: guidance || null, using: c.using, effort: c.effortAsked },
-    })
-  }
-  return (
-    <>
-      <DialogHeader>
-        <DialogTitle>Continue extraction</DialogTitle>
-      </DialogHeader>
-      <DialogBody className="space-y-4">
-        <p className="text-caption text-muted-ink">
-          A new extraction starts from this one's data. This one stays as it is.
-        </p>
-        <GuidanceField
-          text={text}
-          onText={setText}
-          placeholder={needsGuidance ? "Table 3 also gives soil nitrogen at two depths" : "Optional"}
-          onSubmit={submit}
-        />
-        <ChoiceFields choice={c} testid="continue-model" />
-      </DialogBody>
-      <DialogFooter className="justify-between">
-        <span className="text-caption text-muted-ink" data-testid="continue-limit">
-          {limitLine(c)}
-        </span>
-        <Button disabled={!ready} pending={proceed.isPending} onClick={submit} data-testid="continue-start">
-          Continue
-        </Button>
-      </DialogFooter>
-    </>
   )
 }
 

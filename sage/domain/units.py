@@ -107,6 +107,15 @@ def normalize_unit(text: str) -> str:
     return " ".join(tokens)
 
 
+_ASCII = str.maketrans({"μ": "u", "µ": "u", "°": "deg"})
+
+
+def ascii_unit(text: str) -> str:
+    """A unit as the curation workbook writes it, in plain ASCII with one spelling: "g m - 2" is "g m-2", "μg C g⁻¹"
+    is "ug C g-1" and "°C" is "degC", so a consumer can match the string exactly."""
+    return normalize_unit(text).translate(_ASCII)
+
+
 def find_unit(text: str, unit: str) -> str | None:
     """The words in `text` that print `unit`, however they spell it ("kg ha2 1" for "kg ha-1"), so evidence can quote
     them; None when the text doesn't state it."""

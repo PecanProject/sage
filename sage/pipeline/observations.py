@@ -357,7 +357,7 @@ def _text_value(
     return obs if obs is None or value.evidence else _uncited(obs)
 
 
-UNCITED = ("variable_name", "statistical_encoding", "is_raw_replicate_level", "notes")
+UNCITED = ("variable_name", "statistical_encoding", "is_raw_replicate_level", "letters", "notes")
 """The fields code reads off a value's text. When the value cites no anchor, none of them has one either."""
 
 
@@ -442,7 +442,8 @@ def _observation(
             depth=_depth(reader, v, sources, oid),
             replicate_id=replicate,
             is_raw_replicate_level=_replicate_level(group, parsed, here, replicate),
-            notes=_valid(Field[str], _claim(reader, v, "notes", str, oid)) or _letters(v, parsed, here, sources),
+            letters=_letters(v, parsed, here, sources, value.value.reported_units if value.value else ""),
+            notes=_valid(Field[str], _claim(reader, v, "notes", str, oid)),
         )
     except ValueError as e:
         reader.issue_at(at, f"{oid}: {e}")
@@ -517,22 +518,24 @@ def _statistic(
     )
 
 
-def _letters(v: _Value, parsed: CellValue, here: Evidence, sources: list[Evidence]) -> Field[str] | None:
-    if parsed.letters is None:
+def _letters(v: _Value, parsed: CellValue, here: Evidence, sources: list[Evidence], units: str) -> Field[str] | None:
+    """The cell's letter group, with the sentence that says what the letters compare as its evidence; else what the
+    group's `letters` says they mean, as an inferred note; else the cell alone. A unit that reads like a letter group
+    ("63.4 g") is the unit."""
+    if parsed.letters is None or parsed.letters.lower() == units.strip().lower():
         return None
-    group = f"letter group '{parsed.letters}'"
     meaning = letters_meaning(sources)
     if meaning is not None:
-        return Field[str](value=f"{group}: {meaning.quote}", basis="derived", evidence=[here, meaning])
+        return Field[str](value=parsed.letters, basis="derived", evidence=[here, meaning])
     node = v.nodes.get("letters")
     if isinstance(node, ScalarNode) and node.value.strip():
         return Field[str](
-            value=f"{group} ({node.value.strip()})",
+            value=parsed.letters,
             basis="inferred",
             evidence=[here],
-            note="what the letters mean is from the observations file; no caption, header or cited note states it",
+            note=f"{node.value.strip()}: from the observations file; no caption, header or cited note says it",
         )
-    return Field[str](value=group, basis="derived", evidence=[here])
+    return Field[str](value=parsed.letters, basis="derived", evidence=[here])
 
 
 def _scope(group: _Group, sources: list[Evidence]) -> tuple[Field[EffectScope], Field[list[str]]]:

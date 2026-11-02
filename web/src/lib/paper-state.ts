@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { toast } from "sonner"
 import { $api, errorMessage, type Schemas } from "@/api/client"
-import { isLive, type LiveStep, liveStep, type RunInfo } from "@/lib/format"
+import { isLive, isResumable, type LiveStep, liveStep, type RunInfo, startsOver } from "@/lib/format"
 
 export type Summary = Schemas["PaperSummary"]
 
@@ -60,7 +60,7 @@ export function useStartRuns(onStarted?: (runs: RunInfo[]) => void) {
   return $api.useMutation("post", "/api/runs", useRunHandlers(onStarted))
 }
 
-export function useResumeRun(onStarted?: (run: RunInfo) => void) {
+function useResumeRun(onStarted?: (run: RunInfo) => void) {
   return $api.useMutation("post", "/api/runs/{run_id}/resume", useRunHandlers(onStarted))
 }
 
@@ -68,12 +68,18 @@ export function useContinueRun(onStarted?: (run: RunInfo) => void) {
   return $api.useMutation("post", "/api/runs/{run_id}/continue", useRunHandlers(onStarted))
 }
 
-export function useCarryOn(openDialog: (run: RunInfo) => void) {
+/** Carries a run on in one click, as `carryOnLabel` names it: a resume or a continue with what the run used. A run
+ * with nothing to build on starts over through `startOver`, and a finished one takes guidance through `guide`. */
+export function useCarryOn(on: { startOver: (run: RunInfo) => void; guide: (run: RunInfo) => void }) {
+  const resume = useResumeRun()
   const proceed = useContinueRun()
-  return (run: RunInfo) =>
-    run.status === "budget_exhausted" && run.counts?.records
-      ? proceed.mutate({ params: { path: { run_id: run.id } }, body: {} })
-      : openDialog(run)
+  return (run: RunInfo) => {
+    const request = { params: { path: { run_id: run.id } }, body: {} }
+    if (startsOver(run)) on.startOver(run)
+    else if (isResumable(run)) resume.mutate(request)
+    else if (run.status === "finished") on.guide(run)
+    else proceed.mutate(request)
+  }
 }
 
 /** Answers what the agent extracting a paper is waiting on. */

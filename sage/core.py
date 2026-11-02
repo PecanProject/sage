@@ -5,6 +5,7 @@ import errno
 import os
 import socket
 from collections.abc import AsyncIterator, Generator, Iterable, Mapping
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager, suppress
 from datetime import UTC, datetime
 from functools import cache
@@ -38,7 +39,7 @@ from sage.ir.settled import Settled
 from sage.parse import pdf
 from sage.parse.document import Document
 from sage.pipeline import agent_run, extraction, paper_files, run_state, runner
-from sage.pipeline.export import csv_zip, workbook, xlsx
+from sage.pipeline.export import Tab, csv_zip, workbook, xlsx
 from sage.pipeline.extraction import CheckReport, DoneReport
 from sage.pipeline.quotes import cites, quote_lines
 from sage.pipeline.review import QueueItem, labels, queue, standing
@@ -62,7 +63,7 @@ from sage.store import files, proc, skills, watch
 from sage.store.models import (
     PaperInfo,
     Review,
-    ReviewAction,  # noqa: F401 - cli.py types the review action with it
+    ReviewAction,
     ReviewAdapter,
     RunInfo,
     UiInfo,
@@ -993,12 +994,17 @@ def continue_run(
     *,
     using: str | None = None,
     effort: str | None = None,
+    records: list[str] | None = None,
 ) -> RunInfo:
     """Start a new run on the paper's folder as an ended run left it, with the scientist's guidance on what to add or
     fix. The earlier run stays as it was. The new run has its own budget, and its model and effort default to the
-    earlier run's. The scientist's reviews reach the agent through check."""
+    earlier run's. `records` are the records the scientist picked; the guidance names them, so the agent starts there,
+    though fixing them may change records they depend on. The scientist's reviews and comments reach the agent through
+    check."""
     s = settings()
     parent = run(run_id)
+    if records is not None and len(records) > 0:
+        guidance = "\n\n".join(t for t in (_guidance_text(guidance), _picked(parent, records)) if t is not None)
     if using is None and parent.driver == "agent" and parent.agent is not None:
         using = parent.agent + (f":{parent.agent_model}" if parent.agent_model is not None else "")
     elif using is None and parent.driver == "sage":
@@ -1041,6 +1047,17 @@ def _new_id() -> str:
 def _guidance_text(guidance: str | None) -> str | None:
     text = (guidance or "").strip()
     return text or None
+
+
+def _picked(info: RunInfo, record_ids: list[str]) -> str:
+    """The records a scientist picked, by id and as the review screen labels them, for the guidance."""
+    settled = _settled(info)
+    unknown = [rid for rid in record_ids if settled.record(rid) is None]
+    if unknown:
+        raise SageError("not_found", f"run {info.id} has no record {', '.join(unknown)}")
+    names = labels(settled)
+    lines = "\n".join(f"- {rid}: {names[rid]}" for rid in dict.fromkeys(record_ids))
+    return f"Start with these records, which the scientist picked:\n{lines}"
 
 
 def _queue(info: RunInfo) -> RunInfo:
@@ -1295,10 +1312,13 @@ class AgentOffer(BaseModel):
 
 
 def agents() -> list[AgentStatus]:
-    """Each configured agent and whether it can run: installed, and signed in where it says how to tell."""
+    """Each configured agent and whether it can run: installed, and signed in where it says how to tell. The agents
+    are asked at once, since each sign-in check starts its own CLI."""
     s = settings()
     live = [r.agent for r in runs() if r.driver == "agent" and run_state.live(r)]
-    return [_agent_state(a, c).model_copy(update={"running": live.count(a)}) for a, c in s.agents.items()]
+    with ThreadPoolExecutor(max_workers=max(len(s.agents), 1)) as pool:
+        states = list(pool.map(_agent_state, s.agents.keys(), s.agents.values()))
+    return [st.model_copy(update={"running": live.count(st.id)}) for st in states]
 
 
 def agent_offer(agent_id: str, model: str | None = None) -> AgentOffer:
@@ -1433,16 +1453,91 @@ def review_queue(run_id: str) -> list[QueueItem]:
 
 
 def add_review(review: Review) -> Review:
-    info = run(review.run_id)
-    rec = _settled(info).record(review.record_id)
-    if rec is None:
-        raise SageError("not_found", f"run {review.run_id} has no record {review.record_id}")
-    if review.field is not None and review.field not in type(rec.record).model_fields:
-        raise SageError("invalid", f"{rec.record.type} has no field '{review.field}'")
-    if review.action == "edit" and (review.field is None or review.value is None):
-        raise SageError("invalid", "an edit names the field and gives the corrected value")
-    files.append_jsonl(home().reviews(info.paper_id), review)
-    return review
+    return add_reviews([review])[0]
+
+
+class ReviewBatch(BaseModel):
+    """One decision or comment on several records at once: Accept, Reject or Comment on a selection."""
+
+    run_id: str
+    record_ids: list[str]
+    action: ReviewAction
+    field: str | None = None
+    """The field a comment is about, when it is about one. A batch never edits."""
+    note: str | None = None
+
+
+def review_many(batch: ReviewBatch) -> list[Review]:
+    """The same review of each record, all checked before any is saved."""
+    if batch.action == "edit":
+        raise SageError("invalid", "edit one record at a time: an edit gives that record's corrected value")
+    if not batch.record_ids:
+        raise SageError("invalid", "name at least one record")
+    one = Review(
+        run_id=batch.run_id, record_id=batch.record_ids[0], action=batch.action, field=batch.field, note=batch.note
+    )
+    return add_reviews([one.model_copy(update={"record_id": rid}) for rid in batch.record_ids])
+
+
+def add_reviews(reviews: list[Review]) -> list[Review]:
+    """Check every review, then append them all, so a batch with one bad record saves none."""
+    settled: dict[str, Settled] = {}
+    for review in reviews:
+        if review.run_id not in settled:
+            settled[review.run_id] = _settled(run(review.run_id))
+        rec = settled[review.run_id].record(review.record_id)
+        if rec is None:
+            raise SageError("not_found", f"run {review.run_id} has no record {review.record_id}")
+        if review.field is not None and review.field not in type(rec.record).model_fields:
+            raise SageError("invalid", f"{rec.record.type} has no field '{review.field}'")
+        if review.action == "edit" and (review.field is None or review.value is None):
+            raise SageError("invalid", "an edit names the field and gives the corrected value")
+        if review.action == "comment" and not (review.note or "").strip():
+            raise SageError("invalid", "a comment needs its text, in note")
+    for review in reviews:
+        files.append_jsonl(home().reviews(run(review.run_id).paper_id), review)
+    return reviews
+
+
+class CommentEdit(BaseModel):
+    note: str
+
+
+def edit_comment(paper_id: str, comment_id: str, edit: CommentEdit) -> list[Review]:
+    """Change a comment's text on every record it was left on."""
+    note = edit.note.strip()
+    if not note:
+        raise SageError("invalid", "a comment needs its text, in note")
+    return _rewrite_comment(paper_id, comment_id, note)
+
+
+def remove_comment(paper_id: str, comment_id: str) -> list[Review]:
+    """Take a comment off every record it was left on."""
+    return _rewrite_comment(paper_id, comment_id, None)
+
+
+def _rewrite_comment(paper_id: str, comment_id: str, note: str | None) -> list[Review]:
+    """The comment's lines with `note` as their text, or dropped when it is None. Returns them as they were saved or
+    removed."""
+    found = reviews(paper_id)
+    ours = [r for r in found if r.id == comment_id and r.action == "comment"]
+    if not ours:
+        raise SageError("not_found", f"paper {paper_id} has no comment {comment_id}")
+    kept = [r for r in found if r not in ours]
+    if note is None:
+        files.rewrite_jsonl(home().reviews(paper_id), kept)
+        return ours
+    changed = [r.model_copy(update={"note": note}) for r in ours]
+    files.rewrite_jsonl(home().reviews(paper_id), [*kept, *changed])
+    return changed
+
+
+def workbook_view(run_id: str) -> list[Tab]:
+    """The run's workbook as the Data screen shows it: the export's tabs and rows, with the record each row shows and
+    the field each column reads. Unlike the export, rejected records stay, so a scientist can change their mind."""
+    info = run(run_id)
+    settled = _settled(info)
+    return workbook(settled, run_doc(run_id), _standing(info, settled), info, keep_rejected=True)
 
 
 def accept_looks_good(run_id: str) -> list[Review]:

@@ -13,6 +13,7 @@ from sage.ir.draft import Draft, Overwrite
 from sage.ir.schema import (
     FIELD_REFERENCES,
     REFERENCE_FIELDS,
+    Crop,
     Entity,
     Field,
     Method,
@@ -45,6 +46,7 @@ def check_dataset(draft: Draft, uncompiled: Collection[str] = ()) -> list[Issue]
     issues += _two_values(records)
     issues += _same_value_other_variable(records, {o for d in draft.tables.values() for o in d.observation_ids})
     issues += _duplicate_names(records)
+    issues += _organism_in_variable(records)
     issues += _site_against_treatment(records)
     issues += _pooled_sites(records)
     issues += _scope_against_treatment(records)
@@ -358,6 +360,44 @@ def _names(text: str, level: str) -> bool:
     """Whether `text` names a factor level, by its leading words ("Arlington" for "Arlington, WI")."""
     head = norm(level).split(",")[0].strip()
     return bool(head) and re.search(rf"(?<!\w){re.escape(head)}(?!\w)", text, re.IGNORECASE) is not None
+
+
+_GENERIC = frozenset(
+    {"crop", "crops", "cover", "mix", "mixture", "plant", "plants", "legume", "cereal", "grass", "weed"}
+)
+"""Words a common name may end in that name no one organism."""
+
+
+def _organism_in_variable(records: dict[str, Entity]) -> list[Issue]:
+    """A Variable named after whose value it is ("rye biomass", "cover_crop_biomass_Mg_ha"). The workbook keys each
+    value by a generic quantity: the organism goes on the observation's crop or species, and the condition on its
+    treatment, so one Variable serves every crop. Checked against the organisms the records name, and "cover crop"."""
+    names = {"cover crop"}
+    for r in records.values():
+        common = r.common_name.value if isinstance(r, Species | Crop) and r.common_name is not None else None
+        if common is not None and common.strip():
+            names.add(common.strip().lower())
+            head = common.split()[-1].lower()
+            if len(head) >= 3 and head not in _GENERIC:
+                names.add(head)
+    issues: list[Issue] = []
+    for rid, r in records.items():
+        if not isinstance(r, Variable):
+            continue
+        text = f"{re.sub(r'[_-]+', ' ', rid)} {r.name.value or ''}"
+        found = next(
+            (n for n in sorted(names) if re.search(rf"(?<!\w){re.escape(n)}(?!\w)", text, re.IGNORECASE)), None
+        )
+        if found is not None:
+            issues.append(
+                warning(
+                    "dataset",
+                    rid,
+                    f"names '{found}', whose value it is: name the quantity only ('biomass', 'grain_yield_Mg_ha'), "
+                    "and say whose it is with crop or species on its observations",
+                )
+            )
+    return issues
 
 
 def _duplicate_names(records: dict[str, Entity]) -> list[Issue]:

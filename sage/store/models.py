@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Literal
+from uuid import uuid4
 
 from pydantic import BaseModel, Field, JsonValue, TypeAdapter, computed_field
 
@@ -17,10 +18,14 @@ class PaperInfo(BaseModel):
     added_at: datetime = Field(default_factory=now)
 
 
-ReviewAction = Literal["accept", "edit", "reject"]
+ReviewAction = Literal["accept", "edit", "reject", "comment"]
+"""accept, edit and reject are decisions, and the latest decision on a record counts. A comment is a note on a record
+or one of its fields, before or after a decision, and never changes the decision."""
 
 
 class Review(BaseModel):
+    id: str = Field(default_factory=lambda: uuid4().hex[:12])
+    """One comment left on several records at once is one line per record, all with the same id."""
     ts: datetime = Field(default_factory=now)
     run_id: str
     record_id: str
