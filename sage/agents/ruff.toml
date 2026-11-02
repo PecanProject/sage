@@ -1,0 +1,8 @@
+extend = "../../ruff.toml"
+
+[lint.flake8-tidy-imports.banned-api]
+"pdftext".msg = "pdftext is imported only in sage/parse/"
+"pypdfium2".msg = "pypdfium2 is imported only in sage/parse/"
+"sage.pipeline".msg = "pipeline/ drives agents/; agents/contract.py's Workspace protocol is all the agent sees of it"
+"sage.store".msg = "agents/ never touches files; the pipeline hands it data"
+"sage.core".msg = "agents/ sits below core"

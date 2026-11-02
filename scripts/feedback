@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""The agent's side of UI feedback: the notes the user leaves with the dev-only Agentation toolbar in `scripts/dev`.
+It talks to the feedback server scripts/dev runs (agentation-mcp's HTTP API on 127.0.0.1:4747), so any agent can use
+it, with no MCP server to approve.
+
+  scripts/feedback wait              block until a note or a reply needs you, then print what does and exit
+  scripts/feedback list              print what needs you now, without waiting
+  scripts/feedback show ID           one note with its whole thread
+  scripts/feedback ack ID            you've seen it ("Agent is on it" in the Threads panel)
+  scripts/feedback reply ID TEXT     answer or ask on its thread; it stays open
+  scripts/feedback resolve ID TEXT   done; TEXT is the one-line summary the user reads
+  scripts/feedback dismiss ID TEXT   not acting on it, and why
+
+A note needs you while it is new (not yet acked) or open with the user's message last. `wait` and `list` dismiss the
+copies of old notes the toolbar sometimes sends again first. Run `wait` in the background and end your turn: the
+user's new note or reply ends it and wakes you, and a note that came in between two waits is printed at once."""
+
+# ruff: noqa: T201, S310 - a CLI that prints, and opens only the fixed local server URL
+import json
+import sys
+import time
+import urllib.error
+import urllib.request
+
+SERVER = "http://127.0.0.1:4747"
+CLOSED = ("resolved", "dismissed")
+
+
+def call(method: str, path: str, body: object | None = None) -> object:
+    data = None if body is None else json.dumps(body).encode()
+    req = urllib.request.Request(SERVER + path, data=data, method=method, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as res:
+            return json.load(res)
+    except urllib.error.HTTPError as e:
+        sys.exit(f"feedback server: {method} {path} answered {e.code}: {e.read().decode()[:200]}")
+    except urllib.error.URLError:
+        sys.exit(f"no feedback server at {SERVER}: start the dev stack with scripts/dev")
+
+
+def notes() -> list[dict]:
+    found = []
+    for s in call("GET", "/sessions"):
+        found += call("GET", f"/sessions/{s['id']}").get("annotations", [])
+    return found
+
+
+def resent(all_notes: list[dict]) -> list[dict]:
+    """The toolbar sometimes posts a note it already sent as a new one: same comment, same original timestamp, a
+    newer id. Every copy after the first is noise."""
+    first: dict[tuple, str] = {}
+    copies = []
+    for n in sorted(all_notes, key=lambda n: n.get("createdAt") or ""):
+        key = (n.get("comment"), n.get("timestamp"), n.get("elementPath"))
+        if key in first:
+            if n.get("status") not in CLOSED:
+                copies.append(n)
+        else:
+            first[key] = n["id"]
+    return copies
+
+
+def needs_you(n: dict) -> bool:
+    if n.get("status") in CLOSED:
+        return False
+    thread = n.get("thread") or []
+    return n.get("status") == "pending" or (bool(thread) and thread[-1]["role"] == "human")
+
+
+def tidy() -> list[dict]:
+    all_notes = notes()
+    for n in resent(all_notes):
+        call("PATCH", f"/annotations/{n['id']}", {"status": "dismissed", "resolvedBy": "agent"})
+        n["status"] = "dismissed"
+    return [n for n in all_notes if needs_you(n)]
+
+
+def path_of(n: dict) -> str:
+    url = n.get("url") or ""
+    rest = url.split("://", 1)[-1]
+    return "/" + rest.split("/", 1)[1] if "/" in rest else "/"
+
+
+def describe(n: dict, *, whole: bool = False) -> str:
+    kind = n.get("kind") or "feedback"
+    lines = [f"{n['id']}  {kind}  {path_of(n)}  [{n.get('status')}]"]
+    where = n.get("element") or ""
+    if n.get("sourceFile"):
+        where += f"  ({n['sourceFile']})"
+    if where:
+        lines.append(f"  on:   {where}")
+    if n.get("selectedText"):
+        lines.append(f"  text: {n['selectedText']}")
+    lines.append(f"  note: {n.get('comment')}")
+    if kind != "feedback":
+        lines.append(f"  data: {json.dumps(n.get(kind) or {})[:300]}")
+    thread = n.get("thread") or []
+    shown = thread if whole else thread[-1:]
+    lines += [f"  {'you' if m['role'] == 'agent' else 'user'}:  {m['content']}" for m in shown]
+    return "\n".join(lines)
+
+
+def show(waiting: list[dict]) -> None:
+    print("\n\n".join(describe(n) for n in waiting) if waiting else "nothing needs you")
+
+
+def wait() -> None:
+    waiting = tidy()
+    if waiting:
+        show(waiting)
+        return
+    start = time.time()
+    req = urllib.request.Request(SERVER + "/events", headers={"Accept": "text/event-stream"})
+    try:
+        stream = urllib.request.urlopen(req, timeout=None)
+    except urllib.error.URLError:
+        sys.exit(f"no feedback server at {SERVER}: start the dev stack with scripts/dev")
+    with stream:
+        for raw in stream:
+            line = raw.decode().strip()
+            if not line.startswith("data: "):
+                continue
+            event = json.loads(line[6:])
+            stamp = event.get("timestamp", "")[:19]
+            try:
+                when = time.mktime(time.strptime(stamp, "%Y-%m-%dT%H:%M:%S")) - time.timezone
+            except ValueError:
+                when = start
+            if when < start - 2:
+                continue  # the server replays recent events on connect
+            human = event["type"] == "thread.message" and (event.get("payload") or {}).get("role") == "human"
+            if event["type"] == "annotation.created" or human:
+                time.sleep(3)  # let a burst of notes land together
+                waiting = tidy()
+                if waiting:
+                    show(waiting)
+                    return
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help", "help"):
+        print(__doc__)
+        return
+    command, rest = args[0], args[1:]
+    if command == "wait":
+        wait()
+    elif command == "list":
+        show(tidy())
+    elif command == "show" and len(rest) == 1:
+        print(describe(call("GET", f"/annotations/{rest[0]}"), whole=True))
+    elif command == "ack" and len(rest) == 1:
+        call("PATCH", f"/annotations/{rest[0]}", {"status": "acknowledged"})
+    elif command == "reply" and len(rest) >= 2:
+        call("POST", f"/annotations/{rest[0]}/thread", {"role": "agent", "content": " ".join(rest[1:])})
+        if call("GET", f"/annotations/{rest[0]}").get("status") == "pending":
+            call("PATCH", f"/annotations/{rest[0]}", {"status": "acknowledged"})
+    elif command in ("resolve", "dismiss") and len(rest) >= 2:
+        status = "resolved" if command == "resolve" else "dismissed"
+        call("POST", f"/annotations/{rest[0]}/thread", {"role": "agent", "content": " ".join(rest[1:])})
+        call("PATCH", f"/annotations/{rest[0]}", {"status": status, "resolvedBy": "agent"})
+    else:
+        sys.exit(f"usage: see scripts/feedback --help (got: {' '.join(args)})")
+
+
+if __name__ == "__main__":
+    main()

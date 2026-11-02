@@ -1,0 +1,15 @@
+id: append-only-history
+language: python
+severity: error
+message: The agent's history is append-only. Don't clear, compact or rewrite it.
+note: An edit inside the conversation makes every later turn write the conversation to the prompt cache again. Server-side clearing once cost a cropsci run $0.39 of its $0.56. See docs/design/05-prompt-caching.md.
+files:
+  - sage/**/*.py
+rule:
+  any:
+    - kind: string
+      regex: 'clear_tool_uses|clear_thinking|compact_20|compact-20|context-management-20'
+    - kind: identifier
+      regex: '^(anthropic_context_management|AnthropicCompaction|BetaClear\w+|BetaCompact\w+)$'
+    - kind: keyword_argument
+      has: { field: name, regex: '^history_processors$' }

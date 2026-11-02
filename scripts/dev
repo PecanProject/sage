@@ -1,0 +1,23 @@
+#!/bin/sh
+# Vite proxies /api to the API. The watcher regenerates web/src/api/schema.d.ts on every Python change, so a
+# response model edit reaches the TypeScript types without a manual `pnpm gen:api`. The open /api/changes streams
+# never end on their own, so a reload waits at most a second for them. It also runs the UI feedback server
+# (agentation-mcp, port 4747, notes kept in ~/.agentation/store.db) that the dev-only toolbar and scripts/feedback
+# talk to; Vite proxies /agentation to it. Its MCP side reads stdin, so stdin is held open. If 4747 is taken it only
+# logs and leaves the running one in charge.
+#
+#   SAGE_API_PORT  default 8765; move it when `sage ui` already holds 8765
+#   SAGE_WEB_PORT  default 5173
+#   SAGE_WEB_HOST  default 127.0.0.1; 0.0.0.0 serves it on the LAN or tailnet
+set -eu
+cd "$(dirname "$0")/.."
+export SAGE_API_PORT="${SAGE_API_PORT:-8765}" SAGE_WEB_PORT="${SAGE_WEB_PORT:-5173}"
+export SAGE_WEB_HOST="${SAGE_WEB_HOST:-127.0.0.1}"
+trap 'kill 0' INT TERM EXIT
+uv run uvicorn sage.api:app --reload --reload-dir sage --reload-include '*.md' --port "$SAGE_API_PORT" \
+  --timeout-graceful-shutdown 1 &
+uv run watchfiles --filter python --target-type command --ignore-paths sage/web_dist \
+  "sh -c 'cd web && pnpm -s gen:api >/dev/null'" sage &
+(cd web && pnpm dev) &
+(cd web && sleep 2147483647 | pnpm -s feedback-server) &
+wait

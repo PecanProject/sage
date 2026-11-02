@@ -1,0 +1,38 @@
+target-version = "py313"
+line-length = 120
+
+[lint]
+select = ["ALL"]
+ignore = [
+  "D",       # docstrings are for non-obvious why only
+  "COM812",  # conflicts with the formatter
+  "CPY",
+  "EM101", "EM102", "TRY003",  # messages read best inline
+  "PLR2004", # magic numbers are domain constants in place
+  "FBT001", "FBT002",  # Typer options are booleans by design
+  "PLR0913", "PLR0917", "C901", "PLR0912", "PLR0911",
+  "BLE001",  # the run driver catches everything to settle the run
+  "SIM108",
+  "TC001", "TC002", "TC003",  # pydantic needs runtime annotations
+]
+
+[lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+# A nested ruff.toml replaces this list instead of extending it, so each one repeats the bans it still needs.
+[lint.flake8-tidy-imports.banned-api]
+"pydantic_ai".msg = "pydantic-ai is imported only in sage/agents/"
+"pydantic_ai_harness".msg = "pydantic-ai-harness is imported only in sage/agents/"
+"acp".msg = "the ACP SDK is imported only in sage/agents/"
+"anthropic".msg = "the Anthropic SDK is reached through pydantic-ai in sage/agents/"
+"openai".msg = "the OpenAI SDK is reached through pydantic-ai in sage/agents/"
+"google".msg = "the Google SDK is reached through pydantic-ai in sage/agents/"
+"boto3".msg = "the AWS SDK is reached through pydantic-ai in sage/agents/"
+"botocore".msg = "the AWS SDK is reached through pydantic-ai in sage/agents/"
+"pdftext".msg = "pdftext is imported only in sage/parse/"
+"pypdfium2".msg = "pypdfium2 is imported only in sage/parse/"
+
+[lint.per-file-ignores]
+"sage/cli.py" = ["T201", "PLC0415"]
+# Each provider SDK is imported in the branch that needs it: google-genai alone costs more to import than SAGE.
+"sage/agents/models.py" = ["PLC0415"]

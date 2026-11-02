@@ -1,0 +1,16 @@
+id: leaf-modules
+language: python
+severity: error
+message: sage/events.py and sage/settings.py import nothing from sage except each other.
+note: Every layer imports these two, so an import of any other sage module from them makes a cycle or a layer leak.
+files:
+  - sage/events.py
+  - sage/settings.py
+rule:
+  any:
+    - kind: import_from_statement
+      all:
+        - has: { field: module_name, regex: '^sage(\.|$)' }
+        - not: { has: { field: module_name, regex: '^sage\.(events|settings)$' } }
+    - kind: import_statement
+      has: { field: name, regex: '^sage(\.|$)' }

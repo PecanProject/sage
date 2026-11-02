@@ -1,0 +1,19 @@
+id: io-in-store
+language: python
+severity: error
+message: File I/O belongs in sage/store; call sage.store.files instead.
+note: One place owns atomic writes and path layout, so a crash never leaves a half-written file behind.
+files:
+  - sage/**/*.py
+ignores:
+  - sage/store/**
+rule:
+  any:
+    - pattern: open($$$)
+    - pattern: shutil.$SH($$$)
+    - pattern: os.$OS($$$)
+    - pattern: $OBJ.$PATHOP($$$)
+constraints:
+  OS: { regex: '^(remove|unlink|rename|replace|makedirs|mkdir|rmdir)$' }
+  OBJ: { not: { regex: '^files$' } }
+  PATHOP: { regex: '^(open|chmod|read_text|write_text|read_bytes|write_bytes|mkdir|unlink|rmdir|rename|touch)$' }

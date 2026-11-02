@@ -1,0 +1,21 @@
+id: surfaces-call-core
+language: python
+severity: error
+message: The CLI and the API reach the rest of sage only through sage.core.
+note: Add what you need to sage/core.py and call it from there, so both surfaces share one implementation.
+files:
+  - sage/cli.py
+  - sage/api.py
+rule:
+  any:
+    - kind: import_from_statement
+      all:
+        - has: { field: module_name, regex: '^sage\.' }
+        - not: { has: { field: module_name, regex: '^sage\.(core|api)$' } }
+    - kind: import_from_statement
+      all:
+        - has: { field: module_name, regex: '^sage$' }
+        - has: { field: name, regex: '.' }
+        - not: { has: { field: name, regex: '^(core|api)$' } }
+    - kind: import_statement
+      has: { field: name, regex: '^sage(\.|$)' }
