@@ -98,6 +98,22 @@ streamlit run streamlit_app/app.py
 
 The app also needs the IR service running (step 2).
 
+### 5. Benchmark Dataset Curation
+
+To curate candidate papers from BETYdb and manage paper-text-annotated gold datasets for extraction benchmarking (see [Issue #5](https://github.com/PecanProject/sage/issues/5) and [docs/annotation_schema.md](docs/annotation_schema.md)):
+
+```bash
+cd src
+# Filter candidate papers from BETYdata and write manifest
+python -m curation.cli filter --limit 25 -o ../data/gold_dataset/manifest.json
+
+# Acquire paper PDFs automatically via DOI
+python -m curation.cli download -m ../data/gold_dataset/manifest.json -o docproc/paper --limit 5
+
+# Validate an annotated gold dataset file against the schema
+python -m curation.cli validate -a ../data/gold_dataset/sample_gold_annotations.json
+```
+
 ## Tests
 
 ```bash
